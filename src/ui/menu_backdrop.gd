@@ -115,17 +115,20 @@ func _ready() -> void:
 	var rd := (top + Vector3(0.62, 0.0, 0.3)).normalized()
 	var rb := _basis(rd)
 	var p0 := rd * (r + 0.02)
+	# a miniature Seedpod: squat terracotta belly, glazed cream dome, bronze ring, splayed legs
 	kit.paint()
-	kit.lathe(PackedVector2Array([Vector2(0.14, 0.12), Vector2(0.2, 0.3), Vector2(0.2, 0.86), Vector2(0.15, 1.08), Vector2(0.08, 1.2)]), Transform3D(rb, p0), Pal.ENAMEL, 16, true)
-	kit.lathe(PackedVector2Array([Vector2(0.08, 1.2), Vector2(0.0, 1.3)]), Transform3D(rb, p0), Pal.BRONZE, 12)
-	kit.lathe(PackedVector2Array([Vector2(0.202, 0.74), Vector2(0.202, 0.78)]), Transform3D(rb, p0), Pal.JADE, 16)
+	kit.lathe(PackedVector2Array([Vector2(0.1, 0.12), Vector2(0.26, 0.2), Vector2(0.31, 0.32), Vector2(0.3, 0.42)]), Transform3D(rb, p0), Pal.ENAMEL, 18, true)
+	kit.gloss()
+	kit.lathe(PackedVector2Array([Vector2(0.3, 0.42), Vector2(0.24, 0.56), Vector2(0.12, 0.64), Vector2(0.0, 0.66)]), Transform3D(rb, p0), Pal.CREAM, 18, true)
 	kit.cast()
-	kit.lathe(PackedVector2Array([Vector2(0.12, 0.02), Vector2(0.08, 0.14)]), Transform3D(rb, p0), Pal.BRONZE, 12)
+	kit.lathe(PackedVector2Array([Vector2(0.315, 0.4), Vector2(0.315, 0.44)]), Transform3D(rb, p0), Pal.BRONZE, 18)
 	kit.bare()
-	for i in 3:
-		var a3 := TAU * float(i) / 3.0
+	kit.tube(p0 + rd * 0.65, p0 + rd * 0.8, 0.008, 0.006, Pal.STEEL, 4)
+	for i in 4:
+		var a3 := TAU * float(i) / 4.0 + PI / 4.0
 		var out := (rb.x * cos(a3) + rb.z * sin(a3))
-		kit.tube(p0 + out * 0.2 + rd * 0.36, p0 + out * 0.42, 0.016, 0.012, Pal.STEEL, 5)
+		kit.cast()
+		kit.tube(p0 + out * 0.26 + rd * 0.3, p0 + out * 0.42, 0.016, 0.012, Pal.BRONZE, 5)
 	_planet.add_child(kit.instance())
 	# tilt the pit towards the camera
 	_planet.rotation = Vector3(deg_to_rad(52.0), 0.0, deg_to_rad(-16.0))

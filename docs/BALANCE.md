@@ -128,12 +128,12 @@ Pipseed, 60 simulated minutes (`econ.tscn -- 60 balanced|explorer pipseed`):
 | | balanced | explorer |
 |---|---|---|
 | Thumper 3000 bought at | 10.2 min | 6.9 min |
-| Burrow Drill | 16.7 min | 12.6 min |
-| Boomer (cannon) | 35.0 min | 25.2 min |
-| Diamond Drill | 56.6 min | 38.0 min |
+| Burrow Drill | 16.7 min | 12.5 min |
+| Boomer (cannon) | 35.0 min | 24.9 min |
+| Diamond Drill | 56.6 min | 37.9 min |
 | Mega Scooper | – | 48.6 min |
-| Total earned in 60 min | 56,600 cr | 102,200 cr |
-| Time spent travelling to sell | 4.2 min (7 %) | 7.3 min (12 %) |
+| Total earned in 60 min | 56,600 cr | 102,700 cr |
+| Time spent travelling to sell | 4.2 min (7 %) | 7.2 min (12 %) |
 | Regions worked | outpost ring | Copperfold from 0.3 min, Stonebrake from 7.5 min |
 | Contracts completed | 0 | 2 (deliveries that happened along the way) |
 
@@ -147,3 +147,7 @@ Reading it:
   ~250 m walks each way; relays are what make regional mining viable.
 * Not modelled: the Auto-Borer, helper bots, contract bonuses beyond deliveries, artifacts,
   depth contracts, Glimmerock. Treat all times as the fast end of plausible.
+* **Not rebalanced.** Prices and tool stats are v0.2's. The explorer's ~1.8× income is
+  deliberate pull towards the regions but has not been tuned against play; if testers find the
+  mid-game too fast, lower the regional `boost` values in `tools/planet_layout.py` first.
+* Figures from the final terrain (after the roughness change in 714c1fd).

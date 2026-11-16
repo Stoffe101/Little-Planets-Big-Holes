@@ -16,7 +16,7 @@ The runner prints `[PASS]/[FAIL]` per test and exits with code 1 on any failure 
 see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 `user://test_sandbox/`, so they never touch a real save.
 
-### What is covered (104 tests, 2,194 assertions)
+### What is covered (105 tests, 2,199 assertions)
 
 | Suite | Checks |
 |---|---|
@@ -29,11 +29,32 @@ see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 | `test_g_planets` | Glimmerock loads and plays by its own rules |
 | `test_h_main` | real `main.tscn` flow: menu → new game → play → shop → menu → continue |
 | `test_i_overhaul` | every tier/mod builds and adds geometry; MeshKit; palette/look data; balance invariants; old flags load; arrival; props deterministic per cell and item; landmarks uprooted; nothing grows through the pads; outpost grows; purchase presentation; Lucky Charm; shop views |
-| `test_j_traversal` | world rotation rate, largest per-frame change of up, roll while walking, sprinting + jumping, jetpack flight, strafing with turning on a hillside, in a tunnel; horizon smoothing eases a sudden change and 0 = rigid; **walking the roughest regions never sinks into the ground** |
+| `test_j_traversal` | world rotation rate, largest per-frame change of up, roll while walking, sprinting + jumping, jetpack flight, strafing with turning on a hillside, in a tunnel; horizon smoothing eases a sudden change and 0 = rigid; **walking the rough regions of both planets never sinks into the ground** |
 | `test_k_identity` | palette rules (no near-white enamel, verdigris accent, warm frames); every viewmodel has gloved hands, previews do not; stations collide as drums; the lander is squat |
 | `test_l_navigation` | relays on the surface, shielded, in named regions on every planet; region entry announced and remembered; relay activation and the travel rules (no jump from the field, recall from anywhere, outpost ↔ online relay); compass bearings and heading; map projection round trip and true distances; waypoint survives save/load; map relief image |
 | `test_m_activities` | contracts deterministic per slot and paid through ordinary sales (player and bots); relay and depth contracts complete from world state; **the Auto-Borer digs a real shaft, lifts spoil, saves progress, pauses when its area streams out, resumes, stalls on hard rock**; bots work a marked zone and unload at the nearest relay |
 | `test_n_terrain` | LOD pyramid covers the planet (LOD0 colliders near, far side visible at coarse LOD, transition masks at LOD seams); caves exist at depth and never under the pad; regions are measurably richer in their ore; **memory stays bounded while jumping around the planet**; loading three planets in turn grows static memory < 250 MB |
+
+### Pre-existing tests changed in v0.3, and why
+
+The planets grew 8× and are streamed, so tests that hard-coded small-planet distances or touched
+far-away terrain without loading it were adapted. None was loosened in what it checks:
+
+* `test_d_geology.test_landing_pad_is_flat`: sampled 0.1 rad out (5 m on the old planet, 40 m
+  on the new one, outside the pad); now rings at 5, 9 and 12 m.
+* `test_e_world`: every test that digs or stands far from the outpost first streams the area in
+  (`stream_to`); the 400-dig stress test digs inside one streamed area instead of all over the
+  planet; the artifact reward is checked as the money *delta* (streaming into caverns discovers
+  them, which pays their own rewards); the helper-bot loot lies 14 m from the base in metres
+  (it was 0.28 rad, i.e. 14 m on the old planet).
+* `test_f_persistence`: streams the tunnel area in; the untouched control points are 35 m from
+  the dig (on the small planet "elsewhere on the planet" was always loaded; here they must be
+  loaded and outside every edited block); added the walk-away-and-return check.
+* `test_g_planets`: streams the dig spot in before digging.
+* `test_i_overhaul`: the prop field is a streamed cell grid now, so the test builds the cells
+  around one focus for both fields and compares landmarks through `live_items()`; the dig that
+  must not move crystals is 35 m from the pad (in the loaded area); new crystal flag keys keep
+  the `/crystal_` namespace.
 
 ### What automated tests cannot tell you
 

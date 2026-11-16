@@ -180,3 +180,28 @@ func test_walking_the_roughest_region_never_sinks_into_the_ground() -> void:
 		p.forced_sprint = false
 		log_lines.append("%s: deepest below the surface while walking %.2f m" % [pid_region, worst])
 		assert_lt(worst, 1.0, "never sinks into the ground in %s" % pid_region)
+
+
+func test_walking_glimmerocks_rough_regions_never_sinks_into_the_ground() -> void:
+	var w2 := await make_world("glimmerock", false)
+	var g2 := w2.planet.geology
+	for rid: String in ["spires", "rim"]:
+		var reg := g2.regions[g2.region_index(rid)]
+		var d: Vector3 = reg["dir"]
+		var side := d.cross(Vector3(0.2, 1, 0.1)).normalized()
+		await place_player(w2, (d + side * (20.0 / g2.radius)).normalized(), -side)
+		var p := w2.player
+		var worst := 0.0
+		for leg in 6:
+			p.look(Vector2(1.0, 0))
+			p.forced_move = Vector2(0, 1)
+			p.forced_sprint = leg % 2 == 0
+			for i in 90:
+				await get_tree().physics_frame
+				worst = maxf(worst, g2.surface_radius_exact(p.global_position.normalized()) - p.global_position.length())
+		p.forced_move = Vector2.INF
+		p.forced_sprint = false
+		log_lines.append("glimmerock %s: deepest below the surface while walking %.2f m" % [rid, worst])
+		assert_lt(worst, 1.0, "never sinks into the ground in %s" % rid)
+	await free_world(w2)
+	GameState.current_planet = "pipseed"

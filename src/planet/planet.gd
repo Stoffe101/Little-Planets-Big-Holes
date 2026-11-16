@@ -221,7 +221,8 @@ func material_at(p: Vector3) -> int:
 ## Digging only removes material, so the original surface is an upper bound for solid ground:
 ## the march starts just above it (or at `from_radius` when given).
 func ground_point(dir: Vector3, from_radius := -1.0) -> Vector3:
-	var r := from_radius if from_radius > 0.0 else geology.surface_radius(dir) + 2.0
+	# start above both the baked map and the exact surface (the map can under-read sharp relief)
+	var r := from_radius if from_radius > 0.0 else maxf(geology.surface_radius(dir), geology.surface_radius_exact(dir)) + 2.0
 	var step := geology.voxel_size * 0.5
 	var prev := r
 	while r > geology.core_radius:

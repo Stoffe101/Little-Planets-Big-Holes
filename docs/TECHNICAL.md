@@ -33,8 +33,9 @@ tested headlessly and why it is the natural place for server authority later.
 ## Planet scale: why 400 m
 
 Pass 3 replaced the 48 m / 42 m planets. Candidate radii of 300–600 m were evaluated with
-`tools/dev/lodproto.tscn` (streaming, editability and persistence on real Voxel Tools) and by
-what the player experiences:
+`tools/dev/lodproto.tscn` (a prototype that measures streaming readiness, editable distance and
+persistence on real Voxel Tools; run it with `-- <radius> stream dig 1 96 cache`) and by what the
+player experiences:
 
 | Radius | World turns while walking (5.6 m/s) | At top speed | Horizon from eye height | Walk around the equator |
 |---|---|---|---|---|
@@ -141,9 +142,13 @@ blocked / selective), edit with `VoxelTool`, yield units by material. **New:** a
 area is not editable at full resolution (outside the streamed range) is refused and reported as
 `unloaded` — nothing is dug and nothing counts.
 
-Measured in the 400-dig stress test: `dig_sphere` averages **1.7 ms** on the LOD terrain (v0.2:
-0.25–0.9 ms on `VoxelTerrain`), because each edit also updates the coarser LOD copies of the
-edited blocks. That is well under a frame but worth watching for very fast tools.
+Measured (`tools/dev/bench.tscn`, digs 16–45 m from the outpost): `dig_sphere` takes
+**1.6–5.2 ms** depending on radius (r = 0.85 / 1.5 / 2.4 / 3.4 / 6.5 m: 5.2 / 2.2 / 2.1 / 1.6 /
+3.6 ms; the first digs into fresh blocks are the slowest), selective digs 1.1 ms; the 400-dig
+stress test averages 1.7 ms. v0.2 on `VoxelTerrain` took 0.25–0.9 ms. The likely reason is that
+each edit also updates the coarser LOD copies of the edited blocks; this was not profiled.
+Collision follows an edit after 9 physics ticks. A blocking save after ~200 large digs took
+93 ms (3.6 MB database). World setup 0.84 s, terrain playable after 1.8 s, 2.8 s in total.
 
 ## Measured performance
 
@@ -174,7 +179,9 @@ player is held until then ("Surveying ground...").
 
 **Reading these numbers honestly.** v0.2 ran at 500–880 FPS and was GPU-bound on a tiny,
 fully loaded planet. The big streamed planets run at ~80–120 FPS here and are **CPU-bound**: the
-GPU needs 1–4 ms, the frame takes 8–13 ms. The CPU cost has not been profiled in detail yet;
+GPU needs 1–4 ms, the frame takes 8–13 ms. That is an **unprofiled 5–8× regression** in frame
+rate (still well above 60 FPS on this machine). The p95 of ~16 ms even in the idle vista suggests
+a periodic per-tick cost rather than rendering. The CPU cost has not been attributed yet;
 candidates are prop-cell streaming, physics with thousands of static prop bodies, Voxel Tools'
 main-thread work and the HUD. Streaming causes frame-time spikes: the 99th percentile while
 sprinting is ~27 ms, and the first frames after a long jump spike to 90–120 ms (hidden behind the
@@ -207,7 +214,8 @@ user://saves/slot1/terrain_<planet>_g2.sqlite  modified voxel blocks of the curr
   size or caves change. Each generation has its own terrain database, so old edits are never
   applied to new ground. Migration (v2 → v3) keeps all progression (credits, tools, attachments,
   gear, inventory, discoveries, objectives, stats), records which generation the save last saw,
-  writes a verbatim `progress.v2.json`, and never opens, changes or deletes the old terrain file.
+  writes a verbatim `progress.v2.json`, and never opens or changes the old terrain file.
+  (*New game* still clears the whole slot, including those files, exactly as in v0.2.)
   On first arrival the player is told once that the planet was resurveyed.
 * **Limitation:** dig sites made in v0.1/v0.2 do not carry over to the new planets (they cannot:
   the ground they were dug into no longer exists). They stay on disk.

@@ -18,10 +18,7 @@ func _ready() -> void:
 		DirAccess.remove_absolute(db)
 	var cfg: Dictionary = GameData.planet("pipseed").duplicate(true)
 	cfg["radius"] = radius
-	var t: Dictionary = cfg["terrain"]
-	t["hill_amp"] = 14.0
-	for m: Dictionary in t["mountains"]:
-		m["height"] = float(m["height"]) * 5.0
+	# the planet's own landforms are used as they are (the first prototype scaled v0.2 mountains)
 	var t0 := Time.get_ticks_msec()
 	geo = Geology.new(cfg, 0)
 	geo.bake()

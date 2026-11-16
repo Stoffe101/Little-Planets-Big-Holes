@@ -177,7 +177,8 @@ func migrate(state: Dictionary, version: int) -> Dictionary:
 
 
 ## Before an older save is upgraded, keep a verbatim copy of it next to the slot
-## (progress.v2.json, ...). Written once per version; never overwritten or deleted by the game.
+## (progress.v2.json, ...). Written once per version and never overwritten (New game clears the
+## whole slot, as it always has).
 func _keep_pre_migration_copy(version: int) -> void:
 	var src := _path(SAVE_FILE) if not _read_valid(_path(SAVE_FILE)).is_empty() else _path(BACKUP_FILE)
 	var dst := _path("progress.v%d.json" % version)

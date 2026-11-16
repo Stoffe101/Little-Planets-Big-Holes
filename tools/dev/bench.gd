@@ -1,6 +1,8 @@
 extends Node
 ## Headless micro-benchmark of the terrain pipeline. Prints real measurements for docs/TECHNICAL.md.
 ##   godot --headless --path . res://tools/dev/bench.tscn
+## All digs happen in the streamed, editable area around the outpost (the planet is streamed;
+## digs further than ~70 m from the player are refused).
 func _ready() -> void:
 	_run.call_deferred()
 
@@ -22,16 +24,23 @@ func _run() -> void:
 	for i in 120:
 		await get_tree().process_frame
 	var st: Dictionary = VoxelEngine.get_stats()
-	print("voxel blocks: %d, voxel memory: %.1f MB, static memory: %.0f MB, threads: %d" % [int(st["memory_pools"]["block_count"]), float(st["memory_pools"]["voxel_used"]) / 1048576.0, OS.get_static_memory_usage() / 1048576.0, VoxelEngine.get_thread_count()])
+	print("data blocks: %d, mesh blocks: %d, static memory: %.0f MB, threads: %d" % [w.planet.terrain.debug_get_data_block_count(), w.planet.terrain.debug_get_mesh_block_count(), OS.get_static_memory_usage() / 1048576.0, VoxelEngine.get_thread_count()])
 	print("props: %s, surface formations: %s, cave formations: %s" % [str(w.props.get("prop_count")), str(w.props.get("formation_count")), str(w.secrets.get("formation_count"))])
 	var geo := w.planet.geology
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
+	var up := geo.landing_dir
+	var t1v := up.cross(Vector3(0.3, 0.2, 0.9)).normalized()
+	var t2v := up.cross(t1v)
+	var near := func() -> Vector3:
+		var a := rng.randf() * TAU
+		var m := rng.randf_range(16.0, 45.0)
+		return (up + (t1v * cos(a) + t2v * sin(a)) * (m / geo.radius)).normalized()
 	for radius: float in [0.85, 1.5, 2.4, 3.4, 6.5]:
 		var total := 0
 		var n := 0
 		for i in 40:
-			var d := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, -0.3), rng.randf_range(-1, 1)).normalized()
+			var d: Vector3 = near.call()
 			var c := d * (geo.surface_radius(d) - radius * 0.4)
 			var t := Time.get_ticks_usec()
 			var res := w.dig.dig_sphere(c, radius, 9)
@@ -45,7 +54,7 @@ func _run() -> void:
 	var sel_total := 0
 	var sel_n := 0
 	for i in 200:
-		var d := Vector3(rng.randf_range(-1, 1), rng.randf_range(0.2, 1), rng.randf_range(-1, 1)).normalized()
+		var d: Vector3 = near.call()
 		var c := d * (geo.surface_radius(d) - 4.1)
 		var sv := w.dig.survey(c, 1.5, 1)
 		if int(sv["hard"]) == 0 or float(sv["hard"]) / float(maxi(int(sv["solid"]), 1)) > 0.7:
@@ -56,17 +65,19 @@ func _run() -> void:
 		sel_n += 1
 	print("selective dig r=1.50 m (protects hard voxels): %.3f ms avg over %d digs" % [float(sel_total) / 1000.0 / float(maxi(sel_n, 1)), sel_n])
 	# remesh latency: time until collision reflects an edit
-	var d2 := Vector3(0.3, -0.6, 0.74).normalized()
+	var d2 := (up + t2v * (30.0 / geo.radius)).normalized()
 	var top := w.planet.ground_point(d2)
 	var space := w.get_world_3d().direct_space_state
-	var r0: float = (space.intersect_ray(PhysicsRayQueryParameters3D.create(d2 * 90.0, Vector3.ZERO, 1))["position"] as Vector3).length()
+	var ray_from := d2 * (geo.radius + 40.0)
+	var ray_to := d2 * (geo.radius - 40.0)
+	var r0: float = (space.intersect_ray(PhysicsRayQueryParameters3D.create(ray_from, ray_to, 1))["position"] as Vector3).length()
 	var t1 := Time.get_ticks_msec()
 	w.dig.dig_sphere(top - d2 * 0.5, 1.5, 9)
 	var frames := 0
 	while frames < 600:
 		await get_tree().physics_frame
 		frames += 1
-		var h := space.intersect_ray(PhysicsRayQueryParameters3D.create(d2 * 90.0, Vector3.ZERO, 1))
+		var h := space.intersect_ray(PhysicsRayQueryParameters3D.create(ray_from, ray_to, 1))
 		if not h.is_empty() and (h["position"] as Vector3).length() < r0 - 0.8:
 			break
 	print("edit -> collision updated: %d physics frames (%d ms wall, headless unthrottled)" % [frames, Time.get_ticks_msec() - t1])
