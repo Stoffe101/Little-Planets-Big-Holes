@@ -54,6 +54,38 @@ func _ready() -> void:
 	loading.visible = false
 	ui_layer.add_child(loading)
 	show_menu()
+	if OS.get_cmdline_user_args().has("--smoke-test"):
+		_smoke_test()
+
+
+## Automated end-to-end check for exported builds (`game.exe --headless -- --smoke-test`):
+## starts a new game in a throw-away save folder, waits for the planet, digs once through the
+## real DigSystem and saves. Prints SMOKE OK / SMOKE FAIL and sets the exit code. This proves
+## the packaged data files, the voxel extension and the save path all work in the build.
+func _smoke_test() -> void:
+	SaveSystem.save_dir = "user://smoke_test"      # never touch a real save
+	var problems: Array[String] = []
+	if GameData.materials.is_empty() or GameData.tool_families.is_empty() or GameData.planet_order.is_empty():
+		problems.append("data tables did not load")
+	start_game(true)
+	var waited := 0.0
+	while mode != Mode.PLAYING and waited < 90.0:
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+	if mode != Mode.PLAYING or world == null:
+		problems.append("world did not become playable")
+	else:
+		var p := world.player.global_position
+		var result: Dictionary = world.dig.dig_sphere(p - world.player.up * 0.6 + world.player.aim_direction() * 2.0, 1.0, 1)
+		if not bool(result["ok"]):
+			problems.append("dig failed: %s" % str(result))
+		if not world.save_all(true):
+			problems.append("save failed: %s" % SaveSystem.last_error)
+		print("smoke: planet=%s load_ms=%d dig_ok=%s yields=%s renderer=%s" % [world.planet_id, world.planet.load_time_ms, str(result["ok"]), str(result["yields"]), RenderingServer.get_current_rendering_method()])
+	SaveSystem.delete_save()
+	print("SMOKE OK" if problems.is_empty() else "SMOKE FAIL: " + "; ".join(problems))
+	_quitting = true
+	get_tree().quit(0 if problems.is_empty() else 1)
 
 
 func _notification(what: int) -> void:

@@ -270,6 +270,8 @@ func _process(delta: float) -> void:
 	environment.ambient_light_energy = lerpf(_base_ambient, _base_ambient * float(_look.get("cave_ambient", 0.3)), under)
 	environment.fog_density = lerpf(0.0, 0.012, under)
 	sky_material.set_shader_parameter("underground", under * 0.8)
+	Audio.set_underground(under)
+	Audio.set_ambience((1.0 - under) * float(_look.get("wind", 1.0)), under)
 	planet.material.set_shader_parameter("bloom_amount", bloom)
 
 	if is_ready and persist_terrain:

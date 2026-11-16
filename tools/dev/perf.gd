@@ -24,6 +24,7 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var pid: String = args[0] if args.size() > 0 else "pipseed"
 	SaveSystem.save_dir = "user://dev_perf"
+	exact_window()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = 0
 	GameState.reset()
@@ -50,6 +51,21 @@ func _ready() -> void:
 		print(r)
 	print("done")
 	get_tree().quit()
+
+
+## Dev tools run in a borderless window of exactly the requested --resolution (a decorated
+## window is clamped to the work area, which would silently change the pixel count).
+static func exact_window() -> void:
+	var args := OS.get_cmdline_args()
+	var i := args.find("--resolution")
+	if i < 0 or i + 1 >= args.size() or DisplayServer.get_name() == "headless":
+		return
+	var parts := args[i + 1].split("x")
+	if parts.size() != 2:
+		return
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+	DisplayServer.window_set_size(Vector2i(int(parts[0]), int(parts[1])))
+	DisplayServer.window_set_position(Vector2i.ZERO)
 
 
 func _process(_delta: float) -> void:

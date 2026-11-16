@@ -10,6 +10,7 @@ func _ready() -> void:
 	out = args[1] if args.size() > 1 else out
 	var pid: String = args[2] if args.size() > 2 else "pipseed"
 	SaveSystem.save_dir = "user://dev_shots"
+	exact_window()
 	GameState.reset()
 	GameState.current_planet = pid
 	world = World.new()
@@ -21,6 +22,21 @@ func _ready() -> void:
 	await call("scenario_" + scenario)
 	print("done")
 	get_tree().quit()
+
+## Dev tools run in a borderless window of exactly the requested --resolution (a decorated
+## window is clamped to the work area, which would silently change the pixel count).
+static func exact_window() -> void:
+	var args := OS.get_cmdline_args()
+	var i := args.find("--resolution")
+	if i < 0 or i + 1 >= args.size() or DisplayServer.get_name() == "headless":
+		return
+	var parts := args[i + 1].split("x")
+	if parts.size() != 2:
+		return
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+	DisplayServer.window_set_size(Vector2i(int(parts[0]), int(parts[1])))
+	DisplayServer.window_set_position(Vector2i.ZERO)
+
 
 func frames(n: int) -> void:
 	for i in n:
