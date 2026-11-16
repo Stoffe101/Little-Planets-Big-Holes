@@ -1,0 +1,73 @@
+{
+  "id": "glimmerock",
+  "name": "Glimmerock",
+  "tagline": "A low-gravity crystal moon. Brittle crust, dazzling geodes.",
+  "order": 1,
+  "seed": 9051,
+  "radius": 42.0,
+  "voxel_size": 0.5,
+  "gravity": 8.5,
+  "unlock": {"discoveries": ["star_chart_a", "star_chart_b"]},
+  "unlock_hint": "Find both Star Chart fragments buried on Pipseed.",
+  "travel_cost": 2500,
+  "terrain": {
+    "hill_amp": 2.2, "hill_freq": 2.6,
+    "detail_amp": 1.1, "detail_freq": 7.5,
+    "mountains": [
+      {"dir": [0.70, 0.45, 0.55], "height": 14.0, "width": 0.22},
+      {"dir": [-0.60, 0.55, -0.58], "height": 12.0, "width": 0.20},
+      {"dir": [0.20, -0.85, 0.48], "height": 16.0, "width": 0.24},
+      {"dir": [-0.80, -0.35, 0.48], "height": 11.0, "width": 0.20},
+      {"dir": [0.55, -0.35, -0.75], "height": 13.0, "width": 0.22},
+      {"dir": [-0.15, 0.30, 0.94], "height": 9.0, "width": 0.18}
+    ],
+    "basins": [
+      {"dir": [0.85, 0.15, -0.50], "depth": 6.0, "width": 0.36},
+      {"dir": [-0.40, -0.80, -0.45], "depth": 5.0, "width": 0.32}
+    ],
+    "landing": {"dir": [0.0, 1.0, 0.0], "flat_radius": 0.19, "blend": 0.16, "height": 0.4}
+  },
+  "layers": [
+    {"material": "glimdust",   "thickness": 3.0},
+    {"material": "glasscrust", "thickness": 9.0},
+    {"material": "geoderock",  "thickness": 14.0},
+    {"material": "prismcore",  "thickness": 999.0}
+  ],
+  "layer_warp": 2.2,
+  "ores": [
+    {"material": "voidopal",   "min_depth": 26.0, "max_depth": 40.0, "abundance": 0.030, "blob": 2.2},
+    {"material": "rosequartz", "min_depth": 12.0, "max_depth": 32.0, "abundance": 0.055, "blob": 3.0},
+    {"material": "aquamarine", "min_depth": 4.0,  "max_depth": 22.0, "abundance": 0.070, "blob": 3.2},
+    {"material": "moonsilver", "min_depth": 0.6,  "max_depth": 12.0, "abundance": 0.085, "blob": 2.6}
+  ],
+  "caves": {"min_depth": 5.0, "max_depth": 30.0, "period": 18.0, "width": 0.11},
+  "cavities": [
+    {"id": "grand_geode",   "dir": [0.70, 0.45, 0.55],   "depth": 16.0, "radius": 8.0, "lobes": 6, "discovery": "grand_geode", "decor": "crystals", "entrance": true},
+    {"id": "bell_chamber",  "dir": [-0.40, -0.80, -0.45], "depth": 9.0, "radius": 5.0, "lobes": 4, "discovery": "bell_chamber", "decor": "crystals", "entrance": true},
+    {"id": "geode_b",       "dir": [-0.60, 0.55, -0.58], "depth": 14.0, "radius": 5.5, "lobes": 5, "decor": "crystals"},
+    {"id": "geode_c",       "dir": [0.55, -0.35, -0.75], "depth": 18.0, "radius": 6.0, "lobes": 5, "decor": "crystals"},
+    {"id": "geode_d",       "dir": [-0.80, -0.35, 0.48], "depth": 11.0, "radius": 4.5, "lobes": 4, "decor": "crystals"}
+  ],
+  "artifacts": [
+    {"id": "echo_bell",   "dir": [-0.40, -0.80, -0.45], "depth": 9.0,  "pocket": 0.0, "model": "bell", "in_cavity": "bell_chamber"},
+    {"id": "prism_lens",  "dir": [0.70, 0.45, 0.55],    "depth": 16.0, "pocket": 0.0, "model": "lens", "in_cavity": "grand_geode"},
+    {"id": "glass_bird",  "dir": [0.30, 0.85, 0.40],    "depth": 4.5,  "pocket": 1.6, "model": "bird"}
+  ],
+  "core": {"chamber_radius": 5.0, "discovery": "glimmer_heart", "color": "#b98cff", "color2": "#7dfff0"},
+  "surface_crystal": "aquamarine",
+  "bonus_gem": "aquamarine",
+  "palette": {
+    "grass": ["#d9c8ff", "#a8e6ff", "#f3b6e6"],
+    "grass_dry": "#fff1c9",
+    "sky_top": "#07132e", "sky_mid": "#1c4c8c", "sky_horizon": "#6fe3d6", "sky_glow": "#c9fff2",
+    "sun": "#e9f4ff", "ambient": "#9ad8ff", "fog": "#3b74b8",
+    "rim": "#ff9df5"
+  },
+  "props": {
+    "grass_tuft": 900, "flower": 140, "mushroom": 60, "bush": 40, "tree": 0, "rock": 220, "crystal": 260, "pebble": 380,
+    "flower_colors": ["#7dfff0", "#ffffff", "#ff9df5"],
+    "tree_colors": ["#7dfff0"],
+    "mushroom_colors": ["#7dfff0", "#b98cff"],
+    "crystal_colors": ["#35e0d0", "#ff7fb6", "#b98cff", "#e8f0ff"]
+  }
+}

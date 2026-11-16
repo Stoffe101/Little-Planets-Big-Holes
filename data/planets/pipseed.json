@@ -1,0 +1,77 @@
+{
+  "id": "pipseed",
+  "name": "Pipseed",
+  "tagline": "A soft, sleepy starter world. Good dirt. Great secrets.",
+  "order": 0,
+  "seed": 4217,
+  "radius": 48.0,
+  "voxel_size": 0.5,
+  "gravity": 17.0,
+  "unlock": {},
+  "travel_cost": 0,
+  "terrain": {
+    "hill_amp": 3.0, "hill_freq": 1.7,
+    "detail_amp": 0.6, "detail_freq": 5.5,
+    "mountains": [
+      {"dir": [0.62, 0.50, 0.60], "height": 10.0, "width": 0.34},
+      {"dir": [-0.75, 0.25, -0.55], "height": 7.5, "width": 0.30},
+      {"dir": [0.15, -0.92, 0.30], "height": 12.0, "width": 0.40},
+      {"dir": [-0.35, -0.30, 0.88], "height": 6.0, "width": 0.26},
+      {"dir": [0.80, -0.20, -0.55], "height": 8.5, "width": 0.30}
+    ],
+    "basins": [
+      {"dir": [-0.55, 0.62, 0.55], "depth": 3.5, "width": 0.30},
+      {"dir": [0.30, -0.25, -0.92], "depth": 4.5, "width": 0.34}
+    ],
+    "landing": {"dir": [0.0, 1.0, 0.0], "flat_radius": 0.17, "blend": 0.16, "height": 0.6}
+  },
+  "layers": [
+    {"material": "topsoil",   "thickness": 4.0},
+    {"material": "clay",      "thickness": 8.0},
+    {"material": "stone",     "thickness": 11.0},
+    {"material": "hardrock",  "thickness": 12.0},
+    {"material": "corestone", "thickness": 999.0}
+  ],
+  "layer_warp": 1.6,
+  "ores": [
+    {"material": "starglass", "min_depth": 34.0, "max_depth": 46.0, "abundance": 0.030, "blob": 2.2},
+    {"material": "amethyst",  "min_depth": 22.0, "max_depth": 40.0, "abundance": 0.045, "blob": 3.0},
+    {"material": "gold",      "min_depth": 11.0, "max_depth": 32.0, "abundance": 0.050, "blob": 2.6},
+    {"material": "iron",      "min_depth": 4.0,  "max_depth": 22.0, "abundance": 0.075, "blob": 3.4},
+    {"material": "copper",    "min_depth": 0.7,  "max_depth": 11.0, "abundance": 0.090, "blob": 2.8}
+  ],
+  "caves": {"min_depth": 7.0, "max_depth": 32.0, "period": 22.0, "width": 0.085},
+  "cavities": [
+    {"id": "crystal_grotto",  "dir": [0.62, 0.50, 0.60],  "depth": 15.0, "radius": 6.0, "lobes": 5, "discovery": "crystal_grotto", "decor": "crystals", "entrance": true},
+    {"id": "mushroom_hollow", "dir": [-0.55, 0.62, 0.55], "depth": 6.5,  "radius": 4.5, "lobes": 4, "discovery": "mushroom_hollow", "decor": "mushrooms", "entrance": true},
+    {"id": "echo_cavern",     "dir": [0.30, -0.25, -0.92], "depth": 13.0, "radius": 5.5, "lobes": 5, "decor": "crystals"},
+    {"id": "deep_vault",      "dir": [-0.75, 0.25, -0.55], "depth": 27.0, "radius": 5.0, "lobes": 3, "discovery": "deep_vault", "decor": "vault"}
+  ],
+  "artifacts": [
+    {"id": "dormant_bot",   "dir": [0.35, 0.90, -0.25],  "depth": 4.2,  "pocket": 1.7, "model": "robot"},
+    {"id": "time_capsule",  "dir": [-0.30, 0.80, 0.52],  "depth": 3.0,  "pocket": 1.4, "model": "capsule"},
+    {"id": "star_chart_a",  "dir": [-0.55, 0.62, 0.55],  "depth": 7.0,  "pocket": 0.0, "model": "chart", "in_cavity": "mushroom_hollow"},
+    {"id": "fossil_drill",  "dir": [0.85, 0.10, 0.50],   "depth": 14.0, "pocket": 1.8, "model": "drillbit"},
+    {"id": "star_chart_b",  "dir": [0.62, 0.50, 0.60],   "depth": 15.0, "pocket": 0.0, "model": "chart", "in_cavity": "crystal_grotto"},
+    {"id": "giant_seed",    "dir": [0.10, -0.70, -0.70], "depth": 9.0,  "pocket": 1.9, "model": "seed"},
+    {"id": "old_helmet",    "dir": [-0.90, -0.30, 0.30], "depth": 5.0,  "pocket": 1.5, "model": "helmet"},
+    {"id": "vault_idol",    "dir": [-0.75, 0.25, -0.55], "depth": 27.0, "pocket": 0.0, "model": "idol", "in_cavity": "deep_vault"}
+  ],
+  "core": {"chamber_radius": 5.5, "discovery": "pip_heart", "color": "#ffe36b", "color2": "#ff8fb8"},
+  "surface_crystal": "pipquartz",
+  "bonus_gem": "amethyst",
+  "palette": {
+    "grass": ["#7fdc5a", "#3fcf8e", "#c9ea5c"],
+    "grass_dry": "#e8c35a",
+    "sky_top": "#1d1b54", "sky_mid": "#5b4bc4", "sky_horizon": "#ff9fb0", "sky_glow": "#ffd59a",
+    "sun": "#fff2c9", "ambient": "#b9b4ff", "fog": "#7d6fd6",
+    "rim": "#8ff0ff"
+  },
+  "props": {
+    "grass_tuft": 2600, "flower": 520, "mushroom": 150, "bush": 170, "tree": 85, "rock": 120, "crystal": 46, "pebble": 300,
+    "flower_colors": ["#ff7fb0", "#ffe36b", "#ffffff", "#9d8cff", "#ff9d5c"],
+    "tree_colors": ["#ff8fb8", "#ffb347", "#6fe3c4", "#ffe36b"],
+    "mushroom_colors": ["#ff5d73", "#ffa24a", "#b98cff"],
+    "crystal_colors": ["#b266ff", "#7dfff0", "#ff7fb6"]
+  }
+}
