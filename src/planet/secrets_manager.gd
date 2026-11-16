@@ -298,9 +298,9 @@ func _build_heart() -> void:
 	heart.name = "Heart"
 	add_child(heart)
 	var kit := MeshKit.new()
-	kit.emission = 1.6
+	kit.emission = 0.55
 	kit.sphere(Vector3.ZERO, 1.0, c1, Vector3(0.85, 1.1, 0.85), 16, 10)
-	kit.emission = 2.4
+	kit.emission = 1.3
 	for i in 6:
 		var a := TAU * float(i) / 6.0
 		kit.torus(Transform3D(Basis.from_euler(Vector3(0, a, PI * 0.5)), Vector3.ZERO), 1.02, 0.035, c2, 20, 5)
@@ -310,7 +310,7 @@ func _build_heart() -> void:
 	heart.add_child(kit.instance(_heart_mat, false))
 	# orbiting motes
 	var motes := MeshKit.new()
-	motes.emission = 3.0
+	motes.emission = 1.6
 	for i in 10:
 		var a := TAU * float(i) / 10.0
 		motes.sphere(Vector3(cos(a) * 2.1, sin(a * 3.0) * 0.6, sin(a) * 2.1), 0.07, c2 if i % 2 == 0 else c1, Vector3.ONE, 6, 4)
@@ -319,7 +319,7 @@ func _build_heart() -> void:
 	heart.add_child(mote_node)
 	heart_light = OmniLight3D.new()
 	heart_light.light_color = c1
-	heart_light.light_energy = 2.5
+	heart_light.light_energy = 1.2
 	heart_light.omni_range = geo.core_radius * 3.0
 	heart.add_child(heart_light)
 	var body := StaticBody3D.new()
@@ -364,7 +364,7 @@ func _process(delta: float) -> void:
 		beat = beat * beat
 		heart.scale = Vector3.ONE * (1.0 + beat * 0.07)
 		heart.rotation.y = _time * 0.25
-		heart_light.light_energy = (3.4 if found else 2.0) + beat * 1.6
+		heart_light.light_energy = (1.6 if found else 1.0) + beat * 0.8
 		var motes := heart.get_node_or_null("Motes") as Node3D
 		if motes != null:
 			motes.rotation = Vector3(_time * 0.3, _time * 0.9, 0)

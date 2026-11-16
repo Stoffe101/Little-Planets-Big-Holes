@@ -166,15 +166,17 @@ func _build_environment(cfg: Dictionary) -> void:
 	# Linear tonemapping keeps the hand-picked palette exactly as authored (lit surfaces sum to ~1.0).
 	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	environment.glow_enabled = true
-	environment.glow_intensity = 0.7
-	environment.glow_strength = 0.9
+	environment.glow_intensity = 0.45
+	environment.glow_strength = 0.85
 	environment.glow_bloom = 0.0
 	environment.glow_hdr_threshold = 1.1
 	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	environment.ssao_enabled = true
-	environment.ssao_radius = 1.6
-	environment.ssao_intensity = 1.3
-	environment.ssao_power = 1.5
+	# SSAO only exists in the Forward+ renderer (the project defaults to Mobile, see docs/TECHNICAL.md).
+	if RenderingServer.get_current_rendering_method() == "forward_plus":
+		environment.ssao_enabled = true
+		environment.ssao_radius = 1.6
+		environment.ssao_intensity = 1.3
+		environment.ssao_power = 1.5
 	environment.adjustment_enabled = true
 	environment.adjustment_saturation = 1.06
 	environment.adjustment_contrast = 1.03

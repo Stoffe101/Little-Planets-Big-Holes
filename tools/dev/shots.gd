@@ -169,3 +169,64 @@ func scenario_tools() -> void:
 			await physics(50)
 			await frames(3)
 			await shot("tool_%s_%d" % [fam["id"], t + 1])
+
+func carve(a: Vector3, b: Vector3, radius: float) -> void:
+	var steps := int(a.distance_to(b) / (radius * 0.6)) + 1
+	for i in steps + 1:
+		world.dig.dig_sphere(a.lerp(b, float(i) / float(steps)), radius, 9)
+	await physics(30)
+
+## Underground tour: a quarry cut through the strata, a tunnel, the crystal grotto and the heart.
+func scenario_tour() -> void:
+	var geo := world.planet.geology
+	var dir := Vector3(0.45, 0.8, -0.4).normalized()
+	var top := dir * geo.surface_radius(dir)
+	var side := dir.cross(Vector3.UP).normalized()
+	# open quarry: a big stepped pit so the layers are visible in daylight
+	for i in 9:
+		world.dig.dig_sphere(top - dir * (1.5 + 2.2 * i) + side * (i * 1.6), 5.5 - i * 0.3, 9)
+	await physics(40)
+	world.player.teleport(world.planet.ground_point((top + side * 11.0).normalized()) , -side)
+	await physics(20)
+	look_at_point(top - dir * 5.0 + side * 2.0)
+	await shot("quarry")
+	# tunnel into stone with the headlamp
+	var t0 := top - dir * 16.0 + side * 12.0
+	var t1 := t0 - dir * 6.0 + side * 12.0
+	await carve(t0, t1, 2.0)
+	world.player.teleport(t0 - dir * 1.2, t1 - t0)
+	await physics(30)
+	look_at_point(t1)
+	await shot("tunnel")
+	# crystal grotto
+	for c in geo.cavities:
+		if c["id"] == "crystal_grotto":
+			var cc: Vector3 = c["center"]
+			world.player.teleport(cc - (c["dir"] as Vector3) * (float(c["radius"]) - 2.2), Vector3(1, 0, 0))
+			await physics(30)
+			world.player.pitch = 0.25
+			await shot("grotto")
+	# the heart
+	world.player.teleport(Vector3(3.2, -1.0, 2.0), Vector3(-1, 0, -0.6))
+	await physics(20)
+	look_at_point(Vector3.ZERO)
+	await shot("heart")
+
+func scenario_surface() -> void:
+	var dirs := [Vector3(0.6, 0.55, 0.55), Vector3(-0.5, 0.6, 0.6), Vector3(0.2, -0.8, 0.5)]
+	var i := 0
+	for d: Vector3 in dirs:
+		var n := d.normalized()
+		world.player.teleport(world.planet.ground_point(n) + n * 0.1, Vector3(0.3, 0.2, 1))
+		await physics(15)
+		look_pitch(-4)
+		await shot("surface_%d" % i)
+		i += 1
+
+func scenario_menu() -> void:
+	world.queue_free()
+	await frames(3)
+	var main: Node = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	add_child(main)
+	await frames(8)
+	await shot("menu")

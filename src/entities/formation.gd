@@ -25,7 +25,7 @@ func setup(mat: int, total_units: int, size: float, colors: Array, seed_value: i
 	rng.seed = seed_value
 	var kit := MeshKit.new()
 	var def := GameData.materials[mat]
-	kit.emission = maxf(float(def.get("emission", 0.4)), 0.35)
+	kit.emission = clampf(float(def.get("emission", 0.4)) * 0.35, 0.1, 0.4)
 	var main_col := Color(str(colors[rng.randi() % colors.size()])) if not colors.is_empty() else (def["color_c"] as Color)
 	var n := 3 + rng.randi() % 4
 	for i in n:
@@ -33,7 +33,7 @@ func setup(mat: int, total_units: int, size: float, colors: Array, seed_value: i
 		var h := size * (1.0 if i == 0 else rng.randf_range(0.35, 0.75))
 		var base := Vector3(lean.x, -0.15, lean.z) * size * 0.45
 		var tip := base + (Vector3.UP + lean * 0.55).normalized() * h
-		var c := main_col if i % 2 == 0 else main_col.lerp(def["color2_c"], 0.5)
+		var c := main_col if i % 2 == 0 else main_col.lerp(def["color2_c"], 0.22)
 		kit.crystal(base, tip, size * (0.2 if i == 0 else rng.randf_range(0.1, 0.16)), c, 5 + rng.randi() % 2)
 	mesh_instance = kit.instance(MeshKit.material(), true)
 	add_child(mesh_instance)

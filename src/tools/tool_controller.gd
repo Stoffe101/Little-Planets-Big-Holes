@@ -242,7 +242,7 @@ func _swing_impact() -> void:
 	if int(stats.get("trench", 0)) == 1:
 		result = world.dig.dig_capsule(pos + dir * radius * 0.3, pos + dir * radius * 2.6, radius * 0.9, power, _dig_opts())
 	else:
-		result = world.dig.dig_sphere(pos + dir * radius * 0.45, radius, power, _dig_opts())
+		result = world.dig.dig_sphere(pos + dir * radius * 0.35, radius, power, _dig_opts())
 	_feedback(result, pos, hit["normal"], dir, radius)
 	if int(stats.get("auto", 0)) == 1:
 		_piston = 1.0

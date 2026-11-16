@@ -26,8 +26,9 @@ func _ready() -> void:
 	env.ambient_light_energy = 0.34
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.glow_enabled = true
-	env.glow_intensity = 0.7
+	env.glow_intensity = 0.45
 	env.glow_hdr_threshold = 1.1
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -98,22 +99,6 @@ func _ready() -> void:
 	kit.sphere(p0 + rd * 0.62 + rb.z * 0.2, 0.09, Color("#7fe6ff"), Vector3.ONE, 8, 5)
 	kit.set_emission(0.0)
 	_planet.add_child(kit.instance())
-	# atmosphere halo
-	var halo := MeshInstance3D.new()
-	var hs := SphereMesh.new()
-	hs.radius = r * 1.32
-	hs.height = r * 2.64
-	halo.mesh = hs
-	var hm := StandardMaterial3D.new()
-	hm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	hm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	hm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	hm.albedo_color = Color(0.56, 0.94, 1.0, 0.13)
-	hm.cull_mode = BaseMaterial3D.CULL_FRONT
-	halo.material_override = hm
-	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_planet.add_child(halo)
-
 	# a little moon with its own crater
 	_moon = Node3D.new()
 	add_child(_moon)
