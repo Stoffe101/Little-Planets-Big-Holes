@@ -1,47 +1,69 @@
 # Roadmap
 
+## What the v0.2 pass delivered
+
+A new visual identity (docs/ART_DIRECTION.md) applied to terrain, sky, lighting, props, the
+outpost, all tools, discoveries, effects and the whole interface; smoother, class-specific
+tool animation and purchase presentation; a simulated and rebalanced economy
+(docs/BALANCE.md); a level-normalised audio mix with cave acoustics and ambience; Windows
+export presets and a verified build; GPU benchmarks; an off-desktop render harness; seven new
+regression tests. Details and evidence: docs/TESTING.md, docs/TECHNICAL.md.
+
 ## Known limitations
 
-**Not verified**
+**Not verified by a person**
 
-* No human has played this build. Everything was exercised by headless tests and by scripted
-  still screenshots rendered on a software rasteriser. Frame rate, input feel, animation timing
-  and difficulty pacing are untested on real hardware.
-* Audio was synthesised and checked numerically (levels, no clipping) but never listened to.
-  Expect to rebalance volumes and probably replace some sounds.
-* Economy numbers are reasoned estimates, not playtested. All of them live in `data/*.json`.
-* The Forward+ renderer could not be validated (see `docs/TECHNICAL.md` → Rendering).
-* Windows: binaries for Windows x86_64 are vendored and nothing in the project is
-  platform-specific, but the project has only been run on Linux.
+* **Nobody has played or listened to this build.** Stills were rendered on a real GPU and
+  reviewed; motion, timing, input feel and all audio (including the new ambience beds and
+  cave reverb) are unreviewed. Expect to adjust animation amounts and the mix.
+* **Pacing is modelled, not playtested**, and only on Pipseed. Glimmerock's economy and the
+  late game are scaled by rule, not measured.
+* 4K was not rendered (the UI is resolution-independent at 16:9; 3440×1440 was checked).
+* The Linux export preset is untested; CI covers headless tests on Linux only.
+
+**Visual**
+
+* The **Mega Scooper** bucket is the weakest tool model: its proportions read as a wedge.
+  The power-shovel heads are small in first person; their bite is better communicated by the
+  hole than by the tool.
+* Tool models show no hands or arms.
+* Open lawns are deliberately plain; at close range the grass is a shaded surface plus sparse
+  blades, not dense geometry.
+* Crystal formations are simple prisms; the cavern composition is seeded, not hand-placed.
+* The typeface comes from the system (Bahnschrift on Windows). Other systems get their own
+  sans-serif, so text metrics differ slightly. Shipping a bundled DIN-style font (for example
+  Barlow or Inter, both OFL) would fix that.
+* Label3D lettering on curved hulls can clip.
 
 **Design / implementation gaps**
 
-* Loose chunks on the ground and bot cargo in flight are not saved; you respawn at the rocket.
-* One save slot.
-* Helper bots hover and cannot reach chunks inside sealed tunnels (they give up after ~14 s).
-* Dug-up props are not individually saved; on reload they are re-derived from "is the ground
-  still there" — props on untouched ground reappear, props over holes do not.
-* Terrain materials are a function of position, so material cannot be *added* (no building,
-  no dirt dumping) without storing a material channel.
-* Key rebinding has no UI (actions are registered in `Settings.ACTIONS`).
+* Loose chunks on the ground and bot cargo in flight are not saved; you arrive at the outpost.
+* One save slot. No key-rebinding UI (actions are registered in `Settings.ACTIONS`).
 * No gamepad support. No localisation.
-* Exports: `data/*.json` must be added to the export preset's include filter
-  (non-resource files are skipped by default). No export preset is committed.
-* Software rendering shows visible steps on thin ore silhouettes at 0.5 m voxel resolution
-  when viewed from a few centimetres.
+* Helper bots hover and cannot reach chunks inside sealed tunnels (they give up after ~14 s).
+* Dug-up props are re-derived from "is the ground still there" on reload.
+* Surface crystals moved in v0.2 (they are now seeded per item); crystals harvested in an
+  older save reappear once.
+* Terrain materials are a function of position, so material cannot be *added* (no building).
+* Ambience is two synthesised noise beds; there are no positional environment sounds.
+* The music tracks were not regenerated (no ffmpeg on the development machine).
 
-## Next priorities
+## Recommended next pass: "hands on"
 
-1. **Play it on a real PC** and fix what that shows: feel of the swing, drill and cannon,
-   audio mix, pacing of the first 15 minutes, any Forward+ / Windows issue.
-2. **Economy pass** with real session data; consider an in-game "credits per minute" readout.
-3. **Mid-game variety on Pipseed**: more formation types, a second vault, timed "gem rush"
-   events, deposits that need specific attachments.
-4. **Vehicles & big machines** (the fantasy's end-game): a rideable digger using
-   `dig_capsule`, a placeable auto-drill, conveyor from pit to Sell-o-Matic.
-5. **Robots that dig** (reuse `DigSystem` commands) and a bot upgrade tree.
-6. **More planets**: hollow world with an inner surface, bouncy planet, mechanical planet.
-   Each needs only a JSON file plus any new mechanic.
-7. **Orbital headquarters** as the hub between planets (museum for artifacts, hangar).
-8. **Co-op** following the notes in `docs/TECHNICAL.md`.
-9. Quality of life: multiple save slots, rebinding UI, gamepad, photo mode, export presets.
+The game now looks the part; the next pass should be driven by a person playing it.
+
+1. **Play the first 30 minutes several times** with the F3 overlay, fix what motion and sound
+   reveal: swing weight, drill push, recoil, purchase inspect length, particle timing, the mix.
+   Replace any sound that grates; add positional ambience (wind in grass, cave drips).
+2. **Check the pacing against the model** (docs/BALANCE.md) and tune the JSON; then model and
+   tune Glimmerock.
+3. **First-person hands** and a second modelling pass on the Mega Scooper and power-shovel
+   heads; denser grass near the camera.
+4. **Mid-game variety on Pipseed**: deposits that need a specific attachment, a second vault,
+   discoveries with more mechanical value, a reason to use the cannon and vacuum together.
+5. **Quality of life**: key rebinding, multiple save slots, gamepad, a bundled font,
+   photo mode.
+6. **Machines** (the fantasy's end-game): a rideable digger using `dig_capsule`, a placeable
+   auto-drill, a conveyor from pit to Depot; robots that dig.
+7. **More planets** once the two existing ones are fun for an hour each.
+8. **Co-op**, following the notes in docs/TECHNICAL.md.

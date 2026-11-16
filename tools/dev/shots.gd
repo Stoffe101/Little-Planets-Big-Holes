@@ -238,15 +238,21 @@ func scenario_tour() -> void:
 	for c in geo.cavities:
 		if c["id"] == "crystal_grotto":
 			var cc: Vector3 = c["center"]
-			world.player.teleport(cc - (c["dir"] as Vector3) * (float(c["radius"]) - 2.2), Vector3(1, 0, 0))
-			await physics(30)
-			world.player.pitch = 0.25
+			var cd: Vector3 = c["dir"]
+			var cside := cd.cross(Vector3(0.2, 0.9, 0.3)).normalized()
+			var stand := cc + cside * float(c["radius"]) * 0.55 - cd * float(c["radius"]) * 0.2
+			world.player.teleport(world.planet.ground_point(stand.normalized(), stand.length()), cc - stand)
+			await physics(40)
+			look_at_point(cc - cd * 1.0)
+			await physics(10)
 			await shot("grotto")
 	# the heart
-	world.player.teleport(Vector3(3.2, -1.0, 2.0), Vector3(-1, 0, -0.6))
+	world.tools.visible = false
+	world.player.teleport(Vector3(3.6, -1.2, 2.3), Vector3(-1, 0, -0.6))
 	await physics(20)
 	look_at_point(Vector3.ZERO)
 	await shot("heart")
+	world.tools.visible = true
 
 func scenario_surface() -> void:
 	var dirs := [Vector3(0.6, 0.55, 0.55), Vector3(-0.5, 0.6, 0.6), Vector3(0.2, -0.8, 0.5)]
@@ -331,3 +337,19 @@ func scenario_lineup() -> void:
 				await shot("lineup_%s_%d%s" % [fam["id"], t + 1, "_mods" if modded == 1 else ""])
 				root.queue_free()
 				await frames(1)
+
+
+## The moment after buying a tool: the HUD names it and the new model is held up for a look.
+func scenario_purchase() -> void:
+	var hud := Hud.new()
+	add_child(hud)
+	hud.setup(world)
+	GameState.tiers["shovel"] = 2
+	GameState.tools_changed.emit()
+	await place(Vector3(0.3, 1, 0.25))
+	look_pitch(-10)
+	await physics(120)
+	GameState.money = 5000
+	GameState.buy_next_tier("shovel")
+	await physics(42)
+	await shot("purchase")

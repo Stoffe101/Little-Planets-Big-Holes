@@ -56,10 +56,10 @@
   "core": {"chamber_radius": 5.0, "discovery": "glimmer_heart", "style": "crystal", "color": "#9fe0d8", "color2": "#b99be0"},
   "surface_crystal": "aquamarine",
   "bonus_gem": "aquamarine",
-  "look": {"wind": 0.15, "atmosphere": 0.15, "stars": 1.0, "nebula": 0.8, "sun_energy": 1.7, "sun_elevation": 34.0, "ambient_energy": 0.8,
+  "look": {"wind": 0.15, "atmosphere": 0.15, "stars": 1.0, "nebula": 0.8, "sun_energy": 1.5, "sun_elevation": 34.0, "ambient_energy": 0.8,
            "exposure": 1.0, "turf_depth": 0.3, "cover_relief": 0.9, "cover_roughness": 0.88},
   "palette": {
-    "grass": ["#9aa0b6", "#8990ab", "#aaa8bc"],
+    "grass": ["#858ba4", "#767d9a", "#9694aa"],
     "grass_dry": "#d6d3de",
     "sky_top": "#04060d", "sky_mid": "#0a1428", "sky_horizon": "#23405f", "sky_glow": "#7fb4d8", "sky_ground": "#2a3040",
     "sun": "#eef4ff", "ambient": "#aebfe0", "fog": "#12161f", "nebula": "#1f2f5c",

@@ -378,18 +378,18 @@ func _build_heart() -> void:
 	var kit := MeshKit.new()
 	if style == "crystal":
 		# a burst of long prisms around a bright nucleus
-		kit.gloss().set_emission(0.9)
+		kit.gloss().set_emission(3.0)
 		kit.rock(Transform3D.IDENTITY, 0.5, c1, 77, 0.12, false)
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 911
 		for i in 14:
 			var d := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized()
 			var long := rng.randf_range(0.9, 1.7)
-			kit.set_emission(rng.randf_range(0.35, 0.7))
+			kit.set_emission(rng.randf_range(1.0, 1.8))
 			kit.crystal(d * 0.25, d * long, rng.randf_range(0.12, 0.2), c1.lerp(c2, rng.randf()), 6, 0.6)
 	else:
 		# a glowing seed inside a ribbed husk, like a lantern
-		kit.surf(0.35).set_emission(1.0)
+		kit.surf(0.35).set_emission(3.2)
 		kit.lathe(PackedVector2Array([Vector2(0.0, -1.0), Vector2(0.45, -0.78), Vector2(0.74, -0.25), Vector2(0.72, 0.3), Vector2(0.42, 0.9), Vector2(0.14, 1.25), Vector2(0.0, 1.32)]), Transform3D.IDENTITY, c1, 18, true)
 		kit.surf(0.5, 0.55).set_emission(0.0)
 		for i in 7:
@@ -418,7 +418,7 @@ func _build_heart() -> void:
 		_heart_rings.append(ring)
 	heart_light = OmniLight3D.new()
 	heart_light.light_color = c1
-	heart_light.light_energy = 1.4
+	heart_light.light_energy = 2.6
 	heart_light.omni_range = geo.core_radius * 3.2
 	heart_light.omni_attenuation = 1.2
 	heart.add_child(heart_light)
@@ -470,7 +470,7 @@ func _process(delta: float) -> void:
 		heart.scale = Vector3.ONE * (1.0 + beat * 0.035)
 		heart.rotation.y = _time * 0.12
 		_heart_mat.set_shader_parameter("emission_scale", lerpf(0.75, 1.5, _heart_awake) + beat * 0.5)
-		heart_light.light_energy = lerpf(1.1, 2.2, _heart_awake) + beat * 0.7
+		heart_light.light_energy = lerpf(2.2, 3.6, _heart_awake) + beat * 0.9
 		for i in _heart_rings.size():
 			var dir := 1.0 if i % 2 == 0 else -1.0
 			_heart_rings[i].rotate_object_local(Vector3.UP, delta * dir * (0.25 + 0.2 * float(i) + _heart_spin))

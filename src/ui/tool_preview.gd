@@ -85,7 +85,7 @@ func _set_model(node: Node3D, tilt: Vector3) -> void:
 	var box := _bounds(node, Transform3D(Basis.from_euler(tilt), Vector3.ZERO))
 	node.position = -box.get_center()
 	var extent := maxf(box.size.length(), 0.2)
-	_place_camera(clampf(extent / 1.15, 0.42, 1.6))
+	_place_camera(clampf(extent / 0.98, 0.42, 1.6))
 
 
 static func _bounds(node: Node3D, xf: Transform3D) -> AABB:

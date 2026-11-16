@@ -171,11 +171,12 @@ void fragment() {
 	if (!is_ore) {
 		// Sediment: broad alternating tones plus thin darker bedding lines, both following the
 		// (warped) depth so every cut face shows the layering.
-		float tone = smoothstep(0.3, 0.7, texture(noise_a, vec3(dl * 0.09, 0.37, 0.61)).r);
-		col = mix(c1, c2, clamp(tone * 0.7 + (n_mid - 0.5) * 0.4, 0.0, 1.0));
-		// bedding lines belong on cut walls; on floors and ceilings (which run along a stratum)
-		// they would smear into contour swirls, so they fade out there
+		// Layering belongs on cut walls. Floors and ceilings run along a stratum, where depth
+		// bands would smear into contour swirls, so there the tone settles to its average.
 		float wall = 1.0 - smoothstep(0.45, 0.85, abs(up_facing));
+		float tone = smoothstep(0.3, 0.7, texture(noise_a, vec3(dl * 0.09, 0.37, 0.61)).r);
+		tone = mix(0.45, tone, wall);
+		col = mix(c1, c2, clamp(tone * 0.7 + (n_mid - 0.5) * 0.25, 0.0, 1.0));
 		float bed = fract(dl * 0.83 + n_big * 0.5);
 		float bed_line = 1.0 - smoothstep(0.0, 0.035, bed) * (1.0 - smoothstep(0.955, 1.0, bed));
 		col *= 1.0 - bed_line * 0.16 * pbr.z * wall;

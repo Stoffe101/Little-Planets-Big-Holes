@@ -67,10 +67,19 @@ that would change.
 
 ## Fonts
 
-Fredoka (SIL OFL 1.1), static TTF instances from Google Fonts, in `assets/fonts/`.
+No font file is shipped. `UiTheme` asks the operating system for a DIN-style sans-serif
+(`Bahnschrift`, then `DIN Alternate`, `Inter`, `Roboto`, `Noto Sans`, `DejaVu Sans`, `Arial`)
+and falls back to Godot's built-in font. Bundling one licensed typeface would make text
+identical on every system; that is listed in the roadmap.
 
 ## Tooling (optional, development only)
 
+* **Python 3, standard library only** — `tools/offscreen.py` (Windows off-desktop rendering,
+  uses `ctypes`) and `tools/audio_report.py`.
 * Python 3 + numpy — `tools/gen_audio.py` (regenerates `assets/audio/`); ffmpeg for OGG music.
-* Xvfb + Mesa (`libgl1-mesa-dri`, `mesa-vulkan-drivers`) — `tools/shots.sh` renders screenshots
-  on a machine without a GPU.
+  Neither was installed on the Windows machine used for the v0.2 pass, so the audio files are
+  unchanged from v0.1.
+* Git Bash (or any POSIX shell) for `tools/*.sh` on Windows.
+* Godot 4.7.2 export templates — to build with the committed `export_presets.cfg`.
+* Linux only: Xvfb + Mesa (`libgl1-mesa-dri`, `mesa-vulkan-drivers`) — `tools/shots.sh` and
+  `tools/perf.sh` render on a virtual display.

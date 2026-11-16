@@ -11,9 +11,9 @@ Main (scenes/main.tscn)               menu <-> gameplay, modal screens, planet t
  │   │   └─ ToolController   input, tool behaviours, viewmodel animation
  │   ├─ PickupManager loose chunks (SDF-collided, no rigid bodies)
  │   ├─ FxManager     pooled GPU particles, rings, floating text
- │   ├─ PropField     MultiMesh decoration + crystal Formations
- │   ├─ RocketBase    rocket, Sell-o-Matic, shop kiosks, bot dock
- │   ├─ SecretsManager artifacts, cavern decor, the planet Heart
+ │   ├─ PropField     MultiMesh ground cover, rocks, landmarks + crystal Formations
+ │   ├─ RocketBase    the outpost: lander, Depot, Workshop, Outfitter, bot dock
+ │   ├─ SecretsManager artifacts, cavern dressing, the planet Heart
  │   ├─ RobotManager  helper bots
  │   └─ Scanner
  ├─ Hud
@@ -21,6 +21,7 @@ Main (scenes/main.tscn)               menu <-> gameplay, modal screens, planet t
 
 Autoloads: Settings, GameData (res://data/*.json), GameState (progression rules),
            SaveSystem, Audio
+Shared:    MeshKit (procedural modelling), Pal (model palette), UiTheme (interface)
 ```
 
 `GameState` contains only rules and numbers (no scene access), which is why it can be unit
@@ -88,39 +89,88 @@ Other terrain-adjacent rules: the launch pad is shielded (`World.is_protected`),
 base is dug out are uprooted (`PropField.on_dig`), crystal `Formation`s are cracked rather than
 dug.
 
-### Measured performance
+### Measured performance (CPU side)
 
-`godot --headless --path . res://tools/dev/bench.tscn` on the 4-vCPU cloud VM used for
-development (no GPU; Voxel Tools picked 2 worker threads):
+`godot --headless --path . res://tools/dev/bench.tscn` on the Windows development PC
+(Ryzen 7 5800X3D, 8 voxel worker threads):
 
 | Measurement | Result |
 |---|---|
-| Geology bake + generator compile | 0.62 s |
-| Stream + mesh until playable | 1.20 s (≈1.7 s total) |
+| Geology bake + generator compile | 0.83 s |
+| Stream + mesh until playable | 2.5 s (≈3.2 s total; includes ~5,400 props) |
 | Voxel data | 2,076 blocks, 16 MB |
-| `dig_sphere` r = 0.85 / 1.5 / 3.4 / 6.5 m | 0.19 / 0.23 / 0.30 / 0.36 ms |
-| Selective dig r = 1.5 m | 0.67 ms |
-| Edit → collision updated | 12 physics ticks (63 ms wall) |
-| Blocking save after ~350 large digs | 55 ms, 6.9 MB database |
-
-These are CPU-side numbers. **Frame rate on a real GPU has not been measured** — the
-development machine only has a software rasteriser. Use the F3 overlay (FPS, draw calls, voxel
-task queues, dig timings, memory) when profiling on real hardware.
+| `dig_sphere` r = 0.85 / 1.5 / 2.4 / 3.4 / 6.5 m | 0.25 / 0.28 / 0.29 / 0.31 / 0.43 ms |
+| Selective dig r = 1.5 m | 0.87 ms |
+| Edit → collision updated | 11 physics ticks |
+| Blocking save after ~350 large digs | 110 ms, 6.9 MB database |
 
 ## Rendering
 
-* **Renderer: Mobile (Vulkan).** Forward+ also runs, but on the software rasteriser used for
-  development its clustered lighting produced tile artefacts around omni/spot lights, so it
-  could not be visually verified; Mobile rendered correctly and is what all screenshots were
-  checked with. Switching to Forward+ (Project Settings → Rendering → Renderer) additionally
-  enables SSAO (already wired in `World._build_environment`) and should be tried on a real GPU.
-* One shared lighting model (`shaders/toon_light.gdshaderinc`): half-Lambert through two soft
-  steps, softened shadows, linear tonemapping so palette colours appear as authored.
-* All props, tools and machines are built by `MeshKit` into single vertex-coloured meshes drawn
-  with `shaders/prop.gdshader` (vertex colour = albedo, UV.x = emission, UV.y = wind sway).
-  First-person tools set `viewmodel = true`, which squashes depth so they never clip into walls.
-* The sun follows the player around the planet so the playable side is always lit; ambient
-  light dims with depth and a headlamp fades in underground.
+All visual rules are in `docs/ART_DIRECTION.md`; this section is the plumbing.
+
+* **Lighting model:** plain PBR (Burley diffuse, GGX specular), AgX tonemapping, ambient taken
+  mostly from the sky shader, one four-split shadowed sun that follows the player, reflections
+  from the sky. Tunables per planet live in the JSON `look` block (`sun_energy`,
+  `sun_elevation`, `ambient_energy`, `exposure`, `atmosphere`, `stars`, `nebula`, `wind`…).
+  `LPBH_LOOK='{"sun_energy": 2.0, "tonemap": "filmic"}'` in the environment overrides them for
+  experiments.
+* **Props, tools, machines:** `MeshKit` builds single vertex-coloured meshes drawn with
+  `shaders/prop.gdshader` — COLOR = albedo (sRGB, converted in the shader), UV = emission and
+  sway, UV2 = roughness and metallic. First-person tools set `viewmodel = true`, which squashes
+  depth so they never clip into walls and re-projects them with a fixed 62° field of view.
+* **Terrain:** `shaders/terrain.gdshader` — material lookup identical to gameplay, then a
+  procedural relief normal (two octaves of value noise with analytic gradient, faded by
+  distance), strata, turf skin with a damp band, ore bodies, depth-based ambient occlusion,
+  scanner pulse.
+* **Sky:** `shaders/sky.gdshader` — gradient from the planet's limb (`horizon_dip`), stars,
+  sun, a neighbouring world and a moon; in the cubemap pass the lower hemisphere is the ground
+  colour so bounce light is plausible.
+* **Shop previews:** `ToolPreview` is a `SubViewportContainer` with its own 3D world, a camera
+  framed from the model's bounds, key and rim lights and a turntable.
+
+### Renderer: Mobile (measured choice)
+
+Both Vulkan renderers were run on an RTX 5070 with `tools/perf.sh` (v-sync off, window on an
+off-screen desktop, so presentation is unthrottled) and compared in still renders of the
+outpost, a cavern and a fresh dig.
+
+Average FPS (and GPU time per frame in ms). A request for 1440 rows yields a 1421-row window:
+
+| Scenario | Mobile 1920×1080 | Mobile 2560×1421 | Mobile 3440×1421 | Forward+ 2560×1421 | Forward+ 3440×1421 |
+|---|---|---|---|---|---|
+| Surface | 879 (0.65) | 693 (0.91) | 615 (1.13) | 425 (1.83) | 354 (2.22) |
+| Outpost in view | 819 (0.66) | 724 (0.89) | 629 (1.09) | 417 (1.88) | 350 (2.26) |
+| Power shovel held down | 549 (1.09) | 476 (1.57) | 429 (1.74) | 341 (2.36) | 273 (3.01) |
+| Eight 6.5 m blasts + debris | 605 (0.91) | 521 (1.38) | 431 (1.68) | 337 (2.37) | 256 (3.14) |
+| Crystal cavern | 511 (1.43) | 356 (2.24) | 295 (2.68) | 239 (3.54) | 191 (4.54) |
+| Three bots, 150 chunks | 557 (0.94) | 516 (1.27) | 466 (1.45) | 388 (2.01) | 326 (2.45) |
+
+* CPU time for the viewport is 0.5–1.2 ms in every case: the game is **GPU-bound**, and far
+  from any limit on this hardware. The 99th-percentile frame is under 6 ms everywhere; the
+  worst single frames (5–16 ms) occur during heavy digging and on first use of an effect.
+* Forward+ adds SSAO (wired in `World._build_environment`). Side by side, with this art style
+  and the terrain's own depth occlusion, the two images are nearly indistinguishable, while
+  Forward+ costs roughly twice the GPU time.
+* **Decision:** stay on Mobile. Forward+ works without artefacts on real hardware and can be
+  selected with `--rendering-method forward_plus`.
+* Not measured: integrated or older GPUs, 4K, the F3 overlay's own cost, thermal behaviour
+  over long sessions.
+
+## Audio (`src/autoload/audio.gd`)
+
+Pooled one-shots (2D and 3D), named loops with fades, music. `Audio.LEVEL` trims every sound to
+the same measured loudness (table generated by `tools/audio_report.py --gains`), `Audio.SOFTEN`
+lowers the pitch of the brightest effects, the SFX bus carries a low-pass and a reverb that
+`World` drives from the player's depth (`set_underground`), and two ambience beds (wind, cave
+tone) are synthesised at start-up from filtered noise (`_noise_bed`) and cross-faded by depth
+and by the planet's `look.wind`.
+
+## Exporting
+
+`export_presets.cfg` has Windows and Linux presets. Non-resource files are not packaged by
+default, so the presets include `data/*.json, data/planets/*.json` explicitly and exclude
+`tests/`, `tools/`, `docs/`. `Main` implements `-- --smoke-test` (see docs/TESTING.md); the
+exported Windows build passes it headless and on the Vulkan renderer.
 
 ## Saving (`src/autoload/save_system.gd`)
 
