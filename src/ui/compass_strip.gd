@@ -48,11 +48,12 @@ func _draw() -> void:
 		if kind == "relay_off":
 			continue
 		var rel2 := nav.bearing_to(m["pos"])
-		var pinned := kind in ["outpost", "waypoint"]
+		var pinned := kind in ["outpost", "waypoint", "borer"]
 		if absf(rel2) > HALF_FOV and not pinned:
 			continue
 		var x2 := _x(clampf(rel2, -HALF_FOV, HALF_FOV))
-		var col: Color = {"outpost": UiTheme.ACCENT, "waypoint": UiTheme.TEXT, "relay": UiTheme.INFO, "place": UiTheme.GOLD}.get(kind, UiTheme.TEXT)
+		var col: Color = {"outpost": UiTheme.ACCENT, "waypoint": UiTheme.TEXT, "relay": UiTheme.INFO, "place": UiTheme.GOLD,
+			"bots": UiTheme.GOOD, "borer": UiTheme.ORANGE}.get(kind, UiTheme.TEXT)
 		var dist := nav.surface_distance(world.player.global_position, m["pos"])
 		if dist < 6.0:
 			continue

@@ -27,6 +27,8 @@ var secrets: Node3D              ## SecretsManager (artifacts, caverns, core)
 var robots: Node3D               ## RobotManager
 var scanner: Node                ## Scanner
 var nav: Navigation              ## regions, relays, waypoint, compass/map markers
+var contracts: Contracts         ## the open survey contract
+var borer: AutoBorer             ## the deployable Auto-Borer rig
 var environment: Environment
 var sky_material: ShaderMaterial
 var sun: DirectionalLight3D
@@ -114,6 +116,12 @@ func _build_optional_systems() -> void:
 	nav = Navigation.new()
 	nav.name = "Navigation"
 	add_child(nav)
+	contracts = Contracts.new()
+	contracts.name = "Contracts"
+	add_child(contracts)
+	borer = AutoBorer.new()
+	borer.name = "Borer"
+	add_child(borer)
 	if ResourceLoader.exists("res://src/entities/robot_manager.gd"):
 		robots = (load("res://src/entities/robot_manager.gd") as GDScript).new()
 		robots.name = "Robots"
@@ -131,7 +139,7 @@ func _on_planet_loaded() -> void:
 	var stand_dir := (geo.landing_dir + side * 0.06).normalized()
 	var ground := planet.ground_point(stand_dir)
 	player.teleport(ground + stand_dir * 0.15, -side + Vector3(0.3, 0, 0.2))
-	for sys: Node in [props, base, secrets, nav, robots, scanner]:
+	for sys: Node in [props, base, secrets, nav, contracts, borer, robots, scanner]:
 		if sys != null and sys.has_method("setup"):
 			var t0 := Time.get_ticks_usec()
 			sys.call("setup", self)
@@ -277,6 +285,15 @@ func _update_sun(up: Vector3, weight: float) -> void:
 	else:
 		sun.basis = b
 	sky_material.set_shader_parameter("sun_dir", dir)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_ready or player == null or player.controls_locked or not player.input_enabled:
+		return
+	if event.is_action_pressed("borer") and borer != null:
+		borer.toggle()
+	elif event.is_action_pressed("bot_zone") and robots != null:
+		robots.call("toggle_zone")
 
 
 func _process(delta: float) -> void:

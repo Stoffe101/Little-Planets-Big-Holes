@@ -347,6 +347,10 @@ class _MapView:
 				"place":
 					draw_circle(pm, 4.0, UiTheme.GOLD)
 					draw_string(font, pm + Vector2(7, 4), str(m["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UiTheme.GOLD)
+				"bots", "borer":
+					var c2 := UiTheme.GOOD if str(m["kind"]) == "bots" else UiTheme.ORANGE
+					draw_rect(Rect2(pm - Vector2(4, 4), Vector2(8, 8)), c2)
+					draw_string(font, pm + Vector2(7, 4), str(m["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, c2)
 				"waypoint":
 					draw_line(pm + Vector2(-8, -8), pm + Vector2(8, 8), UiTheme.TEXT, 2.0)
 					draw_line(pm + Vector2(-8, 8), pm + Vector2(8, -8), UiTheme.TEXT, 2.0)

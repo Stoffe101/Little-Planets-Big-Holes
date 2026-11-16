@@ -277,6 +277,10 @@ func markers() -> Array[Dictionary]:
 		out.append({"pos": wp, "label": "Waypoint", "kind": "waypoint"})
 	for r in relays:
 		out.append({"pos": r["pos"], "label": r["name"], "kind": "relay" if relay_active(r["id"]) else "relay_off"})
+	if world.robots != null and world.robots.get("zone") != Vector3.ZERO and GameState.gear_level("robot") > 0:
+		out.append({"pos": world.robots.get("zone"), "label": "Bot zone", "kind": "bots"})
+	if world.borer != null and world.borer.deployed:
+		out.append({"pos": world.borer.pos, "label": "Auto-Borer %d m" % int(world.borer.depth), "kind": "borer"})
 	if world.secrets != null:
 		for pl: Dictionary in world.secrets.get("places"):
 			if GameState.has_discovery(pl["id"]):

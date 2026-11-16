@@ -357,7 +357,7 @@ func test_helper_bot_hauls_loot_to_the_sell_station() -> void:
 	var rm: RobotManager = w.robots
 	assert_eq(rm.bots.size(), 1, "one bot spawned")
 	# drop loot ~14 m from the base, and park the player on the far side of the planet
-	var d := (geo.landing_dir + Vector3(0.28, 0, 0.05)).normalized()
+	var d := (geo.landing_dir + Vector3(0.28, 0, 0.05).normalized() * (14.0 / geo.radius)).normalized()
 	var ground := w.planet.ground_point(d)
 	for i in 5:
 		w.pickups.spawn(GameData.mat_index("copper"), 2, ground + d * 0.6 + Vector3(i * 0.3, 0, 0), Vector3.ZERO)

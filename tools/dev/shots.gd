@@ -488,3 +488,25 @@ func scenario_nav() -> void:
 	map.open_screen()
 	await frames(6)
 	await shot("map")
+
+
+## The Auto-Borer at work beside the meadow, with the HUD (contract line, compass).
+func scenario_borer() -> void:
+	var hud := Hud.new()
+	add_child(hud)
+	hud.setup(world)
+	GameState.gear_levels["borer"] = 2
+	var geo := world.planet.geology
+	var site := (geo.landing_dir + Vector3(0.0, 0.0, 0.07)).normalized()
+	await place(site)
+	world.borer.deploy(world.planet.ground_point(site))
+	var t := 0.0
+	while world.borer.depth < 6.0 and t < 30.0:
+		await physics(1)
+		t += 1.0 / 60.0
+	var side := site.cross(Vector3.RIGHT).normalized()
+	await place((site + side * (6.5 / geo.radius)).normalized(), -side)
+	look_at_point(world.borer.pos + site * 1.0)
+	world.player.pitch -= 0.12
+	await physics(20)
+	await shot("borer")

@@ -50,6 +50,8 @@ const ACTIONS := {
 	"tool_prev": [-MOUSE_BUTTON_WHEEL_UP],
 	"journal": [KEY_TAB, KEY_J],
 	"map": [KEY_M],
+	"bot_zone": [KEY_B],
+	"borer": [KEY_G],
 	"pause": [KEY_ESCAPE],
 	"toggle_debug": [KEY_F3],
 	"quick_save": [KEY_F5],

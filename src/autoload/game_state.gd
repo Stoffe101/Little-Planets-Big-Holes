@@ -15,6 +15,7 @@ signal objective_changed()
 signal objective_completed(objective: Dictionary)
 signal purchase_made(kind: String, id: String)
 signal sold(total: int, items: Dictionary)
+signal units_delivered(material_id: String, units: int)   ## any sale, by the player, a bot or a relay
 signal planet_unlocked(id: String)
 
 const SAVE_VERSION := 3
@@ -169,6 +170,8 @@ func sell_all() -> Dictionary:
 	inventory_changed.emit()
 	add_money(total)
 	sold.emit(total, items)
+	for k: String in items:
+		units_delivered.emit(k, int(items[k]["units"]))
 	return {"total": total, "items": items}
 
 
@@ -188,6 +191,7 @@ func sell_units(material_id: String, units: int, from_inventory := true) -> int:
 		inventory_changed.emit()
 	var value := int(round(float(units) * unit_value(material_id)))
 	add_money(value)
+	units_delivered.emit(material_id, units)
 	return value
 
 

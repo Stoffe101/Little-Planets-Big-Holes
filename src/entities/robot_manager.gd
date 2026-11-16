@@ -6,6 +6,10 @@ extends Node3D
 ##
 ## Bots hover (no ground pathfinding), steer along the planet's curve and stay out of rock by
 ## sampling the voxel SDF, so they cannot get permanently stuck on rough terrain.
+##
+## Work zone: bots only collect within ZONE_RADIUS of their zone - the outpost by default, or a
+## spot the player marks with B. They unload at whichever is closer to the zone: the Depot or an
+## online survey relay (relays sell remotely), so a zone out in the regions stays efficient.
 
 enum State { IDLE, SEEK, RETURN, UNLOAD }
 
@@ -13,17 +17,66 @@ const HOVER_HEIGHT := 2.4
 const GRAB_DISTANCE := 0.9
 const SEEK_TIMEOUT := 14.0
 const PLAYER_AVOID := 3.0          ## don't snatch chunks right at the player's feet
+const ZONE_RADIUS := 40.0          ## metres around the work zone that bots sweep
 
 var world: World
 var bots: Array[Dictionary] = []
 var _time := 0.0
 var earned_total := 0
+var zone := Vector3.ZERO           ## work-zone centre; ZERO = around the outpost dock
 
 
 func setup(w: World) -> void:
 	world = w
+	var z: Variant = GameState.flags.get(_zone_key(), null)
+	if z is Array and (z as Array).size() == 3:
+		zone = Vector3(float(z[0]), float(z[1]), float(z[2]))
 	GameState.gear_changed.connect(_on_gear_changed)
 	_sync_count()
+
+
+func _zone_key() -> String:
+	return "botzone/%s" % world.planet_id
+
+
+func zone_center() -> Vector3:
+	return zone if zone != Vector3.ZERO else _dock()
+
+
+## B: mark the bots' work zone at the player's position (or reset it to the outpost when you
+## press it at the outpost or in the current zone).
+func toggle_zone() -> void:
+	if GameState.gear_level("robot") <= 0:
+		world.message.emit("No helper bots yet", "hint")
+		return
+	var p := world.player.global_position
+	if p.distance_to(_dock()) < 20.0 or (zone != Vector3.ZERO and p.distance_to(zone) < 8.0):
+		zone = Vector3.ZERO
+		GameState.flags.erase(_zone_key())
+		world.message.emit("Helper bots work around the outpost again", "hint")
+		return
+	zone = p
+	GameState.flags[_zone_key()] = [p.x, p.y, p.z]
+	var where := "the Depot"
+	var up := _unload_point()
+	if up.distance_to(_hopper()) > 1.0:
+		where = "the nearest relay"
+	world.message.emit("Helper bots will work within %d m of here and unload at %s" % [int(ZONE_RADIUS), where], "hint")
+	world.fx.shock_ring(p + world.player.up * 0.2, world.player.up, ZONE_RADIUS * 0.15, Pal.JADE, 0.6)
+
+
+## Where loaded bots go: the Depot hopper or the online relay closest to the work zone.
+func _unload_point() -> Vector3:
+	var c := zone_center()
+	var best := _hopper()
+	var best_d := c.distance_to(best)
+	if world.nav != null:
+		for r in world.nav.active_relays():
+			var rp: Vector3 = (r["pos"] as Vector3) + (r["up"] as Vector3) * 2.6
+			if c.distance_to(rp) < best_d:
+				best_d = c.distance_to(rp)
+				best = rp
+	return best
 
 
 func _on_gear_changed(id: String) -> void:
@@ -151,7 +204,7 @@ func _tick(b: Dictionary, delta: float) -> void:
 					b["state"] = State.RETURN
 				else:
 					var avoid := world.player.global_position if world.player != null else Vector3.ZERO
-					var it: Dictionary = world.pickups.claim_nearest(pos, 400.0, avoid, PLAYER_AVOID)
+					var it: Dictionary = world.pickups.claim_nearest(zone_center(), ZONE_RADIUS, avoid, PLAYER_AVOID)
 					if not it.is_empty():
 						b["target"] = it
 						b["state"] = State.SEEK
@@ -190,14 +243,14 @@ func _tick(b: Dictionary, delta: float) -> void:
 					b["state"] = State.IDLE
 					b["idle"] = 1.0
 		State.RETURN:
-			goal = _hopper()
+			goal = _unload_point()
 			var lateral2 := (goal - pos) - planet.up_at(pos) * (goal - pos).dot(planet.up_at(pos))
 			hover = HOVER_HEIGHT if lateral2.length() > 2.0 else 0.6
 			if pos.distance_to(goal) < 1.6:
 				b["state"] = State.UNLOAD
 				b["timer"] = 0.5
 		State.UNLOAD:
-			goal = _hopper()
+			goal = _unload_point()
 			hover = 0.6
 			b["timer"] = float(b["timer"]) - delta
 			if float(b["timer"]) <= 0.0:
@@ -208,8 +261,11 @@ func _tick(b: Dictionary, delta: float) -> void:
 				if total > 0:
 					earned_total += total
 					GameState.add_stat("robot_earned", total)
-					if world.base != null:
-						world.base.call("feed_hopper", total, 0.0)
+					if goal.distance_to(_hopper()) < 1.0:
+						if world.base != null:
+							world.base.call("feed_hopper", total, 0.0)
+					elif DisplayServer.get_name() != "headless":
+						world.fx.floating_text(goal + planet.up_at(goal) * 0.8, "+%s" % GameData.format_money(total), UiTheme.GOLD, 1.0)
 				b["cargo"] = {}
 				b["load"] = 0
 				(b["node"] as Node3D).get_node("Cargo").visible = false

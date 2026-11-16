@@ -14,7 +14,7 @@
      "unlock_text": "Find the other half to chart a course to a new planet."},
     {"id": "fossil_drill", "planet": "pipseed", "kind": "artifact", "name": "Fossilised Drill Bit", "reward": 500,
      "desc": "An ancient spiral bit made of something harder than diamond. Somebody dug here before you.",
-     "unlock_text": "Fracture Bit attachment unlocked for drills!"},
+     "unlock_text": "Fracture Bit for drills and the Auto-Borer rig unlocked!"},
     {"id": "giant_seed", "planet": "pipseed", "kind": "artifact", "name": "The Giant Seed", "reward": 600,
      "desc": "A fossil seed the size of a beach ball. Pipseed, it turns out, was planted."},
     {"id": "old_helmet", "planet": "pipseed", "kind": "artifact", "name": "Dented Explorer Helmet", "reward": 150,

@@ -43,6 +43,11 @@
      "desc": "Helper bots fly faster.",
      "requires": {"gear": {"robot": 1}},
      "values": [7.0, 10.0, 14.0], "costs": [1800, 8000],
-     "level_names": ["Putter", "Zippy", "Zoomy"]}
+     "level_names": ["Putter", "Zippy", "Zoomy"]},
+    {"id": "borer", "name": "Auto-Borer", "icon": "drill", "stat": "borer_depth", "unit": " m",
+     "desc": "A tripod rig that sinks a shaft straight down on its own and lifts the spoil to the surface. Press G to set it up or pack it away. Works while you are within about 60 m.",
+     "requires": {"discovery": "fossil_drill"},
+     "values": [0, 18, 36, 70], "costs": [5000, 18000, 60000],
+     "level_names": ["None", "Auto-Borer (cuts stone)", "Deep Borer (cuts hardrock)", "Core Borer (cuts corestone)"]}
   ]
 }

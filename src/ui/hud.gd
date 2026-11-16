@@ -54,6 +54,9 @@ var _dim_tween: Tween
 var _dimmed := false
 var _queued_banner: Array = []   ## banner raised while a menu hid the HUD
 var _compass: CompassStrip
+var _contract_text: Label
+var _contract_progress: Label
+var _contract_reward: Label
 var _ground_wait := 0.0
 
 
@@ -80,6 +83,9 @@ func setup(w: World) -> void:
 	GameState.purchase_made.connect(_on_purchase)
 	world.message.connect(_on_message)
 	world.discovery_popup.connect(show_discovery)
+	if world.contracts != null:
+		world.contracts.contract_changed.connect(func(_c: Dictionary) -> void: _refresh_contract())
+		_refresh_contract()
 	if world.nav != null:
 		world.nav.region_changed.connect(func(r: Dictionary) -> void:
 			show_banner(str(r.get("name", "")), UiTheme.INFO, 2.4, str((r.get("cfg", {}) as Dictionary).get("desc", ""))))
@@ -191,6 +197,20 @@ func _build() -> void:
 	obh.add_child(_obj_bar)
 	_obj_progress = UiTheme.label("", 14, UiTheme.DIM)
 	obh.add_child(_obj_progress)
+	# the open survey contract, under the objective
+	ov.add_child(UiTheme.spacer(false, Vector2(0, 4)))
+	var ch := _hbox(8)
+	ov.add_child(ch)
+	ch.add_child(UiTheme.caps("Contract", 13, UiTheme.INFO))
+	ch.add_child(UiTheme.spacer())
+	_contract_reward = UiTheme.label("", 15, UiTheme.GOLD)
+	ch.add_child(_contract_reward)
+	_contract_text = UiTheme.label("", 16, UiTheme.TEXT)
+	_contract_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_contract_text.custom_minimum_size = Vector2(316, 0)
+	ov.add_child(_contract_text)
+	_contract_progress = UiTheme.label("", 13, UiTheme.DIM)
+	ov.add_child(_contract_progress)
 
 	# ---- right: pickup feed
 	var rc := _margin(root, Control.PRESET_CENTER_RIGHT, Vector2(24, 0))
@@ -427,6 +447,26 @@ func _on_purchase(kind: String, id: String) -> void:
 				var names: Array = g.get("level_names", [])
 				var lvl := GameState.gear_level(id)
 				show_banner("Gear upgraded", UiTheme.INFO, 2.0, str(names[lvl]) if lvl < names.size() else str(g["name"]))
+
+
+func _refresh_contract() -> void:
+	if world == null or world.contracts == null or _contract_text == null:
+		return
+	var c := world.contracts.current()
+	_contract_text.text = str(c.get("text", ""))
+	_contract_reward.text = "+%s" % GameData.format_money(int(c.get("reward", 0))) if not c.is_empty() else ""
+	var amount := int(c.get("amount", 1))
+	var prog := int(c.get("progress", 0))
+	var where := str(c.get("region", ""))
+	match str(c.get("kind", "")):
+		"deliver":
+			_contract_progress.text = "%d / %d delivered%s" % [prog, amount, ("  -  rich in %s" % where) if where != "" else ""]
+		"depth":
+			_contract_progress.text = "deepest so far %d m" % prog
+		"relay":
+			_contract_progress.text = where
+		_:
+			_contract_progress.text = ""
 
 
 func show_banner(text: String, color: Color, hold := 1.8, sub := "") -> void:

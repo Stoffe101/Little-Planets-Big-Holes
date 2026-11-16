@@ -1,0 +1,7 @@
+{
+  "_comment": "Survey contracts: one is always open per planet, generated in sequence from these rules (see src/game/contracts.gd). Rewards are credits only - no extra currency. 'step' grows with each completed contract on that planet.",
+  "cycle": ["relay", "deliver", "depth", "deliver", "relay", "depth"],
+  "relay": {"reward": 220, "reward_step": 140},
+  "deliver": {"units": [12, 18, 26, 36, 50, 70], "bonus_mult": 0.6, "min_reward": 120},
+  "depth": {"depth": [6, 10, 15, 22, 30, 40, 55], "reward_per_m": 18, "reward_step": 60}
+}
