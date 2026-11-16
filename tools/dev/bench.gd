@@ -27,6 +27,27 @@ func _run() -> void:
 	print("data blocks: %d, mesh blocks: %d, static memory: %.0f MB, threads: %d" % [w.planet.terrain.debug_get_data_block_count(), w.planet.terrain.debug_get_mesh_block_count(), OS.get_static_memory_usage() / 1048576.0, VoxelEngine.get_thread_count()])
 	print("props: %s, surface formations: %s, cave formations: %s" % [str(w.props.get("prop_count")), str(w.props.get("formation_count")), str(w.secrets.get("formation_count"))])
 	var geo := w.planet.geology
+	# how far from the player the ground is editable / collidable (16 directions along the surface)
+	var me := w.player.global_position.normalized()
+	var ax := me.cross(Vector3(0.3, 0.2, 0.9)).normalized()
+	var edit_r := PackedFloat32Array()
+	var coll_r := PackedFloat32Array()
+	for k in 16:
+		var h := ax.rotated(me, TAU * float(k) / 16.0)
+		var e := 0.0
+		var c := 0.0
+		for m in range(2, 160, 2):
+			var dd := (me + h * (float(m) / geo.radius)).normalized()
+			var gp := dd * (geo.surface_radius(dd) - 0.5)
+			if e == float(m - 2) and w.planet.is_loaded_at(gp):
+				e = float(m)
+			if c == float(m - 2) and w.planet.is_area_ready(gp, 1.0):
+				c = float(m)
+		edit_r.append(e)
+		coll_r.append(c)
+	var es := Array(edit_r); es.sort()
+	var cs := Array(coll_r); cs.sort()
+	print("editable ground around the player: %.0f-%.0f m (min-max over 16 directions); collidable: %.0f-%.0f m" % [es[0], es[-1], cs[0], cs[-1]])
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
 	var up := geo.landing_dir

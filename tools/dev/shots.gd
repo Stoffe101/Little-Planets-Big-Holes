@@ -488,6 +488,20 @@ func scenario_nav() -> void:
 	map.open_screen()
 	await frames(6)
 	await shot("map")
+	map.close_screen()
+	# relay transit: the card in the jump frame, and the arrival once it has faded
+	var dest: Dictionary = nav.relays[1]
+	GameState.set_flag("relay/%s/%s" % [world.planet.geology.id, dest["id"]])
+	world.player.teleport(world.planet.geology.spawn_position() + world.planet.geology.landing_dir * 1.5, Vector3(1, 0, 0.3))
+	await physics(5)
+	nav.travel(str(dest["id"]))
+	await frames(2)
+	await shot("transit")
+	var t1 := Time.get_ticks_msec()
+	while world.transit.active and Time.get_ticks_msec() - t1 < 15000:
+		await frames(1)
+	await physics(20)
+	await shot("arrival")
 
 
 ## The Auto-Borer at work beside the meadow, with the HUD (contract line, compass).
@@ -501,7 +515,7 @@ func scenario_borer() -> void:
 	await place(site)
 	world.borer.deploy(world.planet.ground_point(site))
 	var t := 0.0
-	while world.borer.depth < 6.0 and t < 30.0:
+	while world.borer.depth < 8.5 and t < 40.0:
 		await physics(1)
 		t += 1.0 / 60.0
 	var side := site.cross(Vector3.RIGHT).normalized()

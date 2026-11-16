@@ -47,7 +47,7 @@ var _rng := RandomNumberGenerator.new()
 var _focus := Vector3.ZERO
 var enabled := true
 var _relay_dirs: Array[Vector3] = []
-const RELAY_CLEARANCE := 4.0
+const RELAY_CLEARANCE := 8.5             ## keeps the mast and the relay-travel arrival spot clear
 
 
 func setup(w: World) -> void:
@@ -409,6 +409,31 @@ func _remove_item(it: Dictionary) -> void:
 
 # ------------------------------------------------------------------ meshes
 
+## Tree silhouettes 4 and 5: a short tree with a round, clustered crown, and a tall spire of
+## stacked, shrinking canopy tiers. Same faceted canopy language as the others.
+func _odd_tree(v: int, col: Color) -> ArrayMesh:
+	var kit := MeshKit.new().matte()
+	if v == 4:
+		var lean := Vector3(-0.12, 0, 0.16)
+		kit.tube(Vector3.ZERO, lean + Vector3(0, 1.5, 0), 0.15, 0.1, Pal.BARK, 7)
+		kit.tube(lean + Vector3(0, 1.2, 0), lean + Vector3(-0.45, 1.75, 0.2), 0.06, 0.04, Pal.BARK, 5)
+		kit.sway = 0.01
+		var c := lean + Vector3(0, 2.05, 0)
+		kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.78, 1.0)), c), 0.95, col.darkened(0.06), 71, 0.18, false)
+		kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.75, 1.0)), c + Vector3(0.62, -0.18, 0.2)), 0.62, col, 73, 0.18, false)
+		kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.75, 1.0)), c + Vector3(-0.55, -0.1, -0.3)), 0.58, col.lightened(0.06), 79, 0.18, false)
+		kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.8, 1.0)), c + Vector3(0.05, 0.55, 0.05)), 0.55, col.lightened(0.1), 83, 0.18, false)
+	else:
+		kit.tube(Vector3.ZERO, Vector3(0.05, 4.6, 0.03), 0.12, 0.05, Pal.BARK, 7)
+		kit.sway = 0.01
+		for k in 4:
+			var y := 1.9 + float(k) * 0.85
+			var r := 1.0 - float(k) * 0.2
+			kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.28, 1.0)), Vector3(0.05 * float(k % 2), y, 0.0)), r, col.lightened(0.04 * float(k)), 89 + k, 0.13, false)
+	kit.sway = 0.0
+	return kit.commit()
+
+
 func _foliage_color(i: int) -> Color:
 	return _foliage[i % _foliage.size()]
 
@@ -461,11 +486,15 @@ func _build_meshes() -> void:
 			kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.7, 1.0)), Vector3(-0.28, 0.18, -0.16)), 0.25, col.darkened(0.05), 59 + v, 0.16, false)
 		shrubs.append(kit.commit())
 	_meshes["shrub"] = shrubs
-	# slender trees with flat, layered canopies
+	# trees: four slender ones with flat, layered canopies, plus two other silhouettes so a grove
+	# does not read as one tree copied (a low round-crowned one and a tall tiered spire)
 	var canopy: Array = _cfg.get("tree_canopy", ["#5f8a6e", "#74935c"])
 	var trees: Array = []
 	if float(_cfg.get("tree", 0.0)) > 0.0:
-		for v in 4:
+		for v in 6:
+			if v >= 4:
+				trees.append(_odd_tree(v, Color(str(canopy[v % canopy.size()]))))
+				continue
 			var kit := MeshKit.new().matte()
 			var col := Color(str(canopy[v % canopy.size()]))
 			var tall := v >= 2

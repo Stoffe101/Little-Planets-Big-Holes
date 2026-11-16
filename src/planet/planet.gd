@@ -241,9 +241,24 @@ func is_loaded_at(p: Vector3) -> bool:
 
 
 ## Signed distance (in voxels, clamped) at a world position. < 0 means solid ground.
-## Where the terrain is not loaded at full resolution this is the distance to the ORIGINAL
-## surface (no caves, no edits) - good enough for steering and placement far away.
+## Loaded terrain is sampled trilinearly (the same surface the mesh and its collider follow;
+## the nearest-voxel value used before could be off by most of a voxel, 0.5 m). Where the
+## terrain is not loaded at full resolution this is the distance to the ORIGINAL surface (no
+## caves, no edits) - good enough for steering and placement far away.
 func sdf_at(p: Vector3) -> float:
+	if is_loaded_at(p):
+		return voxel_tool.get_voxel_f_interpolated(p * geology.inv_voxel)
+	var r := p.length()
+	if r < 0.001:
+		return -100.0
+	return clampf((r - geology.surface_radius(p / r)) * geology.inv_voxel, -100.0, 100.0)
+
+
+## The stored voxel at the cell containing `p` (its lower corner, no interpolation). Only the dig
+## survey uses this: every yield in the game's balance was tuned against these counts, and the
+## interpolated surface (`sdf_at`) reports noticeably fewer solid samples in shallow bites
+## (measured: -30 % early income in tools/dev/econ.tscn). Re-tune before switching it.
+func sdf_at_voxel(p: Vector3) -> float:
 	if is_loaded_at(p):
 		return voxel_tool.get_voxel_f((p * geology.inv_voxel).floor())
 	var r := p.length()

@@ -28,8 +28,12 @@ var _spin := 0.0
 var _rig: Node3D
 var _head: Node3D
 var _string: Node3D
+var _crown: Node3D               ## turning crown at the top (shows the rig is working)
+var _heap: Node3D                ## spoil heap beside the wellhead, grows with the shaft
+var _heap_steps := -1
 var _lamp_mat: ShaderMaterial
 var _lamp_col := Color(0, 0, 0, 0)
+var _lamp_index := 1
 
 
 func setup(w: World) -> void:
@@ -129,6 +133,8 @@ func _process(delta: float) -> void:
 	_spin += delta * (9.0 if state == "running" else 0.0)
 	if _head != null:
 		_head.rotation.y = _spin
+	if _crown != null:
+		_crown.rotation.y = _spin * 0.5
 	if state in ["stalled", "done"]:
 		return
 	# the rig only works inside the streamed, editable area
@@ -189,19 +195,30 @@ func _build_rig() -> void:
 	var x := up.cross(Vector3(0.3, 0.1, 0.9)).normalized()
 	_rig.global_transform = Transform3D(Basis(x, up, x.cross(up).normalized()), pos)
 	var kit := MeshKit.new()
-	# three splayed legs on round feet
+	# three splayed legs on round feet, braced by a copper ring frame half way up
+	var feet: Array[Vector3] = []
 	for k in 3:
 		var a := TAU * float(k) / 3.0
 		var foot := Vector3(cos(a), 0.0, sin(a)) * 1.55
+		feet.append(foot)
 		kit.cast()
-		kit.tube(foot, Vector3(0, 2.6, 0), 0.06, 0.045, Pal.BRONZE, 8)
+		kit.tube(foot, Vector3(0, 2.6, 0), 0.085, 0.06, Pal.BRONZE, 8)
 		kit.rubber()
-		kit.disc(Transform3D(Basis.IDENTITY, foot - Vector3(0, 0.05, 0)), 0.2, 0.0, 0.08, Pal.BRONZE, 10)
+		kit.disc(Transform3D(Basis.IDENTITY, foot - Vector3(0, 0.05, 0)), 0.24, 0.0, 0.1, Pal.RUBBER, 12)
 		kit.bare()
 		kit.tube(foot * 0.55 + Vector3(0, 1.2, 0), foot * 0.2 + Vector3(0, 2.2, 0), 0.03, 0.03, Pal.COPPER, 6)
+	kit.bare()
+	for k in 3:
+		var p0 := feet[k] * (1.0 - 1.1 / 2.6) + Vector3(0, 1.1, 0)
+		var p1 := feet[(k + 1) % 3] * (1.0 - 1.1 / 2.6) + Vector3(0, 1.1, 0)
+		kit.tube(p0, p1, 0.035, 0.035, Pal.COPPER, 6)
+	# wellhead: an enamel drum around the shaft with a bronze lip, so the hole reads as a machine
+	kit.paint()
+	kit.turned(Vector3(0, -0.05, 0), Vector3(0, 0.38, 0), PackedVector2Array([Vector2(0.62, 0.0), Vector2(0.62, 0.3), Vector2(0.52, 0.43)]), Pal.ENAMEL, 18)
+	kit.cast()
+	kit.torus(Transform3D(Basis.IDENTITY, Vector3(0, 0.3, 0)), 0.63, 0.045, Pal.BRONZE, 18, 6)
 	# crown block and enamel winch drum
 	kit.cast()
-	kit.turned(Vector3(0, 2.55, 0), Vector3(0, 2.8, 0), PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.3, 0.25)]), Pal.BRONZE, 14)
 	kit.paint()
 	kit.turned(Vector3(-0.45, 2.95, 0), Vector3(0.45, 2.95, 0), PackedVector2Array([Vector2(0.28, 0.0), Vector2(0.28, 0.9)]), Pal.ENAMEL, 16)
 	kit.cast()
@@ -212,14 +229,26 @@ func _build_rig() -> void:
 	# motor housing with a round vent
 	kit.paint()
 	kit.turned(Vector3(0, 2.8, -0.45), Vector3(0, 2.8, -0.95), PackedVector2Array([Vector2(0.22, 0.0), Vector2(0.22, 0.45), Vector2(0.16, 0.5)]), Pal.ENAMEL_SHADE, 14)
-	# collar where the string enters the ground
-	kit.cast()
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 0.02, 0)), 0.55, 0.2, 0.1, Pal.BRONZE, 16)
 	_rig.add_child(kit.instance())
+	# turning crown: a bronze hub with cream lugs, visibly spinning while the rig bores
+	_crown = Node3D.new()
+	_crown.position = Vector3(0, 2.55, 0)
+	_rig.add_child(_crown)
+	var ck := MeshKit.new().cast()
+	ck.turned(Vector3.ZERO, Vector3(0, 0.25, 0), PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.3, 0.25)]), Pal.BRONZE, 14)
+	ck.gloss()
+	for k in 4:
+		var a := TAU * float(k) / 4.0
+		ck.block(Vector3(cos(a), 0, sin(a)) * 0.31 + Vector3(0, 0.125, 0), Vector3(0.08, 0.16, 0.08), Pal.CREAM, 0.01)
+	_crown.add_child(ck.instance())
+	_heap = Node3D.new()
+	_rig.add_child(_heap)
+	_heap_steps = -1
 	var lamp := MeshKit.new().surf(0.3)
 	lamp.set_emission(1.0)
 	lamp.sphere(Vector3(0, 3.3, 0), 0.08, Color.WHITE, Vector3.ONE, 8, 5)
 	_lamp_mat = MeshKit.new_material(1.6)
+	_lamp_index = _rig.get_child_count()
 	_rig.add_child(lamp.instance(_lamp_mat, false))
 	# drill string (scaled to the depth) and the cutting head
 	_string = Node3D.new()
@@ -258,9 +287,32 @@ func _update_visual() -> void:
 	var string_len := depth + 2.6 - 0.3
 	_string.scale = Vector3(1, maxf(string_len, 0.1), 1)
 	_head.position = Vector3(0, -depth - 0.3 + 0.8, 0)
+	_update_heap()
 	var col: Color = {"running": Pal.ION, "paused": Pal.CREAM, "stalled": Pal.RED, "done": Pal.GREEN}.get(state, Pal.CREAM)
 	_lamp_mat.set_shader_parameter("emission_scale", 1.8 if state == "running" else 0.8)
 	_lamp_tint(col)
+
+
+## Spoil heap: a crescent of faceted spoil beside the wellhead that grows every 2 m of shaft,
+## darker as the borer gets into rock. Deterministic per step, rebuilt only when it grows.
+func _update_heap() -> void:
+	var steps := mini(int(depth / 2.0), 10)
+	if steps == _heap_steps or _heap == null:
+		return
+	_heap_steps = steps
+	for c in _heap.get_children():
+		c.queue_free()
+	if steps <= 0:
+		return
+	var hk := MeshKit.new()
+	for i in steps:
+		# outside the legs (feet at 1.55 m), centred between the first two of them
+		var a := deg_to_rad(60.0) + (float(i) - float(steps - 1) * 0.5) * 0.2
+		var r := 2.2 + 0.3 * float(i % 3)
+		var size := 0.28 + 0.05 * float(mini(i, 6))
+		var col := Pal.RUST if i < 3 else (Pal.ROCK_WARM if i < 6 else Pal.ROCK_DARK)
+		hk.rock(Transform3D(Basis.from_scale(Vector3(1.3, 0.6, 1.1)), Vector3(cos(a) * r, size * 0.3, sin(a) * r)), size, col, 401 + i, 0.24)
+	_heap.add_child(hk.instance())
 
 
 func _lamp_tint(col: Color) -> void:
@@ -268,7 +320,7 @@ func _lamp_tint(col: Color) -> void:
 	if col.is_equal_approx(_lamp_col):
 		return
 	_lamp_col = col
-	var lamp_node := _rig.get_child(1) as MeshInstance3D
+	var lamp_node := _rig.get_child(_lamp_index) as MeshInstance3D
 	var lamp := MeshKit.new().surf(0.3)
 	lamp.set_emission(1.0)
 	lamp.sphere(Vector3(0, 3.3, 0), 0.08, col, Vector3.ONE, 8, 5)

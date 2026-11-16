@@ -143,11 +143,16 @@ func _on_planet_loaded() -> void:
 	var stand_dir := (geo.landing_dir + side * 0.06).normalized()
 	var ground := planet.ground_point(stand_dir)
 	player.teleport(ground + stand_dir * 0.15, -side + Vector3(0.3, 0, 0.2))
+	# One system per frame: together they take ~1 s of main-thread work (props, outpost and relay
+	# models), which used to be a single frozen frame at the end of the loading screen.
 	for sys: Node in [props, base, secrets, nav, contracts, borer, robots, scanner]:
 		if sys != null and sys.has_method("setup"):
 			var t0 := Time.get_ticks_usec()
 			sys.call("setup", self)
 			setup_ms[sys.name] = (Time.get_ticks_usec() - t0) / 1000.0
+			await get_tree().process_frame
+			if not is_inside_tree():
+				return
 	if GameState.has_discovery(str((planet.config.get("core", {}) as Dictionary).get("discovery", ""))):
 		bloom = 1.0
 	if base != null and base.has_method("arrival"):

@@ -5,7 +5,10 @@ extends Node
 ## a simple policy. Prints when each purchase happens, income per minute, how often the
 ## backpack has to be emptied and how long each tool tier is in use.
 ##
-##   godot --headless --path . res://tools/dev/econ.tscn -- [minutes] [policy] [planet]
+##   godot --headless --path . res://tools/dev/econ.tscn -- [minutes] [policy] [planet] [after=<min>]
+##   after=N (for a planet other than Pipseed): play Pipseed for N minutes with the same policy
+##           first, then fly there with that progress and report only the second planet. The
+##           unlock itself (two Star Chart fragments) is not modelled.
 ##   policy: "balanced" (default) | "rush" (tools and backpack only) |
 ##           "explorer" (balanced purchases, but digs in the richest region its tools can work,
 ##           bringing that region's relay online and selling via relay travel)
@@ -74,6 +77,33 @@ func _ready() -> void:
 	_rng.seed = 12345
 	SaveSystem.save_dir = "user://dev_econ"
 	GameState.reset()
+	var after := 0.0
+	for a in args:
+		if a.begins_with("after="):
+			after = float(a.substr(6))
+	if after > 0.0 and pid != "pipseed":
+		GameState.current_planet = "pipseed"
+		world = World.new()
+		add_child(world)
+		world.start("pipseed", false)
+		await world.ready_to_play
+		world.player.input_enabled = false
+		_center = world.planet.geology.landing_dir
+		await _run(after * 60.0)
+		var owned: Array[String] = []
+		for fam in ["shovel", "drill", "vacuum", "cannon"]:
+			if GameState.owns_family(fam):
+				owned.append("%s T%d" % [fam, GameState.tier_of(fam)])
+		print("== arrived on %s after %.0f min of Pipseed (%s): %d cr in hand, tools %s, backpack L%d" % [pid, after, policy,
+			GameState.money, ", ".join(owned), GameState.gear_level("backpack")])
+		_sell_all_for_transfer()
+		world.shutdown()
+		world.queue_free()
+		for i in 4:
+			await get_tree().process_frame
+		t = 0.0
+		log_lines.clear(); _sales.clear(); _income.clear(); _tier_time.clear(); _region_log.clear(); _ground.clear()
+		_digs = 0; _wasted = 0; _blocked_total = 0; _site = 0; _region = ""; _travel_time = 0.0; _depth = 0.0
 	GameState.current_planet = pid
 	world = World.new()
 	add_child(world)
@@ -85,6 +115,11 @@ func _ready() -> void:
 	await _run(minutes * 60.0)
 	_report(minutes)
 	get_tree().quit()
+
+
+## Before flying on, what is in the backpack is sold (the player would empty it at the Depot).
+func _sell_all_for_transfer() -> void:
+	GameState.sell_all()
 
 
 func _dig_tool() -> String:

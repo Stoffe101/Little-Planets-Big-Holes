@@ -16,6 +16,9 @@ tools/check.sh                                                    # import + com
 "$GODOT" --headless --path . res://tests/run_tests.tscn -- world  # filter suites by filename substring
 tools/shots.sh <scenario> <prefix> [planet] [WxH] [godot args]    # render screenshots with the real renderer, off-screen
 tools/perf.sh [WxH] [mobile|forward_plus] [planet]                # GPU frame-time benchmark, off-screen
+tools/profile.sh [WxH] [planet] [only=a,b] [off=x,y]               # Godot's own profiler (scripts/servers/render passes), off-screen
+python tools/perf_compare.py --before <old checkout> --res 3440x1440 # before/after, same perf code, interleaved runs
+"$GODOT" [--headless] --path . res://tools/dev/streamprobe.tscn -- pipseed plain|run 300   # streaming frame by frame
 "$GODOT" --headless --path . res://tools/dev/econ.tscn -- 60      # economy / pacing simulation
 "$GODOT" --headless --path . res://tools/dev/bench.tscn           # CPU terrain benchmark
 "$GODOT" --headless --path . res://tools/dev/sheet.tscn -- out.jpg <cols> <tile_w> img...   # contact sheet
@@ -95,6 +98,24 @@ real app flow must redirect `SaveSystem.save_dir` first (`start_game(true)` dele
     panels, dark frames, slatted vents, orange stripes, boxy kiosks, a white rocket).
 
 ## Gotchas already paid for
+
+* **Benchmarks share the GPU with whatever the user is running.** A game on the visible
+  desktop (seen: 92–96 % GPU load) caps the off-screen benchmark at ~120–140 FPS for *any*
+  build, v0.2 included. Check `nvidia-smi` first, compare builds with `perf_compare.py`
+  (interleaved, same code), and lead with renderer CPU ms, draws, profiler script ms and
+  streaming spike frames, not FPS. Pass 3's "5–8× regression" was mostly this.
+* `terrain.cache_generated_blocks` must stay on: without it every edit or voxel read in an
+  untouched block regenerates it from the generator graph on the main thread (11 ms blasts,
+  multi-ms `sdf_at` stalls).
+* Mesh blocks are 32 voxels: a quarter of the instances/colliders of 16, and a 300 m jump
+  unloads ~600 blocks (35–40 ms) instead of ~3,000 (100–140 ms). Data blocks stay 16 (saves
+  unchanged). Anything indexing mesh blocks uses `planet.mesh_block_size`.
+* `Planet.sdf_at` is trilinear (`get_voxel_f_interpolated`); `sdf_at_voxel` is the stored
+  lower-corner voxel and only the dig **survey** uses it - all yields are balanced on it
+  (interpolated sampling cut early income ~30 % in the simulator).
+* Long jumps (relay travel, recall) go through `TransitOverlay`: the view is covered in the
+  jump frame, the player is held (`transit_hold`) until the ground is collidable, then snapped
+  onto the real ground. Do not teleport the player across the planet without it in gameplay.
 
 * Voxel Tools mesh blocks are separate instances → terrain shader uses `MODEL_MATRIX * VERTEX`.
 * `VoxelLodTerrain` + Clipbox: a LOD0 block's collider only switches on after every coarser

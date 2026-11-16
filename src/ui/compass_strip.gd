@@ -43,6 +43,7 @@ func _draw() -> void:
 			draw_string(font, Vector2(x - w * 0.5, 30), letter, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(UiTheme.ACCENT if k == 0 else UiTheme.TEXT, fade))
 		else:
 			draw_rect(Rect2(x - 0.5, 8, 1, 6 if k % 3 == 0 else 3), Color(UiTheme.TEXT, 0.5 * fade))
+	var labels: Array[Vector2] = []    # x-extents of distance labels already drawn (no overlaps)
 	for m: Dictionary in nav.markers():
 		var kind := str(m["kind"])
 		if kind == "relay_off":
@@ -71,4 +72,11 @@ func _draw() -> void:
 		if pinned or absf(rel2) < HALF_FOV * 0.5:
 			var label := "%d m" % int(round(dist)) if dist < 1000.0 else "%.1f km" % (dist / 1000.0)
 			var w2 := small.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-			draw_string(small, Vector2(x2 - w2 * 0.5, 44), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(col, 0.9))
+			var span := Vector2(x2 - w2 * 0.5 - 4.0, x2 + w2 * 0.5 + 4.0)
+			var free := true
+			for o in labels:
+				if span.x < o.y and span.y > o.x:
+					free = false
+			if free:
+				labels.append(span)
+				draw_string(small, Vector2(x2 - w2 * 0.5, 44), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(col, 0.9))

@@ -50,7 +50,7 @@ func survey(center: Vector3, radius: float, power: int) -> Dictionary:
 	var hard_counts: Dictionary = {}
 	for s in _samples:
 		var p := center + s * radius
-		if planet.sdf_at(p) >= 0.0:
+		if planet.sdf_at_voxel(p) >= 0.0:     # yields are balanced against stored-voxel counts
 			continue
 		var m := geo.material_at(p)
 		solid += 1

@@ -74,6 +74,20 @@ func holding() -> bool:
 	return _phase == 2
 
 
+## Puts the player on the real ground at the destination (the jump target is computed from the
+## analytic surface, which can be off by ~0.5 m or dug away) and gives control back.
+func _release() -> void:
+	var p := world.player
+	if p == null:
+		return
+	if world.planet.is_area_ready(_target, 3.0):
+		var dir := _target.normalized()
+		var g := world.planet.ground_point(dir)
+		if g.length() > world.planet.geology.core_radius + 1.0:
+			p.teleport(g + dir * 0.05, -p.global_basis.z)
+	p.transit_hold = false
+
+
 func _settled() -> bool:
 	if not world.planet.is_area_ready(_target, 4.0):
 		return false
@@ -92,8 +106,7 @@ func _process(delta: float) -> void:
 			if (hold_seconds >= MIN_HOLD and _settled()) or hold_seconds >= MAX_HOLD:
 				_phase = 3
 				_t = 0.0
-				if world.player != null:
-					world.player.transit_hold = false
+				_release()
 		3:
 			_rect.modulate.a = 1.0 - clampf(_t / FADE_OUT, 0.0, 1.0)
 			if _t >= FADE_OUT:

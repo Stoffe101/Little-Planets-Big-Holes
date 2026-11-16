@@ -18,6 +18,7 @@ signal travelled(to: String)
 
 const RELAY_ACTIVATE_DISTANCE := 7.0
 const RELAY_USE_DISTANCE := 9.0
+const RELAY_ARRIVE_DISTANCE := 6.0     ## arrive this far from the mast (outside its legs, inside use range)
 const OUTPOST_USE_DISTANCE := 16.0
 const NORTH := Vector3(0, 0, -1)
 
@@ -142,8 +143,10 @@ func travel(to: String) -> bool:
 			return false
 		var up: Vector3 = rel["up"]
 		var side := up.cross(Vector3(0.3, 0.1, 0.9)).normalized()
-		target = (rel["pos"] as Vector3) + side * 3.2 + up * 1.2
-		look = -side
+		# beside the mast, looking out over the region; TransitOverlay snaps this onto the
+		# real (streamed, possibly dug) ground before the view returns
+		target = (rel["pos"] as Vector3) + side * RELAY_ARRIVE_DISTANCE + up * 1.2
+		look = side
 		dest_name = str(rel["name"])
 	world.fx.shock_ring(world.player.global_position + world.player.up * 0.2, world.player.up, 2.2, Pal.ION, 0.5)
 	Audio.play("jet_puff", -2.0, 0.6)

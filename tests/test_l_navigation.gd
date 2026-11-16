@@ -111,15 +111,60 @@ func test_relay_transit_covers_the_jump_and_never_drops_the_player() -> void:
 	while w.transit.holding() and frames < 1200:
 		await get_tree().physics_frame
 		frames += 1
-		drift = maxf(drift, w.player.global_position.distance_to(arrived))
+		if w.transit.holding():   # on release the player is snapped onto the real ground (below)
+			drift = maxf(drift, w.player.global_position.distance_to(arrived))
 	w.player.forced_move = Vector2.INF
 	assert_false(w.transit.holding(), "the transit ends by itself (%d physics frames)" % frames)
 	assert_lt(w.transit.hold_seconds, TransitOverlay.MAX_HOLD + 0.5, "within the maximum hold")
 	assert_true(w.planet.is_area_ready(w.player.global_position, 3.0), "the ground is collidable when the view returns")
 	assert_lt(drift, 0.05, "held still while the destination streamed in: no falling, no walking (moved %.3f m)" % drift)
+	var snapped := w.player.global_position.length() - w.planet.ground_point(w.player.global_position.normalized()).length()
+	assert_gt(snapped, -0.05, "released onto the ground, not into it (%.2f m)" % snapped)
+	assert_lt(snapped, 0.3, "released onto the ground, not above it (%.2f m)" % snapped)
 	var landed := await wait_until(func() -> bool: return not w.transit.active and w.player.is_on_floor(), 600)
 	assert_true(landed, "standing on the ground after the fade")
 	assert_false(w.player.transit_hold, "control is back")
+
+
+## Every relay on both planets: arriving by relay travel leaves the player standing on the
+## ground beside the mast, with the capsule clear of terrain, the mast and props.
+func test_every_relay_arrival_is_clear() -> void:
+	await _check_arrivals(w, nav)
+	var g := await make_world("glimmerock", false)
+	await _check_arrivals(g, g.nav)
+	await free_world(g)
+	GameState.current_planet = "pipseed"
+
+
+func _check_arrivals(world: World, n: Navigation) -> void:
+	var gg := world.planet.geology
+	for r in n.relays:
+		GameState.set_flag(n._flag("relay", r["id"]))
+	for r in n.relays:
+		await place_player(world, gg.landing_dir)
+		assert_true(n.travel(str(r["id"])), "%s: travel from the outpost" % r["id"])
+		await wait_until(func() -> bool: return not world.transit.active, 1500)
+		await get_tree().physics_frame
+		for i in 20:
+			await get_tree().physics_frame
+		var p := world.player
+		var d := p.global_position.distance_to(r["pos"])
+		assert_true(p.is_on_floor(), "%s: standing on the ground after arrival" % r["id"])
+		assert_gt(d, 4.0, "%s: outside the mast's legs (%.1f m)" % [r["id"], d])
+		assert_lt(d, Navigation.RELAY_USE_DISTANCE, "%s: within travel range of the relay (%.1f m)" % [r["id"], d])
+		var col: CollisionShape3D = null
+		for c in p.get_children():
+			if c is CollisionShape3D:
+				col = c
+		var q := PhysicsShapeQueryParameters3D.new()
+		var cap := CapsuleShape3D.new()
+		cap.radius = (col.shape as CapsuleShape3D).radius * 0.9
+		cap.height = (col.shape as CapsuleShape3D).height * 0.9
+		q.shape = cap
+		q.transform = col.global_transform.translated(p.up * 0.12)
+		q.collision_mask = 1 | 4
+		var hits := world.get_world_3d().direct_space_state.intersect_shape(q, 4)
+		assert_eq(hits.size(), 0, "%s: the player capsule overlaps nothing on arrival" % r["id"])
 
 
 func test_compass_bearings_and_heading() -> void:
