@@ -146,8 +146,7 @@ func travel(to: String) -> bool:
 	world.fx.shock_ring(world.player.global_position + world.player.up * 0.2, world.player.up, 2.2, Pal.ION, 0.5)
 	Audio.play("jet_puff", -2.0, 0.6)
 	world.player.teleport(target, look)
-	if world.props != null:
-		world.props.call("update_now", target)
+	# props around the destination stream in under their per-frame budget (no hitch here)
 	GameState.add_stat("travels")
 	travelled.emit(to)
 	return true

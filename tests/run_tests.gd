@@ -29,6 +29,13 @@ func _run() -> void:
 	var all_failures: Array[String] = []
 	for f in files:
 		var script: GDScript = load("res://tests/" + f)
+		if script == null or not script.can_instantiate():
+			# a suite that does not compile is a failure, not a hang
+			print("\n== %s\n  [FAIL] does not compile" % f)
+			total += 1
+			failed += 1
+			all_failures.append("%s: script failed to load or compile" % f)
+			continue
 		var suite: TestSuite = script.new()
 		suite.name = f.get_basename()
 		add_child(suite)

@@ -2,7 +2,9 @@ extends Node
 ## Dev tool: frame-time benchmark with the real renderer (run it through tools/perf.sh so it
 ## uses the off-desktop GPU window). V-sync is disabled; each scenario is warmed up, then
 ## sampled, and reports average FPS, frame-time percentiles and the renderer's own CPU/GPU
-## split for the main viewport.
+## split for the main viewport. On the streamed planets it also measures what streaming costs:
+## a sprint + jetpack traversal, a 300 m relay jump (the frames right after arriving), load time,
+## memory, video memory and how long saving terrain edits takes.
 ##
 ##   <godot> --path . --resolution 2560x1440 [--rendering-method forward_plus] res://tools/dev/perf.tscn -- [planet]
 
@@ -24,6 +26,8 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var pid: String = args[0] if args.size() > 0 else "pipseed"
 	SaveSystem.save_dir = "user://dev_perf"
+	SaveSystem.ensure_dir()
+	SaveSystem.delete_save()
 	exact_window()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = 0
@@ -31,8 +35,10 @@ func _ready() -> void:
 	GameState.current_planet = pid
 	world = World.new()
 	add_child(world)
-	world.start(pid, false)
+	var t_start := Time.get_ticks_msec()
+	world.start(pid, true)
 	await world.ready_to_play
+	var ready_ms := Time.get_ticks_msec() - t_start
 	var hud := Hud.new()
 	add_child(hud)
 	hud.setup(world)
@@ -40,6 +46,10 @@ func _ready() -> void:
 	var size := get_viewport().get_visible_rect().size
 	print("== perf: %s  renderer=%s  viewport=%dx%d  window=%s  gpu=%s" % [pid, RenderingServer.get_current_rendering_method(),
 		int(size.x), int(size.y), str(DisplayServer.window_get_size()), RenderingServer.get_video_adapter_name()])
+	print("load: terrain ready (spawn colliders) %d ms, world ready (props, outpost...) %d ms, geology bake %d ms (cache %s)" % [
+		world.planet.load_time_ms, ready_ms, world.planet.geology.bake_ms, str(world.planet.geology.bake_from_cache)])
+	await _settle()
+	_memory("after arrival")
 	print("%-26s %8s %8s %8s %8s %8s %8s %7s %8s" % ["scenario", "avg fps", "avg ms", "p95 ms", "p99 ms", "max ms", "cpu ms", "gpu ms", "draws"])
 	await _scenario_surface()
 	await _scenario_base()
@@ -47,8 +57,16 @@ func _ready() -> void:
 	await _scenario_cannon()
 	await _scenario_cave()
 	await _scenario_bots()
+	await _scenario_traverse()
+	await _scenario_relay_jump()
 	for r in _rows:
 		print(r)
+	_memory("end of run")
+	var t0 := Time.get_ticks_msec()
+	var ok := world.save_all(true)
+	var db := ProjectSettings.globalize_path(SaveSystem.terrain_db_path(pid))
+	print("save: progress + all terrain edits %d ms (ok %s), terrain database %.1f KB" % [Time.get_ticks_msec() - t0, str(ok), float(FileAccess.get_file_as_bytes(db).size()) / 1024.0])
+	SaveSystem.delete_save()
 	print("done")
 	get_tree().quit()
 
@@ -105,23 +123,57 @@ func _measure(label: String) -> void:
 	_rows.append("%-26s %8.0f %8.2f %8.2f %8.2f %8.2f %8.2f %7.2f %8.0f" % [label, 1000.0 / avg_ms, avg_ms, p95, p99, mx, _cpu_ms / float(n), _gpu_ms / float(n), _draws / float(n)])
 
 
+func _memory(label: String) -> void:
+	var st: Dictionary = VoxelEngine.get_stats()
+	var pools: Dictionary = st.get("memory_pools", {})
+	print("memory (%s): static %.0f MB, video %.0f MB, voxel blocks in use %.0f MB, data blocks %d, mesh blocks %d, props %d" % [label,
+		OS.get_static_memory_usage() / 1048576.0, Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+		float(pools.get("voxel_used", 0)) / 1048576.0, world.planet.terrain.debug_get_data_block_count(), world.planet.terrain.debug_get_mesh_block_count(),
+		int(world.props.get("prop_count"))])
+
+
+## Waits for the voxel engine to finish generating and meshing (max 15 s).
+func _settle() -> void:
+	var t0 := Time.get_ticks_msec()
+	var quiet := 0
+	while Time.get_ticks_msec() - t0 < 15000 and quiet < 10:
+		await get_tree().process_frame
+		var tk: Dictionary = VoxelEngine.get_stats()["tasks"]
+		quiet = quiet + 1 if int(tk["meshing"]) + int(tk["generation"]) + int(tk["streaming"]) == 0 else 0
+
+
 func _place(dir: Vector3, look := Vector3(1, 0, 0.3), pitch := -8.0) -> void:
 	var d := dir.normalized()
+	var p := d * (world.planet.geology.surface_radius(d) + 1.0)
+	world.player.teleport(p, look)
+	var t0 := Time.get_ticks_msec()
+	while not world.planet.is_area_ready(p, 6.0) and Time.get_ticks_msec() - t0 < 20000:
+		await get_tree().process_frame
+	await _settle()
 	world.player.teleport(world.planet.ground_point(d) + d * 0.1, look)
+	world.props.call("update_now", world.player.global_position)
 	world.player.pitch = deg_to_rad(pitch)
 	await _frames(20)
 
 
 func _scenario_surface() -> void:
-	await _place(Vector3(0.6, 0.55, 0.55))
-	await _measure("surface, looking around")
+	# on the shoulder of the tallest dome, looking out over the planet
+	var top := Vector3.ZERO
+	var best := -1.0
+	for f in world.planet.geology.features:
+		if str(f["type"]) == "dome" and float(f["height"]) > best:
+			best = float(f["height"])
+			top = f["dir"]
+	var shoulder := (top + (world.planet.geology.landing_dir - top) * 0.25).normalized()
+	await _place(shoulder, world.planet.geology.landing_dir - shoulder, -4.0)
+	await _measure("vista from a mountain")
 
 
 func _scenario_base() -> void:
 	var b: Node3D = world.base
 	var o: Vector3 = b.get("origin")
 	var f: Basis = b.get("frame")
-	world.player.teleport(world.planet.ground_point((o + f.x * 3.0 + f.z * 12.0).normalized()), -f.z)
+	await _place((o + f.x * 3.0 + f.z * 12.0).normalized(), -f.z)
 	await _measure("outpost in view")
 
 
@@ -156,7 +208,13 @@ func _scenario_cave() -> void:
 	for c in world.planet.geology.cavities:
 		if str(c["cfg"].get("decor", "")) == "crystals":
 			var cc: Vector3 = c["center"]
-			world.player.teleport(cc - (c["dir"] as Vector3) * (float(c["radius"]) - 2.2), Vector3(1, 0, 0))
+			var stand := cc - (c["dir"] as Vector3) * (float(c["radius"]) - 2.2)
+			world.player.teleport(stand, Vector3(1, 0, 0))
+			var t0 := Time.get_ticks_msec()
+			while not world.planet.is_area_ready(stand, 6.0) and Time.get_ticks_msec() - t0 < 20000:
+				await get_tree().process_frame
+			await _settle()
+			world.player.teleport(stand, Vector3(1, 0, 0))
 			world.player.pitch = 0.2
 			break
 	await _measure("crystal cavern")
@@ -173,3 +231,53 @@ func _scenario_bots() -> void:
 		var off := Vector3(randf_range(-9, 9), 0, randf_range(-9, 9))
 		world.pickups.spawn(GameData.mat_index("copper"), 3, world.player.global_position + off + up * 3.0, Vector3.ZERO)
 	await _measure("3 bots hauling 150 chunks")
+
+
+## Sprinting with the best boots and the jetpack straight across country for the whole sample:
+## terrain, colliders and props stream in ahead of the player while measuring.
+func _scenario_traverse() -> void:
+	GameState.gear_levels["boots"] = GameState.gear_max_level("boots")
+	GameState.gear_levels["jets"] = GameState.gear_max_level("jets")
+	await _place((world.planet.geology.landing_dir + Vector3(0.0, 0.0, -0.1)).normalized(), Vector3(0.2, 0, -1), -6.0)
+	world.player.forced_move = Vector2(0, 1)
+	world.player.forced_sprint = true
+	var hop := create_tween().set_loops()
+	hop.tween_interval(0.9)
+	hop.tween_callback(func() -> void: world.player.forced_jump = true)
+	var start := world.player.global_position
+	await _measure("sprint+jets traversal")
+	hop.kill()
+	world.player.forced_move = Vector2.INF
+	world.player.forced_sprint = false
+	print("traversal covered %.0f m (warm-up + sample)" % start.distance_to(world.player.global_position))
+
+
+## A 300 m relay jump: the frames right after arriving (no warm-up), while the new area streams.
+func _scenario_relay_jump() -> void:
+	var p := world.player
+	var d := (p.global_position.normalized() + p.global_basis.x * (300.0 / world.planet.geology.radius)).normalized()
+	_frame_usec.clear()
+	_cpu_ms = 0.0
+	_gpu_ms = 0.0
+	_draws = 0.0
+	_prims = 0.0
+	p.teleport(d * (world.planet.geology.surface_radius(d) + 1.2), Vector3.FORWARD)
+	var t0 := Time.get_ticks_msec()
+	_sampling = true
+	var ready_ms := -1
+	for i in 240:
+		await get_tree().process_frame
+		if ready_ms < 0 and world.planet.is_area_ready(p.global_position, 3.0):
+			ready_ms = Time.get_ticks_msec() - t0
+	_sampling = false
+	var sorted := Array(_frame_usec)
+	sorted.sort()
+	var n := sorted.size()
+	var total := 0
+	for v: int in sorted:
+		total += v
+	var avg_ms := float(total) / float(n) / 1000.0
+	_rows.append("%-26s %8.0f %8.2f %8.2f %8.2f %8.2f %8.2f %7.2f %8.0f" % ["300 m relay jump (240 f)", 1000.0 / avg_ms, avg_ms,
+		float(sorted[int(float(n) * 0.95)]) / 1000.0, float(sorted[mini(n - 1, int(float(n) * 0.99))]) / 1000.0, float(sorted[n - 1]) / 1000.0,
+		_cpu_ms / float(n), _gpu_ms / float(n), _draws / float(n)])
+	print("relay jump: ground with colliders ready after %d ms" % ready_ms)
