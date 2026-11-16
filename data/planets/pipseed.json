@@ -60,18 +60,22 @@
   "core": {"chamber_radius": 5.5, "discovery": "pip_heart", "color": "#ffe36b", "color2": "#ff8fb8"},
   "surface_crystal": "pipquartz",
   "bonus_gem": "amethyst",
+  "look": {"atmosphere": 1.0, "stars": 0.5, "nebula": 0.0, "sun_energy": 1.5, "sun_elevation": 40.0, "ambient_energy": 1.0,
+           "exposure": 1.0, "turf_depth": 0.34, "cover_relief": 0.85, "cover_roughness": 0.92},
   "palette": {
-    "grass": ["#7fdc5a", "#3fcf8e", "#c9ea5c"],
-    "grass_dry": "#e8c35a",
-    "sky_top": "#1d1b54", "sky_mid": "#5b4bc4", "sky_horizon": "#ff9fb0", "sky_glow": "#ffd59a",
-    "sun": "#fff2c9", "ambient": "#b9b4ff", "fog": "#7d6fd6",
-    "rim": "#8ff0ff"
+    "grass": ["#7d9a5e", "#6b8f66", "#a3a868"],
+    "grass_dry": "#b3a973",
+    "sky_top": "#1b3354", "sky_mid": "#4f83b3", "sky_horizon": "#c2d4d9", "sky_glow": "#f1e2c4", "sky_ground": "#4a5340",
+    "sun": "#fff1d6", "ambient": "#c4d2e6", "fog": "#1d2026",
+    "rim": "#39c4b4", "from_space": ["#7d9a5e", "#5f7f8c"]
   },
   "props": {
-    "grass_tuft": 2600, "flower": 520, "mushroom": 150, "bush": 170, "tree": 85, "rock": 120, "crystal": 46, "pebble": 300,
-    "flower_colors": ["#ff7fb0", "#ffe36b", "#ffffff", "#9d8cff", "#ff9d5c"],
-    "tree_colors": ["#ff8fb8", "#ffb347", "#6fe3c4", "#ffe36b"],
-    "mushroom_colors": ["#ff5d73", "#ffa24a", "#b98cff"],
-    "crystal_colors": ["#b266ff", "#7dfff0", "#ff7fb6"]
+    "tuft": 7000, "fern": 420, "shrub": 110, "tree": 40, "boulder": 80, "pebble": 260, "crystal": 40,
+    "landmark": "stones",
+    "foliage": ["#6f8f55", "#5f8663", "#8c985b"],
+    "accent": "#c98a6a",
+    "tree_canopy": ["#5c876c", "#6f8f58"],
+    "rock": ["#8d9097", "#978f86", "#7f858e"],
+    "crystal_colors": ["#e3b3c6", "#d6a4bd", "#ecc7d4"]
   }
 }

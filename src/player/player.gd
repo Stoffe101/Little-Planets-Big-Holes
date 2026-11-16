@@ -97,9 +97,10 @@ func _init() -> void:
 
 	headlamp = SpotLight3D.new()
 	headlamp.name = "Headlamp"
-	headlamp.spot_range = 22.0
-	headlamp.spot_angle = 48.0
-	headlamp.spot_angle_attenuation = 0.8
+	headlamp.spot_range = 30.0
+	headlamp.spot_angle = 58.0
+	headlamp.spot_angle_attenuation = 0.55
+	headlamp.spot_attenuation = 0.8
 	headlamp.light_color = Color(1.0, 0.93, 0.8)
 	headlamp.light_energy = 0.0
 	headlamp.shadow_enabled = false
@@ -377,7 +378,7 @@ func _update_camera(delta: float) -> void:
 	camera.fov = float(Settings.get_value("fov")) + _fov_kick
 
 	# headlamp fades in underground
-	var lamp_target := clampf((depth - 1.5) / 4.0, 0.0, 1.0) * 1.7
+	var lamp_target := clampf((depth - 1.5) / 4.0, 0.0, 1.0) * 3.2
 	headlamp.light_energy = lerpf(headlamp.light_energy, lamp_target, clampf(delta * 3.0, 0.0, 1.0))
 	headlamp.visible = headlamp.light_energy > 0.02
 

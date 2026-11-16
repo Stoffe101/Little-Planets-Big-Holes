@@ -28,14 +28,14 @@ var scanner: Node                ## Scanner
 var environment: Environment
 var sky_material: ShaderMaterial
 var sun: DirectionalLight3D
-var fill: DirectionalLight3D
 var is_ready := false
 var persist_terrain := true
 var _autosave := 0.0
 var _sun_axis := Vector3(0.45, 0.2, 0.87).normalized()
-var _base_ambient := 0.3
+var _base_ambient := 1.0
+var _look: Dictionary = {}       ## the planet's "look" block (lighting tuning)
+var underground := 0.0           ## 0 on the surface .. 1 deep below (drives ambient, fog, audio)
 var _pending_tracker: Variant = null
-var _ambient_color := Color.WHITE
 var bloom := 0.0                 ## planet "awakened" glow (after finding the heart)
 
 
@@ -79,6 +79,7 @@ func start(p_id: String, with_persistence := true) -> void:
 	tools.setup(self, player)
 	tools.enabled = false
 	tools.hint.connect(func(t: String) -> void: message.emit(t, "hint"))
+	player.landed.connect(tools.on_landed)
 
 	_build_optional_systems()
 
@@ -134,21 +135,34 @@ func _on_planet_loaded() -> void:
 
 # ------------------------------------------------------------------ look
 
+## Sky, ambient light, tonemapping and the sun. All colours come from the planet's `palette`
+## (data/planets/*.json); see docs/ART_DIRECTION.md for the reasoning behind the numbers.
 func _build_environment(cfg: Dictionary) -> void:
 	var pal: Dictionary = cfg.get("palette", {})
+	_look = (cfg.get("look", {}) as Dictionary).duplicate()
+	# Dev override for look experiments: LPBH_LOOK='{"sun_energy": 2.0, "tonemap": "filmic"}'
+	var override: Variant = JSON.parse_string(OS.get_environment("LPBH_LOOK")) if OS.has_environment("LPBH_LOOK") else null
+	if override is Dictionary:
+		_look.merge(override as Dictionary, true)
 	sky_material = ShaderMaterial.new()
 	sky_material.shader = SKY_SHADER
-	sky_material.set_shader_parameter("top_color", Color(str(pal.get("sky_top", "#1d1b54"))))
-	sky_material.set_shader_parameter("mid_color", Color(str(pal.get("sky_mid", "#5b4bc4"))))
-	sky_material.set_shader_parameter("horizon_color", Color(str(pal.get("sky_horizon", "#ff9fb0"))))
-	sky_material.set_shader_parameter("glow_color", Color(str(pal.get("sky_glow", "#ffd59a"))))
-	sky_material.set_shader_parameter("sun_color", Color(str(pal.get("sun", "#fff2c9"))))
-	# The "other" planet hangs in the sky.
+	sky_material.set_shader_parameter("top_color", Color(str(pal.get("sky_top", "#0b1424"))))
+	sky_material.set_shader_parameter("mid_color", Color(str(pal.get("sky_mid", "#3f6f9e"))))
+	sky_material.set_shader_parameter("horizon_color", Color(str(pal.get("sky_horizon", "#b9ccd4"))))
+	sky_material.set_shader_parameter("glow_color", Color(str(pal.get("sky_glow", "#f1e2c4"))))
+	sky_material.set_shader_parameter("ground_color", Color(str(pal.get("sky_ground", "#3a4034"))))
+	sky_material.set_shader_parameter("sun_color", Color(str(pal.get("sun", "#fff1d6"))))
+	sky_material.set_shader_parameter("atmosphere", float(_look.get("atmosphere", 1.0)))
+	sky_material.set_shader_parameter("star_amount", float(_look.get("stars", 0.6)))
+	sky_material.set_shader_parameter("nebula_amount", float(_look.get("nebula", 0.0)))
+	sky_material.set_shader_parameter("nebula_color", Color(str(pal.get("nebula", "#1a2a52"))))
+	# The "other" planet hangs in the sky, in its own colours as seen from space.
 	for other_id in GameData.planet_order:
 		if other_id != str(cfg.get("id", "")):
 			var opal: Dictionary = (GameData.planet(other_id).get("palette", {}) as Dictionary)
-			var g: Array = opal.get("grass", ["#5fe3c9"])
-			sky_material.set_shader_parameter("planet_a_color", Color(str(g[0])))
+			var from_space: Array = opal.get("from_space", ["#7f93a0", "#5d6f66"])
+			sky_material.set_shader_parameter("planet_a_color", Color(str(from_space[0])))
+			sky_material.set_shader_parameter("planet_a_color2", Color(str(from_space[1])))
 			break
 	var sky := Sky.new()
 	sky.sky_material = sky_material
@@ -158,31 +172,42 @@ func _build_environment(cfg: Dictionary) -> void:
 	environment = Environment.new()
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
-	_ambient_color = Color(str(pal.get("ambient", "#b9b4ff")))
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = _ambient_color
+	# Ambient comes mostly from the sky itself (soft, directional, slightly blue from above and
+	# ground-coloured from below) with a little flat colour so shaded faces never go dead.
+	_base_ambient = float(_look.get("ambient_energy", 1.0))
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	environment.ambient_light_color = Color(str(pal.get("ambient", "#c4d2e6")))
+	environment.ambient_light_sky_contribution = float(_look.get("sky_contribution", 0.75))
 	environment.ambient_light_energy = _base_ambient
-	environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
-	# Linear tonemapping keeps the hand-picked palette exactly as authored (lit surfaces sum to ~1.0).
-	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	environment.tonemap_mode = {"linear": Environment.TONE_MAPPER_LINEAR, "filmic": Environment.TONE_MAPPER_FILMIC,
+		"aces": Environment.TONE_MAPPER_ACES, "agx": Environment.TONE_MAPPER_AGX}.get(str(_look.get("tonemap", "agx")), Environment.TONE_MAPPER_AGX)
+	environment.tonemap_exposure = float(_look.get("exposure", 1.0))
+	environment.tonemap_white = 6.0
+	# Glow is reserved for genuinely hot pixels (the sun disc, status lights, exotic gems).
 	environment.glow_enabled = true
-	environment.glow_intensity = 0.45
-	environment.glow_strength = 0.85
+	environment.glow_intensity = 0.28
+	environment.glow_strength = 0.9
 	environment.glow_bloom = 0.0
-	environment.glow_hdr_threshold = 1.1
-	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	# SSAO only exists in the Forward+ renderer (the project defaults to Mobile, see docs/TECHNICAL.md).
+	environment.glow_hdr_threshold = 1.6
+	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	if RenderingServer.get_current_rendering_method() == "forward_plus":
 		environment.ssao_enabled = true
-		environment.ssao_radius = 1.6
-		environment.ssao_intensity = 1.3
-		environment.ssao_power = 1.5
+		environment.ssao_radius = 1.2
+		environment.ssao_intensity = 1.6
+		environment.ssao_power = 1.4
+		environment.ssao_detail = 0.4
+		environment.ssao_light_affect = 0.08
 	environment.adjustment_enabled = true
-	environment.adjustment_saturation = 1.06
-	environment.adjustment_contrast = 1.03
+	environment.adjustment_saturation = float(_look.get("saturation", 1.0))
+	environment.adjustment_contrast = float(_look.get("contrast", 1.04))
+	# Fog only matters underground (the horizon of a tiny planet is too close for aerial haze):
+	# it gives tunnels depth. Density is driven from _process.
 	environment.fog_enabled = true
-	environment.fog_light_color = Color(str(pal.get("fog", "#7d6fd6")))
-	environment.fog_density = 0.0016
+	environment.fog_light_color = Color(str(pal.get("fog", "#1b1f26")))
+	environment.fog_light_energy = 1.0
+	environment.fog_sun_scatter = 0.0
+	environment.fog_density = 0.0
 	environment.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.name = "Environment"
@@ -191,42 +216,37 @@ func _build_environment(cfg: Dictionary) -> void:
 
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
-	sun.light_color = Color(str(pal.get("sun", "#fff2c9")))
-	sun.light_energy = 0.74
+	sun.light_color = Color(str(pal.get("sun", "#fff1d6")))
+	sun.light_energy = float(_look.get("sun_energy", 1.5))
+	sun.light_angular_distance = 0.6
 	sun.shadow_enabled = true
-	sun.shadow_bias = 0.08
-	sun.shadow_normal_bias = 2.6
-	sun.shadow_blur = 2.0
+	sun.shadow_bias = 0.04
+	sun.shadow_normal_bias = 1.6
+	sun.shadow_blur = 1.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 95.0
+	sun.directional_shadow_max_distance = 110.0
 	sun.directional_shadow_fade_start = 0.85
+	sun.directional_shadow_blend_splits = true
 	add_child(sun)
-	# A cool fill from the opposite side keeps the shaded half of the planet colourful.
-	fill = DirectionalLight3D.new()
-	fill.name = "Fill"
-	fill.light_color = Color(str(pal.get("rim", "#8ff0ff")))
-	fill.light_energy = 0.1
-	fill.shadow_enabled = false
-	add_child(fill)
 	_update_sun(Vector3.UP, 1.0)
 
 
-## The sun follows the player around the planet so the bit you are playing on is always lit.
+## The sun follows the player around the planet so the bit you are playing on is always lit,
+## at a fixed mid-morning elevation that gives long readable shadows.
 func _update_sun(up: Vector3, weight: float) -> void:
 	var tangent := _sun_axis - up * _sun_axis.dot(up)
 	if tangent.length() < 0.05:
 		tangent = up.cross(Vector3.RIGHT)
-	var from := (up * 0.78 + tangent.normalized() * 0.62).normalized()
+	var elevation := deg_to_rad(float(_look.get("sun_elevation", 40.0)))
+	var from := (up * sin(elevation) + tangent.normalized() * cos(elevation)).normalized()
 	var cur := sun.global_basis.z.normalized() if sun.is_inside_tree() else from
 	var dir := cur.slerp(from, weight).normalized() if cur.dot(from) > -0.999 else from
 	var side := dir.cross(Vector3.UP if absf(dir.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT).normalized()
 	var b := Basis(side, dir.cross(side).normalized(), dir)
 	if sun.is_inside_tree():
 		sun.global_basis = b
-		fill.global_basis = Basis(-side, b.y, -dir)
 	else:
 		sun.basis = b
-		fill.basis = Basis(-side, b.y, -dir)
 	sky_material.set_shader_parameter("sun_dir", dir)
 
 
@@ -237,10 +257,16 @@ func _process(delta: float) -> void:
 	var up := player.up
 	_update_sun(up, clampf(delta * 1.5, 0.0, 1.0))
 	sky_material.set_shader_parameter("up_dir", up)
-	# Underground: dim the ambient so caves feel like caves and glowing ore pops.
-	var under := clampf((player.depth - 2.0) / 9.0, 0.0, 1.0)
-	environment.ambient_light_energy = lerpf(_base_ambient, 0.07, under)
-	sky_material.set_shader_parameter("underground", under * 0.6)
+	var eye_r := maxf(player.eye_position().length(), 1.0)
+	var limb := clampf(planet.geology.radius / eye_r, 0.0, 1.0)
+	sky_material.set_shader_parameter("horizon_dip", sqrt(1.0 - limb * limb))
+	# Underground: the sky's contribution fades with depth so caves are lit by the headlamp,
+	# the cavern lights and whatever glows - never pitch black, never flat.
+	var under := clampf((player.depth - 1.5) / 9.0, 0.0, 1.0)
+	underground = under
+	environment.ambient_light_energy = lerpf(_base_ambient, _base_ambient * float(_look.get("cave_ambient", 0.3)), under)
+	environment.fog_density = lerpf(0.0, 0.012, under)
+	sky_material.set_shader_parameter("underground", under * 0.8)
 	planet.material.set_shader_parameter("bloom_amount", bloom)
 
 	if is_ready and persist_terrain:

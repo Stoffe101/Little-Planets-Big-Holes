@@ -58,7 +58,7 @@ func scenario_spawn() -> void:
 func place(dir: Vector3, look := Vector3(1, 0, 0.3)) -> void:
 	var d := dir.normalized()
 	world.player.teleport(world.planet.ground_point(d) + d * 0.1, look)
-	await physics(10)
+	await physics(40)
 
 func scenario_dig() -> void:
 	await place(Vector3(0.25, 1, 0.1))
@@ -102,7 +102,7 @@ func scenario_base() -> void:
 	var o: Vector3 = b.get("origin")
 	var f: Basis = b.get("frame")
 	world.player.teleport(world.planet.ground_point((o + f.x * 3.0 + f.z * 13.0).normalized()) , -f.z)
-	await physics(10)
+	await physics(40)
 	look_at_point(o + geo.landing_dir * 3.0)
 	await shot("base_front")
 	world.player.teleport(world.planet.ground_point((o - f.x * 1.5 + f.z * 0.5).normalized()), -f.x)
@@ -166,7 +166,7 @@ func scenario_tools() -> void:
 					for k in int(m["max"]):
 						GameState.buy_mod(fam["id"], m["id"])
 			GameState.set_equipped(fam["id"])
-			await physics(50)
+			await physics(130)
 			await frames(3)
 			await shot("tool_%s_%d" % [fam["id"], t + 1])
 
@@ -260,3 +260,38 @@ func scenario_action() -> void:
 	look_pitch(-30)
 	await shot("scan")
 	Engine.time_scale = 1.0
+
+
+## Studio line-up: every tool tier (bare, then fully modded) against a plain backdrop, seen
+## from the three-quarter angle used by the shop previews. For judging the models themselves.
+func scenario_lineup() -> void:
+	await place(Vector3(0.3, 1, 0.25))
+	look_pitch(-5)
+	world.tools.visible = false
+	var cam := world.player.camera
+	var stage := Node3D.new()
+	cam.add_child(stage)
+	stage.position = Vector3(0, 0.02, -0.78)
+	var back := MeshKit.new().matte()
+	back.block(Vector3(0, 0, -1.6), Vector3(9, 6, 0.05), Color("#3a3f46"), 0.01)
+	back.block(Vector3(0, -0.42, 0), Vector3(9, 0.05, 4), Color("#444a52"), 0.01)
+	stage.add_child(back.instance(MeshKit.material(), false))
+	for d in GameData.discoveries:
+		GameState.discoveries[d["id"]] = true
+	for fam in GameData.tool_families:
+		var n: int = (fam["tiers"] as Array).size()
+		for t in n:
+			for modded in 2:
+				var mods := {}
+				if modded == 1:
+					for m in fam["mods"]:
+						mods[m["id"]] = int(m["max"])
+				var model := ToolModels.build(str(fam["id"]), t + 1, mods, false)
+				var root: Node3D = model["root"]
+				stage.add_child(root)
+				root.rotation = Vector3(deg_to_rad(20.0), deg_to_rad(128.0), 0.0)
+				root.position = -(root.basis * Vector3(0, 0, -0.26))
+				await frames(3)
+				await shot("lineup_%s_%d%s" % [fam["id"], t + 1, "_mods" if modded == 1 else ""])
+				root.queue_free()
+				await frames(1)

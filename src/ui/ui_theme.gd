@@ -18,27 +18,43 @@ const GREEN := Color("#7be36b")
 const RED := Color("#ff6b6b")
 const PURPLE := Color("#b98cff")
 
-static var _regular: FontFile
-static var _semibold: FontFile
-static var _bold: FontFile
+static var _regular: Font
+static var _semibold: Font
+static var _bold: Font
 static var _theme: Theme
 
+## Typeface: a clean DIN-style grotesque. Resolved from the system (Bahnschrift on Windows, the
+## usual sans-serifs elsewhere) with the engine's built-in Open Sans as the final fallback, so
+## no font file has to be shipped. See docs/ART_DIRECTION.md, "UI".
+const FONT_NAMES: PackedStringArray = ["Bahnschrift", "DIN Alternate", "Inter", "Roboto", "Noto Sans", "DejaVu Sans", "Arial"]
 
-static func font_regular() -> FontFile:
+
+static func _system_font(weight: int) -> Font:
+	var f := SystemFont.new()
+	f.font_names = FONT_NAMES
+	f.font_weight = weight
+	f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	f.multichannel_signed_distance_field = true
+	f.generate_mipmaps = true
+	f.allow_system_fallback = true
+	return f
+
+
+static func font_regular() -> Font:
 	if _regular == null:
-		_regular = load("res://assets/fonts/Fredoka-Regular.ttf")
+		_regular = _system_font(400)
 	return _regular
 
 
-static func font_semibold() -> FontFile:
+static func font_semibold() -> Font:
 	if _semibold == null:
-		_semibold = load("res://assets/fonts/Fredoka-SemiBold.ttf")
+		_semibold = _system_font(500)
 	return _semibold
 
 
-static func font_bold() -> FontFile:
+static func font_bold() -> Font:
 	if _bold == null:
-		_bold = load("res://assets/fonts/Fredoka-Bold.ttf")
+		_bold = _system_font(700)
 	return _bold
 
 

@@ -546,7 +546,10 @@ func apply_to_material(mat: ShaderMaterial) -> void:
 	mat.set_shader_parameter("ore_a", oa)
 	mat.set_shader_parameter("ore_b", ob)
 	mat.set_shader_parameter("ore_mat", om)
-	var colors: Array[Color] = []; var colors2: Array[Color] = []; var fx: Array[Vector4] = []
+	var colors: Array[Color] = []; var colors2: Array[Color] = []; var fx: Array[Vector4] = []; var pbr: Array[Vector4] = []
+	# roughness, metallic, strata strength, relief strength - by category unless the material overrides
+	var finish := {"soil": Vector4(0.95, 0.0, 1.0, 1.0), "rock": Vector4(0.86, 0.0, 0.7, 1.35),
+		"ore": Vector4(0.42, 0.75, 0.0, 1.0), "crystal": Vector4(0.2, 0.0, 0.0, 0.6), "exotic": Vector4(0.14, 0.25, 0.0, 0.5)}
 	for i in GameData.MAX_MATERIALS:
 		if i < GameData.materials.size():
 			var m := GameData.materials[i]
@@ -555,14 +558,21 @@ func apply_to_material(mat: ShaderMaterial) -> void:
 			var is_ore := 1.0 if str(m["category"]) in ["ore", "crystal", "exotic"] else 0.0
 			var rocky := 1.0 if str(m["category"]) == "rock" else 0.0
 			fx.append(Vector4(float(m.get("emission", 0.0)), float(m.get("sparkle", 0.0)), is_ore, rocky))
+			var f: Vector4 = finish.get(str(m["category"]), Vector4(0.9, 0.0, 1.0, 1.0))
+			pbr.append(Vector4(float(m.get("roughness", f.x)), float(m.get("metallic", f.y)), f.z, f.w))
 		else:
-			colors.append(Color.MAGENTA); colors2.append(Color.MAGENTA); fx.append(Vector4.ZERO)
+			colors.append(Color.MAGENTA); colors2.append(Color.MAGENTA); fx.append(Vector4.ZERO); pbr.append(Vector4(0.9, 0, 0, 0))
 	mat.set_shader_parameter("mat_color", colors)
 	mat.set_shader_parameter("mat_color2", colors2)
 	mat.set_shader_parameter("mat_fx", fx)
+	mat.set_shader_parameter("mat_pbr", pbr)
 	var pal: Dictionary = cfg.get("palette", {})
-	var grass: Array = pal.get("grass", ["#7fdc5a", "#3fcf8e", "#c9ea5c"])
+	var grass: Array = pal.get("grass", ["#7d9a5e", "#6b8f66", "#a3a868"])
 	mat.set_shader_parameter("grass_a", Color(str(grass[0])))
 	mat.set_shader_parameter("grass_b", Color(str(grass[1])))
 	mat.set_shader_parameter("grass_c", Color(str(grass[2])))
-	mat.set_shader_parameter("rim_color", Color(str(pal.get("rim", "#8ff0ff"))))
+	mat.set_shader_parameter("rim_color", Color(str(pal.get("rim", "#39c4b4"))))
+	var look: Dictionary = cfg.get("look", {})
+	mat.set_shader_parameter("turf_depth", float(look.get("turf_depth", 0.34)))
+	mat.set_shader_parameter("cover_relief", float(look.get("cover_relief", 0.55)))
+	mat.set_shader_parameter("cover_roughness", float(look.get("cover_roughness", 0.92)))

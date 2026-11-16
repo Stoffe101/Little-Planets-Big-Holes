@@ -9,12 +9,15 @@ signal blocked(material_index: int)
 signal equipped(family_id: String)
 signal hint(text: String)
 
-## Rest pose per family: [position, rotation in degrees, scale]
+## Rest pose per pose-class: [position, rotation in degrees, scale]. Hand tools are carried
+## across the body; powered tools are shouldered straight ahead, which is a large part of why
+## the first powered purchase feels different.
 const REST := {
-	"shovel": [Vector3(0.5, -0.56, -0.5), Vector3(40, 16, -10), 1.5],
-	"drill": [Vector3(0.4, -0.36, -0.64), Vector3(6, 13, 0), 1.25],
-	"vacuum": [Vector3(0.36, -0.33, -0.58), Vector3(5, 9, 0), 1.25],
-	"cannon": [Vector3(0.35, -0.31, -0.55), Vector3(4, 8, 0), 1.25],
+	"hand": [Vector3(0.26, -0.27, -0.42), Vector3(36, 16, -8), 1.15],
+	"power": [Vector3(0.21, -0.22, -0.38), Vector3(11, 12, -4), 1.0],
+	"drill": [Vector3(0.215, -0.215, -0.43), Vector3(5, 9, 0), 1.0],
+	"vacuum": [Vector3(0.22, -0.25, -0.44), Vector3(6, 9, 0), 1.0],
+	"cannon": [Vector3(0.21, -0.225, -0.43), Vector3(4, 8, 0), 1.0],
 }
 const IMPACT_T := 0.4
 const SOUND_BY_MATERIAL := {"soft": "dig_soft", "stone": "dig_stone", "hard": "dig_hard", "ore": "dig_ore", "crystal": "dig_crystal"}
@@ -45,6 +48,14 @@ var _shots: Array[Dictionary] = []
 var _hint_cooldown := 0.0
 var _flash := 0.0
 var _time := 0.0
+var _inspect := 0.0              ## > 0 while showing off a freshly bought tool or attachment
+var _recoil_slide := 0.0         ## cannon barrel travel 0..1
+var _land := 0.0                 ## landing dip impulse
+var _piston_rest := -0.3
+var _recoil_rest := 0.0
+var _pos_spring := Vector3.ZERO  ## smoothed positional offset (sway, bob)
+var _rot_spring := Vector3.ZERO
+var _reload_click := false
 ## Test hooks: set to drive the tool without real input.
 var forced_use := false
 var forced_use_enabled := false
@@ -67,7 +78,7 @@ func _on_tools_changed() -> void:
 	stats = GameState.tool_stats(family_id)
 	_rebuild_model()
 	_flash = 1.0
-	_equip_t = 0.35
+	_inspect = 1.0       # hold the new kit up for a moment: an upgrade is an event
 
 
 func _on_equipped_changed(fam: String) -> void:
@@ -98,6 +109,20 @@ func _rebuild_model() -> void:
 		mods[m["id"]] = GameState.mod_level(family_id, m["id"])
 	model = ToolModels.build(family_id, GameState.tier_of(family_id), mods, true)
 	holder.add_child(model["root"])
+	if model.get("piston") != null:
+		_piston_rest = (model["piston"] as Node3D).position.z
+	if model.get("recoil") != null:
+		_recoil_rest = (model["recoil"] as Node3D).position.z
+
+
+## Which rest pose the current tool uses.
+func pose_class() -> String:
+	match behavior():
+		"swing": return "power" if int(stats.get("auto", 0)) == 1 else "hand"
+		"drill": return "drill"
+		"vacuum": return "vacuum"
+		"cannon": return "cannon"
+	return "hand"
 
 
 func _stop_loops() -> void:
@@ -308,6 +333,8 @@ func _tick_cannon(_delta: float, using: bool) -> void:
 		_shots.append({"node": node, "pos": origin, "vel": dir * 34.0 + player.velocity * 0.5, "life": 5.0,
 			"radius": float(stats.get("radius", 3.4)), "power": int(stats.get("power", 3)), "opts": _dig_opts()})
 		_kick = 1.0
+		_recoil_slide = 1.0
+		_reload_click = true
 		player.add_recoil(Vector2(randf_range(-0.01, 0.01), 0.05))
 		player.add_trauma(0.25)
 		Audio.play("cannon_fire", -3.0, 1.0, 0.05)
@@ -445,57 +472,97 @@ func _process(delta: float) -> void:
 		return
 	# equip lower / raise
 	if _equip_t < 0.0:
-		_equip_t += delta * 6.0
+		_equip_t += delta * 6.5
 		if _equip_t >= 0.0:
 			_equip_now(_pending_family)
 			_equip_t = 0.0
 	elif _equip_t < 1.0:
-		_equip_t = minf(1.0, _equip_t + delta * 5.0)
+		_equip_t = minf(1.0, _equip_t + delta * 4.2)
 	elif _pending_family != "" and _pending_family != family_id:
 		_equip_t = -1.0      # a switch was requested while the tool was still being raised
-	var hidden := absf(_equip_t) if _equip_t < 0.0 else 1.0 - _equip_t   # 0 = fully raised
+	var hidden := absf(_equip_t) if _equip_t < 0.0 else 1.0 - _ease_out_back(_equip_t)   # 0 = fully raised
 
 	# look sway: the tool lags slightly behind camera rotation
 	var cam_b := player.camera.global_basis
 	var rel := _last_cam_basis.inverse() * cam_b
 	_last_cam_basis = cam_b
 	var e := rel.get_euler()
-	_sway = _sway.lerp(Vector2(clampf(e.y, -0.2, 0.2), clampf(e.x, -0.2, 0.2)) * 6.0, clampf(delta * 14.0, 0.0, 1.0))
-	_sway = _sway.lerp(Vector2.ZERO, clampf(delta * 6.0, 0.0, 1.0))
+	if absf(e.x) + absf(e.y) > 0.5:
+		e = Vector3.ZERO      # teleport or planet change, not a look movement
+	_sway = _sway.lerp(Vector2(clampf(e.y, -0.2, 0.2), clampf(e.x, -0.2, 0.2)) * 5.0, clampf(delta * 14.0, 0.0, 1.0))
+	_sway = _sway.lerp(Vector2.ZERO, clampf(delta * 7.0, 0.0, 1.0))
 
 	_kick = lerpf(_kick, 0.0, clampf(delta * 11.0, 0.0, 1.0))
 	_shake = lerpf(_shake, 0.0, clampf(delta * 10.0, 0.0, 1.0))
-	_piston = lerpf(_piston, 0.0, clampf(delta * 16.0, 0.0, 1.0))
+	_piston = lerpf(_piston, 0.0, clampf(delta * 18.0, 0.0, 1.0))
+	_recoil_slide = lerpf(_recoil_slide, 0.0, clampf(delta * 5.0, 0.0, 1.0))
+	_land = lerpf(_land, 0.0, clampf(delta * 8.0, 0.0, 1.0))
 	_flash = maxf(0.0, _flash - delta * 2.2)
+	_inspect = maxf(0.0, _inspect - delta / 1.5)
 
-	var rest: Array = REST.get(family_id, REST["shovel"])
+	var cls := pose_class()
+	var rest: Array = REST.get(cls, REST["hand"])
 	var pos: Vector3 = rest[0]
 	var rot: Vector3 = rest[1] * (PI / 180.0)
+	var powered := cls != "hand"
 
-	# idle breathing + walk bob
+	# ---- soft secondary motion, smoothed so nothing ever snaps
 	var speed := (player.velocity - player.up * player.velocity.dot(player.up)).length()
 	var walk := clampf(speed / Player.WALK_SPEED, 0.0, 1.5) if player.is_on_floor() else 0.0
-	pos += Vector3(sin(_time * 1.3) * 0.004, sin(_time * 1.9) * 0.006, 0.0)
-	pos += Vector3(cos(_time * 7.5) * 0.012, -absf(sin(_time * 7.5)) * 0.016, 0.0) * walk
-	pos += Vector3(-_sway.x * 0.05, _sway.y * 0.05, 0.0)
-	rot += Vector3(-_sway.y * 0.35, -_sway.x * 0.45, -_sway.x * 0.3)
-	# falling / jumping lifts the tool a little
-	pos.y += clampf(-player.vertical_speed * 0.006, -0.05, 0.05) if not player.is_on_floor() else 0.0
+	var want_pos := Vector3(sin(_time * 1.1) * 0.0025, sin(_time * 1.7) * 0.004, 0.0)                       # breathing
+	want_pos += Vector3(cos(_time * 7.2) * 0.008, -absf(sin(_time * 7.2)) * 0.011, 0.0) * walk             # walk bob
+	want_pos += Vector3(-_sway.x * 0.035, _sway.y * 0.035, 0.0)
+	var want_rot := Vector3(-_sway.y * 0.28, -_sway.x * 0.36, -_sway.x * 0.26)
+	want_rot.z += sin(_time * 7.2) * 0.012 * walk
+	if not player.is_on_floor():
+		want_pos.y += clampf(-player.vertical_speed * 0.004, -0.035, 0.035)      # tool floats up as you fall
+		want_rot.x += clampf(player.vertical_speed * 0.006, -0.06, 0.06)
+	_pos_spring = _pos_spring.lerp(want_pos, clampf(delta * 16.0, 0.0, 1.0))
+	_rot_spring = _rot_spring.lerp(want_rot, clampf(delta * 16.0, 0.0, 1.0))
+	pos += _pos_spring
+	rot += _rot_spring
+	pos.y -= _land * 0.05
+	rot.x -= _land * 0.08
 
+	# ---- tool specific
 	if _swing_t >= 0.0:
-		var sw := _swing_pose(_swing_t)
-		pos += sw[0]
-		rot += sw[1]
-	pos.z += _kick * 0.07
-	rot.x += _kick * 0.12
+		if powered:
+			# powered shovel: the housing stays shouldered, the head does the hitting
+			var punch := sin(clampf(_swing_t / IMPACT_T, 0.0, 1.0) * PI * 0.5) if _swing_t < IMPACT_T else 1.0 - (_swing_t - IMPACT_T) / (1.0 - IMPACT_T)
+			pos.z -= punch * 0.035
+			rot.x -= punch * 0.03
+		else:
+			var sw := _swing_pose(_swing_t)
+			pos += sw[0]
+			rot += sw[1]
+	pos.z += _kick * (0.035 if powered else 0.055)
+	rot.x += _kick * (0.05 if powered else 0.1)
+	if cls == "cannon":
+		pos.z += _recoil_slide * 0.05
+		rot.x += _recoil_slide * _recoil_slide * 0.22
 	if _shake > 0.01:
-		pos += Vector3(sin(_time * 91.0), sin(_time * 77.0 + 1.0), sin(_time * 83.0 + 2.0)) * 0.004 * _shake
-	# drilling / vacuuming pushes the tool forward into the work
-	if _drill_contact:
-		pos.z -= 0.03
+		pos += Vector3(sin(_time * 91.0), sin(_time * 77.0 + 1.0), sin(_time * 83.0 + 2.0)) * 0.0028 * _shake
+		rot.z += sin(_time * 67.0) * 0.006 * _shake
+	if cls == "drill":
+		# torque: the body twists against the spin, and leans into the rock while cutting
+		rot.z += clampf(_spin_speed / 38.0, 0.0, 1.0) * 0.06
+		if _drill_contact:
+			pos.z -= 0.028
+	if cls == "vacuum" and _vacuuming:
+		pos.z -= 0.012
+		rot.x += 0.02
+
+	# ---- showing off a new purchase: lift it into view and turn it over once
+	if _inspect > 0.0:
+		var k := sin(clampf(_inspect, 0.0, 1.0) * PI)
+		k = k * k * (3.0 - 2.0 * k)
+		pos = pos.lerp(Vector3(0.07, -0.13, -0.42), k * 0.85)
+		rot.x += k * 0.25
+		rot.y += k * 0.9 + sin((1.0 - _inspect) * TAU) * 0.35 * k
 	# lowered while switching
-	pos.y -= hidden * 0.45
-	rot.x -= hidden * 0.9
+	pos.y -= hidden * 0.42
+	rot.x -= hidden * 0.8
+	rot.z -= hidden * 0.25
 
 	holder.position = pos
 	holder.rotation = rot
@@ -505,12 +572,30 @@ func _process(delta: float) -> void:
 		(model["spin"] as Node3D).rotate_object_local(Vector3.FORWARD, _spin_speed * delta)
 	if model.get("piston") != null:
 		var piston: Node3D = model["piston"]
-		piston.position.z = lerpf(piston.position.z, -0.3 - _piston * 0.11, clampf(delta * 40.0, 0.0, 1.0))
+		piston.position.z = lerpf(piston.position.z, _piston_rest - _piston * 0.085, clampf(delta * 45.0, 0.0, 1.0))
+	if model.get("recoil") != null:
+		(model["recoil"] as Node3D).position.z = _recoil_rest + _recoil_slide * 0.07
 	if model.has("material"):
 		(model["material"] as ShaderMaterial).set_shader_parameter("flash", _flash * _flash)
+	# cannon: a small "ready" click when the reload finishes
+	if cls == "cannon" and _reload_click and cooldown <= 0.0 and cooldown_total > 0.5:
+		_reload_click = false
+		_kick = maxf(_kick, 0.18)
+		Audio.play("equip", -12.0, 1.5, 0.03)
 
 
-## Offsets for the shovel swing: quick wind-up, fast strike (impact at IMPACT_T), springy recovery.
+static func _ease_out_back(t: float) -> float:
+	var c := 1.4
+	var u := t - 1.0
+	return 1.0 + (c + 1.0) * u * u * u + c * u * u
+
+
+## Called by the world when the player lands so the tool dips with the impact.
+func on_landed(impact: float) -> void:
+	_land = clampf(impact * 0.06, 0.0, 1.0)
+
+
+## Offsets for the hand-shovel swing: wind-up, fast strike (impact at IMPACT_T), settling recovery.
 func _swing_pose(t: float) -> Array:
 	var pitch := 0.0
 	var fwd := 0.0
@@ -518,20 +603,20 @@ func _swing_pose(t: float) -> Array:
 	var roll := 0.0
 	if t < 0.16:
 		var a := ease(t / 0.16, 0.5)
-		pitch = lerpf(0.0, 0.55, a)
-		fwd = lerpf(0.0, 0.07, a)
-		drop = lerpf(0.0, 0.05, a)
+		pitch = lerpf(0.0, 0.42, a)
+		fwd = lerpf(0.0, 0.05, a)
+		drop = lerpf(0.0, 0.04, a)
 	elif t < IMPACT_T:
-		var a2 := ease((t - 0.16) / (IMPACT_T - 0.16), 2.2)
-		pitch = lerpf(0.55, -0.85, a2)
-		fwd = lerpf(0.07, -0.26, a2)
-		drop = lerpf(0.05, -0.1, a2)
-		roll = lerpf(0.0, -0.25, a2)
+		var a2 := ease((t - 0.16) / (IMPACT_T - 0.16), 2.4)
+		pitch = lerpf(0.42, -0.72, a2)
+		fwd = lerpf(0.05, -0.2, a2)
+		drop = lerpf(0.04, -0.07, a2)
+		roll = lerpf(0.0, -0.2, a2)
 	else:
 		var a3 := (t - IMPACT_T) / (1.0 - IMPACT_T)
-		var spring := 1.0 - (1.0 - a3) * (1.0 - a3) * cos(a3 * 7.0)
-		pitch = lerpf(-0.85, 0.0, spring)
-		fwd = lerpf(-0.26, 0.0, spring)
-		drop = lerpf(-0.1, 0.0, spring)
-		roll = lerpf(-0.25, 0.0, spring)
-	return [Vector3(-fwd * 0.25, drop, fwd), Vector3(pitch, fwd * 0.5, roll)]
+		var spring := 1.0 - (1.0 - a3) * (1.0 - a3) * cos(a3 * 6.0)
+		pitch = lerpf(-0.72, 0.0, spring)
+		fwd = lerpf(-0.2, 0.0, spring)
+		drop = lerpf(-0.07, 0.0, spring)
+		roll = lerpf(-0.2, 0.0, spring)
+	return [Vector3(-fwd * 0.3, drop, fwd), Vector3(pitch, fwd * 0.5, roll)]

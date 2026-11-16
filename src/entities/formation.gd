@@ -25,16 +25,25 @@ func setup(mat: int, total_units: int, size: float, colors: Array, seed_value: i
 	rng.seed = seed_value
 	var kit := MeshKit.new()
 	var def := GameData.materials[mat]
-	kit.emission = clampf(float(def.get("emission", 0.4)) * 0.35, 0.1, 0.4)
 	var main_col := Color(str(colors[rng.randi() % colors.size()])) if not colors.is_empty() else (def["color_c"] as Color)
-	var n := 3 + rng.randi() % 4
+	# A mineral deposit, not a toy: a low bed of host rock with a tight cluster of glossy,
+	# properly faceted prisms growing out of it. The gloss does the sparkling (sun, headlamp);
+	# emission stays very low so a cavern full of them does not wash out.
+	kit.matte()
+	kit.rock(Transform3D(Basis.from_scale(Vector3(1.25, 0.42, 1.1)), Vector3(0, 0.02, 0)), size * 0.3, Pal.ROCK_DARK, seed_value + 5, 0.22)
+	kit.gloss()
+	kit.emission = clampf(float(def.get("emission", 0.2)) * 0.5, 0.03, 0.22)
+	var n := 4 + rng.randi() % 4
 	for i in n:
-		var lean := Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)) * (0.15 + 0.5 * float(i > 0))
-		var h := size * (1.0 if i == 0 else rng.randf_range(0.35, 0.75))
-		var base := Vector3(lean.x, -0.15, lean.z) * size * 0.45
-		var tip := base + (Vector3.UP + lean * 0.55).normalized() * h
-		var c := main_col if i % 2 == 0 else main_col.lerp(def["color2_c"], 0.22)
-		kit.crystal(base, tip, size * (0.2 if i == 0 else rng.randf_range(0.1, 0.16)), c, 5 + rng.randi() % 2)
+		var ang := rng.randf() * TAU
+		var spread := 0.0 if i == 0 else rng.randf_range(0.25, 0.75)
+		var lean := Vector3(cos(ang), 0, sin(ang)) * spread
+		var h := size * (1.0 if i == 0 else rng.randf_range(0.3, 0.7))
+		var base := Vector3(lean.x, -0.08, lean.z) * size * 0.3
+		var tip := base + (Vector3.UP + lean * 0.7).normalized() * h
+		var c := main_col.lerp(def["color2_c"], rng.randf_range(0.0, 0.3))
+		c = c.darkened(rng.randf_range(0.0, 0.12))
+		kit.crystal(base, tip, size * (0.13 if i == 0 else rng.randf_range(0.055, 0.1)), c, 6, rng.randf_range(0.78, 0.9))
 	mesh_instance = kit.instance(MeshKit.material(), true)
 	add_child(mesh_instance)
 	var shape := CapsuleShape3D.new()
@@ -47,8 +56,8 @@ func setup(mat: int, total_units: int, size: float, colors: Array, seed_value: i
 	if with_light:
 		light = OmniLight3D.new()
 		light.light_color = main_col
-		light.light_energy = 0.35
-		light.omni_range = 3.5 + size * 2.0
+		light.light_energy = 0.5
+		light.omni_range = 4.0 + size * 2.5
 		light.omni_attenuation = 1.4
 		light.shadow_enabled = false
 		light.position = Vector3(0, size * 0.6, 0)
