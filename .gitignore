@@ -16,3 +16,5 @@ __pycache__/
 # Local test output
 /tests/output/
 /screenshots/tmp/
+# Local offscreen-render override (written temporarily by tools)
+/override.cfg
