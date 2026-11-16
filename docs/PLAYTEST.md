@@ -26,8 +26,10 @@ Little Planets, Big Holes\saves` first if you want to keep it).
 1. From the outpost, can you see landmarks worth walking to (Mount Pip, the ridge, trees)?
 2. Walk to Copperfold Vale without the map. Did you get lost? Did the compass help?
 3. Open the map (M). Is it understandable? Set a waypoint and follow the compass marker.
-4. Bring a relay online, recall to the outpost, travel back. Is the short "Surveying ground…"
-   hold acceptable? Any visible hitch or pop-in?
+4. Bring a relay online, recall to the outpost, travel back. Since v0.3.1 the view cuts to a
+   "Relay transit" card for ~1.5–2.5 s while the destination streams in, then fades in with you
+   standing beside the mast looking out over the region. Is the card's length acceptable? Does
+   the hard cut feel abrupt? Any hitch or pop-in *after* the fade? Do you know where you are?
 5. Walk 300 m in one direction. Does terrain or vegetation visibly pop in? Any holes, seams or
    floating trees at LOD boundaries?
 
@@ -38,7 +40,9 @@ Little Planets, Big Holes\saves` first if you want to keep it).
 2. Dig a hole, walk 150 m away, come back. Is the hole still there? Quit and continue: still
    there?
 3. Find the Fossilised Drill Bit, buy the Auto-Borer, press G away from the outpost. Watch it
-   for a minute; walk away and back. Is it satisfying? Is the spoil easy to collect?
+   for a minute; walk away and back. Is it satisfying? Is the spoil easy to collect? (v0.3.1:
+   braced legs, a wellhead drum, a turning crown and a spoil heap that grows every 2 m - does
+   it now read as a working machine rather than a telescope on a tripod?)
 4. With helper bots: press B in a region near a relay. Do the bots work there and unload at
    the relay?
 
@@ -48,12 +52,15 @@ Little Planets, Big Holes\saves` first if you want to keep it).
    contracts you completed. Compare with docs/BALANCE.md (model: Thumper 7–10 min, drill
    13–17 min).
 2. Did contracts give you useful goals, or feel like chores?
+3. If you reach Glimmerock: the model says it pays 4–8× Pipseed's late rate and the shop runs
+   out within ~15 minutes there. Does it? Is there still something to want?
 
 ## 5. Look and sound
 
 1. Does the outpost and equipment read as its own design (terracotta enamel, bronze rings,
    cream ceramic, jade accents) — and *not* as a copy of another game?
-2. Do Stonebrake, Whisperwood and Pockmark feel like different places?
+2. Do Stonebrake, Whisperwood and Pockmark feel like different places? Does Whisperwood's grove
+   still look like one tree copied (v0.3.1 added round-crowned and tiered trees)?
 3. Listen: digging, the borer, relays, ambience. Anything grating or missing?
 
 ## 6. Old saves

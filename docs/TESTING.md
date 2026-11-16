@@ -7,7 +7,7 @@ scripts from Git Bash). Everything falls back to `godot` on PATH.
 
 ```bash
 "$GODOT" --headless --path . --import                              # after cloning / adding class_names
-"$GODOT" --headless --path . res://tests/run_tests.tscn            # everything (~5 minutes)
+"$GODOT" --headless --path . res://tests/run_tests.tscn            # everything (~6-8 minutes)
 "$GODOT" --headless --path . res://tests/run_tests.tscn -- world   # only suites whose filename contains "world"
 tools/check.sh                                                     # compile every script; fails if Godot did not run
 ```
@@ -31,9 +31,10 @@ see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 | `test_i_overhaul` | every tier/mod builds and adds geometry; MeshKit; palette/look data; balance invariants; old flags load; arrival; props deterministic per cell and item; landmarks uprooted; nothing grows through the pads; outpost grows; purchase presentation; Lucky Charm; shop views |
 | `test_j_traversal` | world rotation rate, largest per-frame change of up, roll while walking, sprinting + jumping, jetpack flight, strafing with turning on a hillside, in a tunnel; horizon smoothing eases a sudden change and 0 = rigid; **walking the rough regions of both planets never sinks into the ground** |
 | `test_k_identity` | palette rules (no near-white enamel, verdigris accent, warm frames); every viewmodel has gloved hands, previews do not; stations collide as drums; the lander is squat |
-| `test_l_navigation` | relays on the surface, shielded, in named regions on every planet; region entry announced and remembered; relay activation and the travel rules (no jump from the field, recall from anywhere, outpost ↔ online relay); compass bearings and heading; map projection round trip and true distances; waypoint survives save/load; map relief image |
+| `test_l_navigation` | relays on the surface, shielded, in named regions on every planet; **relay transit covers the jump frame, holds the player still until the ground is collidable and releases onto the ground; every relay on both planets has a clear arrival spot**; region entry announced and remembered; relay activation and the travel rules (no jump from the field, recall from anywhere, outpost ↔ online relay); compass bearings and heading; map projection round trip and true distances; waypoint survives save/load; map relief image |
 | `test_m_activities` | contracts deterministic per slot and paid through ordinary sales (player and bots); relay and depth contracts complete from world state; **the Auto-Borer digs a real shaft, lifts spoil, saves progress, pauses when its area streams out, resumes, stalls on hard rock**; bots work a marked zone and unload at the nearest relay |
-| `test_n_terrain` | LOD pyramid covers the planet (LOD0 colliders near, far side visible at coarse LOD, transition masks at LOD seams); caves exist at depth and never under the pad; regions are measurably richer in their ore; **memory stays bounded while jumping around the planet**; loading three planets in turn grows static memory < 250 MB |
+| `test_o_stability` | collider vs voxel surface around a buried mesh-block corner (26 rays, ≤0.3 m, again after a second edit); a 30 m tunnel across block faces walked end to end; four save/quit/load sessions keeping all 8 holes; 14 relay jumps all landing on the ground with bounded memory; 12 s sprint + jetpack runs on both planets never inside the ground and rarely held |
+| `test_n_terrain` | LOD pyramid covers the planet (LOD0 colliders near, far side visible at coarse LOD, transition masks at LOD seams); caves exist at depth and never under the pad; regions are measurably richer in their ore; **memory stays bounded while jumping around the planet**; loading three planets in turn grows static memory < 250 MB; **the physics-ray readiness fallback never reports ready before the block query does** |
 
 ### Pre-existing tests changed in v0.3, and why
 
@@ -85,12 +86,31 @@ for the voxel engine to settle before each shot.
 
 Contact sheets and JPEG conversion: `res://tools/dev/sheet.tscn` (headless).
 
-## Benchmarks
+## Benchmarks and profiling
 
 ```bash
 tools/perf.sh [WxH] [mobile|forward_plus] [planet]            # GPU frame times, off-screen, v-sync off
-"$GODOT" --headless --path . res://tools/dev/bench.tscn      # CPU: load time, dig timings, save time
+"$GODOT" --headless --path . res://tools/dev/bench.tscn      # CPU: load, editable radius, dig timings, save
+python tools/perf_compare.py --before <old checkout> --res 3440x1440 --reps 3   # before/after, same code
+tools/profile.sh [WxH] [planet] [only=traverse,relay] [off=props]               # Godot's own profiler
+"$GODOT" --path . res://tools/dev/streamprobe.tscn -- pipseed plain|prestream|run 300   # streaming, per frame
+"$GODOT" --headless --path <old> res://tools/dev/savecompat.tscn -- write <dir>  # then `check <dir>` here
 ```
+
+* **Read `nvidia-smi` first.** The off-screen window shares the GPU with whatever the user is
+  running; with a game on the visible desktop (92–96 % GPU load during pass 3.1) every build,
+  v0.2 included, tops out around 120–140 FPS. `perf_compare.py` alternates the two checkouts
+  and logs GPU load before each run; renderer CPU ms, draw calls, the profiler's script and
+  physics time and streaming spike frames are far less affected than FPS.
+* `perf.gd off=<systems>` switches whole systems off for A/B attribution (props, hud, audio,
+  shadows, glow, msaa, sky_realtime, draw3d, ...). Never quote those numbers as the game's.
+* `profile.sh` runs a headless stand-in for the editor debugger (`tools/dev/profiler_host.gd`)
+  and the game with `--remote-debug`: per scenario it prints frame/process/physics/script time,
+  the slowest 5 % of frames, per-pass render CPU/GPU timestamps and the top script functions.
+  It adds overhead to every script call: attribute with it, measure with `perf`.
+* `streamprobe` prints every frame after a long jump with the mesh/data block deltas, queued
+  generation/meshing/main-thread tasks and the terrain's own update timings; `run` sprints with
+  jets for N seconds and counts frames held waiting for ground.
 
 `perf` prints load time, memory and video memory, then runs eight scenarios (mountain vista,
 outpost, power shovel held down, eight 6.5 m blasts, crystal cavern, three bots hauling 150
@@ -105,6 +125,7 @@ unthrottled; a decorated 1440-high window is clamped to 1421 pixels (the tool pr
 ```bash
 "$GODOT" --headless --path . res://tools/dev/econ.tscn -- 60 balanced
 "$GODOT" --headless --path . res://tools/dev/econ.tscn -- 60 explorer   # works rich regions via relays
+"$GODOT" --headless --path . res://tools/dev/econ.tscn -- 30 balanced glimmerock after=40   # 40 min Pipseed first
 ```
 
 See `docs/BALANCE.md` for assumptions and results.

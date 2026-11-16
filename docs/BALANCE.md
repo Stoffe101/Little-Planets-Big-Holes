@@ -151,3 +151,42 @@ Reading it:
   deliberate pull towards the regions but has not been tuned against play; if testers find the
   mid-game too fast, lower the regional `boost` values in `tools/planet_layout.py` first.
 * Figures from the final terrain (after the roughness change in 714c1fd).
+
+## Pass 3.1: re-run after the performance work, and Glimmerock (model estimates)
+
+**Pipseed is unchanged.** The 60-minute runs reproduce the pass-3 tables above to within one
+digit (balanced: Thumper 10.2 min, Burrow Drill 16.7, Boomer 35.0, Diamond Drill 56.6, 56,573 cr;
+explorer: 6.9 / 12.5 / 24.9 / 38.0, Mega Scooper 48.7, 102,980 cr; travel 7 % / 12 %). That is a
+check, not a coincidence to wave through: making `Planet.sdf_at` sample the terrain trilinearly
+first cut the balanced player's first-15-minute income by ~30 % (Thumper 13.5 min, Burrow Drill
+20.6 min, 39,772 cr in an hour), because the dig survey had always counted the stored
+lower-corner voxel, and every price was tuned on that. The survey now keeps that sampling
+(`Planet.sdf_at_voxel`); everything else uses the accurate surface.
+
+**Exploration vs ordinary mining (Pipseed).** Ordinary mining around the outpost still meets
+the original targets (first sale 1.5 min, Thumper 10 min, Burrow Drill 17 min, Diamond Drill
+57 min). Working the rich regions via relays roughly doubles income and reaches the Diamond
+Drill ~35 % earlier than the target (38 min vs ~60) and the Mega Scooper at 49 min (target
+60–90). 40 % of the explorer's value is Stonebrake gold. Exploring is clearly rewarding and
+ordinary mining is not pointless; whether the regional boost is *too* generous is for a
+playtest. If it is, lower Stonebrake's gold boost in `tools/planet_layout.py` first.
+
+**Glimmerock** (new: `econ.tscn -- 30 <policy> glimmerock after=40` plays 40 minutes of
+Pipseed, then flies there with that progress; the Star Chart unlock itself is not modelled):
+
+| | balanced | explorer |
+|---|---|---|
+| Arrived with | Thumper, Burrow Drill, Slurp-o-Vac, Boomer, backpack L4, 6,292 cr | same + Burrow Drill T2, backpack L5, 1,452 cr |
+| Income on Glimmerock | 1,700 → 7,000–10,000 cr/min | 6,000 → 16,000–18,500 cr/min |
+| Pipseed income at the same point | ~550–2,500 cr/min | ~1,800–2,100 cr/min |
+| Diamond Drill / Mega Scooper / backpack L6 | 6.6 / 11.5 / 14.0 min after landing | – / 3.3 / 6.3 min after landing |
+| Travelling to sell | 3 % | 7 % (Rim relay) |
+| Most valuable | geoderock 23 %, rosequartz 22 %, aquamarine 21 % | rosequartz 45 %, geoderock 17 % |
+
+Reading it: Glimmerock pays **4–8× Pipseed's late-game rate**, and **the shop runs out** within
+~15 minutes of landing — after backpack L6 the balanced player has nothing left to buy, and the
+explorer has nothing after 6 minutes. That is the main pacing problem the model shows. It is a
+content/price question (Glimmerock-tier upgrades, or Glimmerock-only sinks such as Auto-Borer
+levels and bot upgrades, which the policies do not buy), so it is reported here rather than
+patched blindly. Starting Glimmerock from nothing is impossible by design (the Rusty Scoop is
+blocked by 99 % of its ground).
