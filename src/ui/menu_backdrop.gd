@@ -116,11 +116,11 @@ func _ready() -> void:
 	var rb := _basis(rd)
 	var p0 := rd * (r + 0.02)
 	kit.paint()
-	kit.lathe(PackedVector2Array([Vector2(0.14, 0.12), Vector2(0.2, 0.3), Vector2(0.2, 0.86), Vector2(0.15, 1.08), Vector2(0.08, 1.2)]), Transform3D(rb, p0), Pal.HULL, 16, true)
-	kit.lathe(PackedVector2Array([Vector2(0.08, 1.2), Vector2(0.0, 1.3)]), Transform3D(rb, p0), Pal.GRAPHITE, 12)
-	kit.lathe(PackedVector2Array([Vector2(0.202, 0.74), Vector2(0.202, 0.78)]), Transform3D(rb, p0), Pal.AMBER, 16)
+	kit.lathe(PackedVector2Array([Vector2(0.14, 0.12), Vector2(0.2, 0.3), Vector2(0.2, 0.86), Vector2(0.15, 1.08), Vector2(0.08, 1.2)]), Transform3D(rb, p0), Pal.ENAMEL, 16, true)
+	kit.lathe(PackedVector2Array([Vector2(0.08, 1.2), Vector2(0.0, 1.3)]), Transform3D(rb, p0), Pal.BRONZE, 12)
+	kit.lathe(PackedVector2Array([Vector2(0.202, 0.74), Vector2(0.202, 0.78)]), Transform3D(rb, p0), Pal.JADE, 16)
 	kit.cast()
-	kit.lathe(PackedVector2Array([Vector2(0.12, 0.02), Vector2(0.08, 0.14)]), Transform3D(rb, p0), Pal.GRAPHITE, 12)
+	kit.lathe(PackedVector2Array([Vector2(0.12, 0.02), Vector2(0.08, 0.14)]), Transform3D(rb, p0), Pal.BRONZE, 12)
 	kit.bare()
 	for i in 3:
 		var a3 := TAU * float(i) / 3.0

@@ -5,9 +5,9 @@ extends Node3D
 ## Outfitter (gear shop) with physical displays of the next thing you can buy, and a helper-bot
 ## dock. A few extra installations appear as the player progresses, so the base grows with them.
 ##
-## Visual language (docs/ART_DIRECTION.md, "Industrial architecture"): off-white painted
-## modules on dark plinths, graphite vents and frames, one amber belt line, teal only for
-## screens and status lights, hexagonal concrete pads underfoot.
+## Visual language (docs/ART_DIRECTION.md, "Outpost architecture"): round enamelled drums on
+## stepped stone plinths, bronze rib rings and crowns, glazed cream dials and sign plates,
+## exposed copper lines, jade only on things you use, ion blue only for screens and lights.
 
 signal interact_requested(what: String)     ## "tools", "gear", "rocket"
 signal sale_completed(total: int)
@@ -46,7 +46,7 @@ func setup(w: World) -> void:
 	frame = Basis(x, up, x.cross(up).normalized())
 	_build_pad()
 	_build_rocket(Vector2(0, 0))
-	_build_depot(Vector2(5.4, 1.6))
+	_build_depot(Vector2(6.3, 1.8))
 	_tool_shop = _build_workshop(Vector2(-4.8, 3.5))
 	_gear_shop = _build_outfitter(Vector2(-5.4, -2.7))
 	_dock = _build_dock(Vector2(3.5, -4.8))
@@ -123,27 +123,67 @@ func _label(parent: Node3D, text: String, pos: Vector3, size: float, color: Colo
 	return l
 
 
-## A hexagonal concrete pad with a chamfered edge, sunk a little into the ground.
-static func _hex_pad(kit: MeshKit, radius: float, top := 0.08, depth := 0.6, color := Pal.CONCRETE) -> void:
+## A round, stepped stone plinth (two cut courses) sunk a little into the ground.
+static func _plinth(kit: MeshKit, radius: float, top := 0.08, depth := 0.6, color := Pal.CONCRETE) -> void:
 	kit.matte()
-	var prof := PackedVector2Array([Vector2(radius, -depth), Vector2(radius, top - 0.05), Vector2(radius - 0.05, top), Vector2(0.0, top)])
-	kit.lathe(prof, Transform3D(Basis.from_euler(Vector3(0, PI / 6.0, 0)), Vector3.ZERO), color, 6, false, true)
+	var prof := PackedVector2Array([Vector2(radius, -depth), Vector2(radius, top * 0.45), Vector2(radius - 0.06, top * 0.5),
+		Vector2(radius - 0.16, top * 0.55), Vector2(radius - 0.16, top - 0.03), Vector2(radius - 0.2, top), Vector2(0.0, top)])
+	kit.lathe(prof, Transform3D.IDENTITY, color, 24, false, true)
 
 
-## The shared body of every station: painted module on a dark plinth with one amber belt line.
-static func _module(kit: MeshKit, center: Vector3, size: Vector3, belt_y := 0.42) -> void:
-	kit.rubber()
-	kit.block(Vector3(center.x, 0.09, center.z), Vector3(size.x + 0.12, 0.26, size.z + 0.12), Pal.GRAPHITE, 0.03)
+## The shared body of every station: an enamelled drum on a bronze foot ring, held by raised
+## bronze ribs (no painted stripes), with a glazed cream label band and a low domed cap.
+## Returns the drum's top height.
+static func _drum(kit: MeshKit, center: Vector3, radius: float, height: float, sides := 20) -> float:
+	var y0 := center.y
+	kit.cast()
+	kit.lathe(PackedVector2Array([Vector2(radius + 0.12, y0), Vector2(radius + 0.12, y0 + 0.16), Vector2(radius + 0.04, y0 + 0.22), Vector2(radius, y0 + 0.22)]),
+		Transform3D(Basis.IDENTITY, Vector3(center.x, 0, center.z)), Pal.BRONZE, sides, false, true)
 	kit.paint()
-	kit.block(center + Vector3(0, 0.12, 0), size - Vector3(0, 0.2, 0), Pal.HULL, 0.07)
-	# roof cap
-	kit.block(Vector3(center.x, center.y + size.y * 0.5 + 0.04, center.z), Vector3(size.x - 0.2, 0.1, size.z - 0.2), Pal.HULL_SHADE, 0.03)
-	# belt line (four thin strips hugging the walls)
-	var y := belt_y
-	kit.block(Vector3(center.x, y, center.z - size.z * 0.5 - 0.004), Vector3(size.x - 0.1, 0.07, 0.012), Pal.AMBER, 0.003)
-	kit.block(Vector3(center.x, y, center.z + size.z * 0.5 + 0.004), Vector3(size.x - 0.1, 0.07, 0.012), Pal.AMBER, 0.003)
-	kit.block(Vector3(center.x - size.x * 0.5 - 0.004, y, center.z), Vector3(0.012, 0.07, size.z - 0.1), Pal.AMBER, 0.003)
-	kit.block(Vector3(center.x + size.x * 0.5 + 0.004, y, center.z), Vector3(0.012, 0.07, size.z - 0.1), Pal.AMBER, 0.003)
+	kit.lathe(PackedVector2Array([Vector2(radius, y0 + 0.2), Vector2(radius, y0 + height)]),
+		Transform3D(Basis.IDENTITY, Vector3(center.x, 0, center.z)), Pal.ENAMEL, sides, false, true)
+	# ribs
+	for f: float in [0.34, 0.86]:
+		var ry := y0 + height * f
+		kit.cast()
+		kit.lathe(PackedVector2Array([Vector2(radius, ry - 0.05), Vector2(radius + 0.045, ry - 0.03), Vector2(radius + 0.045, ry + 0.03), Vector2(radius, ry + 0.05)]),
+			Transform3D(Basis.IDENTITY, Vector3(center.x, 0, center.z)), Pal.BRONZE, sides, false, true)
+	# glazed label band between the ribs
+	kit.gloss()
+	kit.lathe(PackedVector2Array([Vector2(radius + 0.012, y0 + height * 0.62), Vector2(radius + 0.012, y0 + height * 0.76)]),
+		Transform3D(Basis.IDENTITY, Vector3(center.x, 0, center.z)), Pal.CREAM, sides, false, true)
+	# domed cap with a bronze crown ring
+	kit.paint()
+	var top := y0 + height
+	kit.lathe(PackedVector2Array([Vector2(radius + 0.03, top), Vector2(radius + 0.03, top + 0.06), Vector2(radius * 0.86, top + 0.2), Vector2(radius * 0.5, top + 0.3), Vector2(0.0, top + 0.33)]),
+		Transform3D(Basis.IDENTITY, Vector3(center.x, 0, center.z)), Pal.ENAMEL_SHADE, sides, true)
+	kit.cast()
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(center.x, top + 0.3, center.z)), 0.16, 0.0, 0.08, Pal.BRONZE, 12)
+	return top + 0.33
+
+
+## A round perforated grille (instrument-style vent): a bronze bezel with a grid of dark holes.
+static func _grille(kit: MeshKit, xform: Transform3D, radius: float) -> void:
+	kit.cast()
+	kit.disc(xform, radius, radius * 0.86, 0.025, Pal.BRONZE, 18)
+	kit.rubber()
+	var n := 3
+	var step := radius * 0.5
+	for ix in range(-n, n + 1):
+		for iz in range(-n, n + 1):
+			var p := Vector2(ix, iz) * step * 0.55
+			if p.length() < radius * 0.74:
+				kit.disc(xform * Transform3D(Basis.IDENTITY, Vector3(p.x, 0.0, p.y)), radius * 0.09, 0.0, 0.012, Pal.DEEP, 6)
+
+
+## A pressure dial: bronze bezel, cream face, one needle. Faces local +Y.
+static func _dial(kit: MeshKit, xform: Transform3D, radius: float, needle := 0.6) -> void:
+	kit.cast()
+	kit.disc(xform, radius, 0.0, 0.03, Pal.BRONZE, 16)
+	kit.gloss()
+	kit.disc(xform * Transform3D(Basis.IDENTITY, Vector3(0, 0.03, 0)), radius * 0.82, 0.0, 0.006, Pal.CREAM, 16)
+	kit.paint()
+	kit.hbox(xform * Transform3D(Basis.from_euler(Vector3(0, needle, 0)), Vector3(0, 0.038, 0) + Basis.from_euler(Vector3(0, needle, 0)) * Vector3(radius * 0.3, 0, 0)), Vector3(radius * 0.62, 0.004, radius * 0.07), Pal.DEEP, 0.001)
 
 
 # ------------------------------------------------------------------ pieces
@@ -154,131 +194,167 @@ func _build_pad() -> void:
 	add_child(node)
 	node.global_transform = _spot(Vector2.ZERO, 0.0, false)
 	var kit := MeshKit.new()
-	_hex_pad(kit, 4.0, 0.1, 0.7)
-	# expansion joints and the landing ring
+	_plinth(kit, 4.0, 0.12, 0.7)
+	# radial joints and the jade landing ring
 	kit.matte()
-	for i in 3:
-		var b := Basis.from_euler(Vector3(0, PI / 3.0 * float(i), 0))
-		kit.block(Vector3(0, 0.101, 0), Vector3(6.6, 0.006, 0.035), Pal.CONCRETE_DARK, 0.001, b)
+	for i in 8:
+		var b := Basis.from_euler(Vector3(0, PI / 8.0 * float(i), 0))
+		kit.block(b * Vector3(2.2, 0.121, 0), Vector3(3.0, 0.006, 0.03), Pal.CONCRETE_DARK, 0.001, b)
 	kit.paint()
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 0.1, 0)), 2.55, 2.4, 0.006, Pal.AMBER, 40)
-	for i in 6:
-		var a := PI / 3.0 * float(i) + PI / 6.0
-		var b2 := Basis.from_euler(Vector3(0, -a, 0))
-		kit.block(Vector3(cos(a), 0, sin(a)) * 3.05 + Vector3(0, 0.103, 0), Vector3(0.5, 0.006, 0.12), Pal.AMBER, 0.001, b2)
-	# marker lights at the corners
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 0.12, 0)), 2.75, 2.62, 0.006, Pal.JADE, 48)
+	# marker posts: short bronze bollards with ion caps around the rim
 	kit.surf(0.3)
-	for i in 6:
-		var a2 := PI / 3.0 * float(i)
-		var p := Vector3(cos(a2), 0, sin(a2)) * 3.6
+	for i in 8:
+		var a2 := TAU * float(i) / 8.0 + PI / 8.0
+		var p := Vector3(cos(a2), 0, sin(a2)) * 3.62
 		kit.set_emission(0.0)
-		kit.tube(p + Vector3(0, 0.08, 0), p + Vector3(0, 0.15, 0), 0.07, 0.06, Pal.GRAPHITE, 8)
+		kit.turned(p + Vector3(0, 0.1, 0), p + Vector3(0, 0.34, 0), PackedVector2Array([Vector2(0.07, 0.0), Vector2(0.07, 0.18), Vector2(0.05, 0.24)]), Pal.BRONZE, 10, false, true)
 		kit.set_emission(1.6)
-		kit.tube(p + Vector3(0, 0.15, 0), p + Vector3(0, 0.17, 0), 0.045, 0.04, Pal.TEAL, 8)
+		kit.sphere(p + Vector3(0, 0.35, 0), 0.04, Pal.ION, Vector3(1, 0.7, 1), 8, 4)
 	kit.set_emission(0.0)
 	node.add_child(kit.instance())
 	var shape := CylinderShape3D.new()
 	shape.radius = 3.6
 	shape.height = 0.7
-	_static(node, shape, Vector3(0, -0.25, 0))
+	_static(node, shape, Vector3(0, -0.23, 0))
 
 
+## The lander, "Seedpod": a squat kiln-fired pod on four splayed legs. A glazed upper dome,
+## bronze girth rings, copper fuel lines, a porthole and an arched hatch; a survey mast with a
+## gimbal ring on top. Deliberately low and round - nothing like a tall white rocket.
 func _build_rocket(local: Vector2) -> void:
 	_rocket = Node3D.new()
 	_rocket.name = "Rocket"
 	add_child(_rocket)
 	var t := _spot(local, 0.6, false)
-	t.origin += t.basis.y * 0.1
+	t.origin += t.basis.y * 0.12
 	_rocket.global_transform = t
 	var kit := MeshKit.new()
-	# engine section and bell
+	var s := 28
+	# thruster skirt and nozzles under the body
 	kit.cast()
-	kit.lathe(PackedVector2Array([Vector2(0.0, 0.42), Vector2(0.82, 0.38), Vector2(0.7, 0.62), Vector2(0.5, 1.0), Vector2(0.56, 1.1)]), Transform3D.IDENTITY, Pal.GRAPHITE, 20, true)
-	kit.paint()
-	kit.lathe(PackedVector2Array([Vector2(0.56, 1.05), Vector2(1.02, 1.25), Vector2(1.2, 1.75)]), Transform3D.IDENTITY, Pal.GRAPHITE, 24, true)
-	# hull
-	kit.lathe(PackedVector2Array([Vector2(1.2, 1.75), Vector2(1.3, 2.4), Vector2(1.3, 5.1), Vector2(1.2, 5.8), Vector2(0.98, 6.5), Vector2(0.66, 7.1)]), Transform3D.IDENTITY, Pal.HULL, 28, true)
-	kit.lathe(PackedVector2Array([Vector2(0.66, 7.1), Vector2(0.36, 7.5), Vector2(0.12, 7.68), Vector2(0.0, 7.7)]), Transform3D.IDENTITY, Pal.GRAPHITE, 20, true)
-	# belt lines and panel seams
-	kit.lathe(PackedVector2Array([Vector2(1.308, 4.72), Vector2(1.308, 4.9)]), Transform3D.IDENTITY, Pal.AMBER, 28)
-	kit.lathe(PackedVector2Array([Vector2(1.306, 2.42), Vector2(1.306, 2.5)]), Transform3D.IDENTITY, Pal.GRAPHITE, 28)
-	kit.lathe(PackedVector2Array([Vector2(1.304, 3.58), Vector2(1.304, 3.6)]), Transform3D.IDENTITY, Pal.HULL_SHADE.darkened(0.25), 28)
-	kit.lathe(PackedVector2Array([Vector2(1.304, 5.1), Vector2(1.304, 5.12)]), Transform3D.IDENTITY, Pal.HULL_SHADE.darkened(0.25), 28)
-	# antenna
-	kit.bare()
-	kit.tube(Vector3(0, 7.65, 0), Vector3(0, 8.5, 0), 0.025, 0.012, Pal.STEEL, 6)
-	kit.set_emission(1.8)
-	kit.sphere(Vector3(0, 8.53, 0), 0.05, Pal.TEAL, Vector3.ONE, 8, 5)
-	kit.set_emission(0.0)
-	# three landing legs: fairing, strut, foot
-	for i in 3:
-		var a := TAU * float(i) / 3.0 + 0.5
-		var out := Vector3(cos(a), 0, sin(a))
-		var b := Basis(out, Vector3.UP, out.cross(Vector3.UP).normalized())
-		kit.paint()
-		kit.hbox(Transform3D(b * Basis.from_euler(Vector3(0, 0, -0.2)), out * 1.42 + Vector3(0, 2.25, 0)), Vector3(0.42, 1.5, 0.36), Pal.HULL_SHADE, 0.06)
-		kit.bare()
-		kit.tube(out * 1.5 + Vector3(0, 1.75, 0), out * 2.5 + Vector3(0, 0.24, 0), 0.085, 0.07, Pal.STEEL, 8)
-		kit.tube(out * 1.05 + Vector3(0, 1.3, 0), out * 2.42 + Vector3(0, 0.3, 0), 0.05, 0.05, Pal.STEEL_DARK, 6)
+	kit.lathe(PackedVector2Array([Vector2(0.0, 0.95), Vector2(1.05, 0.95), Vector2(1.35, 1.25), Vector2(1.5, 1.4)]), Transform3D.IDENTITY, Pal.BRONZE, s, false, true)
+	for i in 6:
+		var a := TAU * float(i) / 6.0
+		var p := Vector3(cos(a), 0, sin(a)) * 0.72
+		kit.lathe(PackedVector2Array([Vector2(0.0, 0.62), Vector2(0.2, 0.62), Vector2(0.14, 0.82), Vector2(0.1, 0.98)]), Transform3D(Basis.IDENTITY, p), Pal.STEEL_DARK, 12, true)
 		kit.rubber()
-		kit.disc(Transform3D(Basis.IDENTITY, out * 2.52 + Vector3(0, 0.02, 0)), 0.34, 0.0, 0.14, Pal.GRAPHITE, 14)
-	# porthole and hatch (facing local +Z)
+		kit.disc(Transform3D(Basis.IDENTITY, p + Vector3(0, 0.62, 0)), 0.16, 0.0, 0.01, Pal.DEEP, 12)
+		kit.cast()
+	# lower body: enamel shade, then the main enamel belly
+	kit.paint()
+	kit.lathe(PackedVector2Array([Vector2(1.5, 1.38), Vector2(1.85, 1.7), Vector2(2.0, 2.1)]), Transform3D.IDENTITY, Pal.ENAMEL_SHADE, s, true)
+	kit.lathe(PackedVector2Array([Vector2(2.0, 2.1), Vector2(2.08, 2.6), Vector2(2.05, 3.3), Vector2(1.95, 3.7)]), Transform3D.IDENTITY, Pal.ENAMEL, s, true)
+	# glazed ceramic dome
+	kit.gloss()
+	kit.lathe(PackedVector2Array([Vector2(1.95, 3.7), Vector2(1.75, 4.25), Vector2(1.35, 4.75), Vector2(0.75, 5.1), Vector2(0.0, 5.22)]), Transform3D.IDENTITY, Pal.CREAM, s, true)
+	# bronze girth rings
+	for ry: float in [2.1, 3.7]:
+		kit.cast()
+		kit.torus(Transform3D(Basis.IDENTITY, Vector3(0, ry, 0)), 2.02 if ry < 3.0 else 1.97, 0.06, Pal.BRONZE, 40, 8)
+	# copper fuel lines wrapping the belly
+	kit.bare()
+	for k in 2:
+		var a0 := float(k) * PI + 0.9
+		var pts := PackedVector3Array()
+		for j in 9:
+			var a := a0 + 0.22 * float(j)
+			pts.append(Vector3(cos(a) * 2.1, 2.45 + 0.09 * float(j), sin(a) * 2.1))
+		kit.pipe(pts, 0.045, Pal.COPPER, 7)
+	# survey mast and gimbal ring on the dome
 	kit.cast()
-	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 4.1, 1.27)), 0.36, 0.06, Pal.GRAPHITE, 20, 6)
+	kit.turned(Vector3(0, 5.18, 0), Vector3(0, 5.5, 0), PackedVector2Array([Vector2(0.28, 0.0), Vector2(0.28, 0.12), Vector2(0.16, 0.32)]), Pal.BRONZE, 16)
+	kit.bare()
+	kit.tube(Vector3(0, 5.48, 0), Vector3(0, 6.6, 0), 0.05, 0.035, Pal.STEEL, 8)
+	kit.cast()
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0)), Vector3(0, 6.2, 0)), 0.36, 0.028, Pal.BRONZE, 24, 6)
+	kit.torus(Transform3D(Basis.from_euler(Vector3(0.0, 0.0, PI * 0.5)), Vector3(0, 6.2, 0)), 0.3, 0.024, Pal.COPPER, 24, 6)
+	kit.set_emission(1.8)
+	kit.sphere(Vector3(0, 6.66, 0), 0.07, Pal.ION, Vector3.ONE, 10, 6)
+	kit.set_emission(0.0)
+	# four splayed legs: bronze strut, copper damper, round foot
+	for i in 4:
+		var a := TAU * float(i) / 4.0 + PI / 4.0
+		var out := Vector3(cos(a), 0, sin(a))
+		kit.cast()
+		kit.tube(out * 1.75 + Vector3(0, 2.3, 0), out * 3.05 + Vector3(0, 0.22, 0), 0.1, 0.08, Pal.BRONZE, 10)
+		kit.bare()
+		kit.tube(out * 1.45 + Vector3(0, 1.45, 0), out * 2.6 + Vector3(0, 0.62, 0), 0.06, 0.06, Pal.COPPER, 8)
+		kit.tube(out * 2.2 + Vector3(0, 1.04, 0), out * 2.8 + Vector3(0, 0.45, 0), 0.035, 0.035, Pal.STEEL, 6)
+		kit.rubber()
+		kit.turned(out * 3.1 + Vector3(0, 0.0, 0), out * 3.1 + Vector3(0, 0.16, 0), PackedVector2Array([Vector2(0.42, 0.0), Vector2(0.38, 0.1), Vector2(0.14, 0.16)]), Pal.BRONZE, 16, false, true)
+	# porthole (local +Z) and an arched hatch below it
+	kit.cast()
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 4.15, 1.72)), 0.3, 0.06, Pal.BRONZE, 20, 6)
 	kit.gloss()
 	kit.set_emission(0.35)
-	kit.sphere(Vector3(0, 4.1, 1.2), 0.34, Pal.GLASS, Vector3(1, 1, 0.3), 14, 7)
+	kit.sphere(Vector3(0, 4.15, 1.66), 0.28, Pal.GLASS, Vector3(1, 1, 0.35), 14, 7)
 	kit.set_emission(0.0)
-	kit.paint()
-	kit.block(Vector3(0, 2.85, 1.27), Vector3(0.92, 1.42, 0.12), Pal.GRAPHITE, 0.04)
-	kit.block(Vector3(0, 2.85, 1.31), Vector3(0.78, 1.28, 0.08), Pal.HULL_SHADE, 0.03)
-	kit.block(Vector3(0.26, 2.85, 1.36), Vector3(0.06, 0.26, 0.04), Pal.AMBER, 0.012)
-	# ramp with side rails
-	var ramp := Basis.from_euler(Vector3(0.42, 0, 0))
+	var arch := PackedVector2Array()
+	for j in 9:
+		var aa := PI * float(j) / 8.0
+		arch.append(Vector2(cos(aa) * 0.48, 0.95 + sin(aa) * 0.42))
+	arch.append(Vector2(-0.48, 0.0))
+	arch.append(Vector2(0.48, 0.0))
 	kit.cast()
-	kit.hbox(Transform3D(ramp, Vector3(0, 1.16, 2.25)), Vector3(0.9, 0.07, 2.5), Pal.STEEL_DARK, 0.015)
+	kit.prism(arch, -0.05, 0.05, Transform3D(Basis.IDENTITY, Vector3(0, 2.15, 2.03)), Pal.BRONZE)
+	kit.paint()
+	var inner := PackedVector2Array()
+	for p2 in arch:
+		inner.append(p2 * Vector2(0.84, 0.92) + Vector2(0, 0.04))
+	kit.prism(inner, 0.04, 0.09, Transform3D(Basis.IDENTITY, Vector3(0, 2.15, 2.03)), Pal.ENAMEL_SHADE)
+	kit.paint()
+	kit.block(Vector3(0.26, 2.8, 2.13), Vector3(0.05, 0.3, 0.05), Pal.JADE, 0.015)
+	# ramp with side rails
+	var ramp := Basis.from_euler(Vector3(0.36, 0, 0))
+	kit.cast()
+	kit.hbox(Transform3D(ramp, Vector3(0, 1.45, 2.95)), Vector3(0.9, 0.07, 2.3), Pal.STEEL_DARK, 0.015)
 	for sx: float in [-1.0, 1.0]:
-		kit.hbox(Transform3D(ramp, Vector3(0.47 * sx, 1.2, 2.25)), Vector3(0.05, 0.14, 2.5), Pal.GRAPHITE, 0.012)
-	# vents either side of the hatch
-	for sx2: float in [-1.0, 1.0]:
-		var va := sx2 * 0.62
-		var vb := Basis.from_euler(Vector3(0, va, 0))
-		kit.louvre(Transform3D(vb, vb * Vector3(0, 3.0, 1.3)), Vector3(0.36, 0.5, 0.05), 5, Pal.CHARCOAL, Pal.GRAPHITE)
+		kit.hbox(Transform3D(ramp, Vector3(0.47 * sx, 1.49, 2.95)), Vector3(0.05, 0.14, 2.3), Pal.BRONZE, 0.012)
+	# instrument cluster beside the hatch: two dials and a round grille
+	_dial(kit, Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0)).rotated(Vector3.UP, 0.42), Vector3(0.0, 2.9, 0.0) + Vector3(sin(0.42), 0, cos(0.42)) * 2.07), 0.17, 0.4)
+	_dial(kit, Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0)).rotated(Vector3.UP, 0.58), Vector3(0.0, 2.55, 0.0) + Vector3(sin(0.58), 0, cos(0.58)) * 2.07), 0.12, -0.8)
+	_grille(kit, Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0)).rotated(Vector3.UP, -0.5), Vector3(0.0, 2.75, 0.0) + Vector3(sin(-0.5), 0, cos(-0.5)) * 2.08), 0.26)
 	_rocket.add_child(kit.instance())
-	_label(_rocket, "LPB-01", Vector3(0.0, 5.36, 1.3), 0.4, Pal.GRAPHITE).rotation.x = -0.1
+	var tag := _label(_rocket, "LPB-01", Vector3(0.0, 3.92, 1.9), 0.42, Pal.BRONZE)
+	tag.rotation.x = -0.45
 	var shape := CapsuleShape3D.new()
-	shape.radius = 1.35
-	shape.height = 7.4
-	_static(_rocket, shape, Vector3(0, 3.7, 0))
-	_interactable(_rocket, 2.7, 5.0, Vector3(0, 2.5, 0), "Lander - choose a destination", "rocket")
+	shape.radius = 2.0
+	shape.height = 4.6
+	_static(_rocket, shape, Vector3(0, 3.1, 0))
+	_interactable(_rocket, 3.0, 5.0, Vector3(0, 2.5, 0), "Lander - choose a destination", "rocket")
 
 
+## The Depot: a squat drum crowned by a funnel hopper and a copper chimney, with a round
+## porthole read-out on the front and a round cream sign on a mast.
 func _build_depot(local: Vector2) -> void:
 	var node := Node3D.new()
 	node.name = "SellStation"
 	add_child(node)
 	node.global_transform = _spot(local, _yaw_to_center(local))
 	var kit := MeshKit.new()
-	_hex_pad(kit, 2.1, 0.03, 0.5)
-	_module(kit, Vector3(0, 0.82, 0.1), Vector3(2.3, 1.6, 1.6), 0.5)
-	# status screen recess on the front
+	_plinth(kit, 1.9, 0.05, 0.5)
+	_drum(kit, Vector3(0, 0.05, 0.1), 1.05, 1.45)
+	# porthole read-out on the front (faces -Z, towards the sell pad)
+	kit.cast()
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 0.98, -0.97)), 0.42, 0.06, Pal.BRONZE, 24, 6)
 	kit.rubber()
-	kit.block(Vector3(0, 1.05, -0.71), Vector3(1.56, 0.74, 0.06), Pal.CHARCOAL, 0.02)
-	# output tray
+	kit.disc(Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), Vector3(0, 0.98, -0.95)), 0.4, 0.0, 0.02, Pal.DEEP, 24)
+	# output chute
 	kit.cast()
-	kit.hbox(Transform3D(Basis.from_euler(Vector3(-0.45, 0, 0)), Vector3(0.82, 0.5, -0.86)), Vector3(0.4, 0.05, 0.42), Pal.STEEL_DARK, 0.012)
-	# side vents and exhaust stack
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, PI * 0.5, 0)), Vector3(1.155, 1.1, 0.1)), Vector3(0.9, 0.5, 0.05), 6, Pal.CHARCOAL, Pal.GRAPHITE)
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, -PI * 0.5, 0)), Vector3(-1.155, 1.1, 0.1)), Vector3(0.9, 0.5, 0.05), 6, Pal.CHARCOAL, Pal.GRAPHITE)
+	kit.hbox(Transform3D(Basis.from_euler(Vector3(-0.45, 0, 0)), Vector3(0.75, 0.42, -0.98)), Vector3(0.36, 0.05, 0.4), Pal.STEEL_DARK, 0.012)
+	# copper chimney with a domed rain cap
 	kit.bare()
-	kit.tube(Vector3(-0.82, 1.6, 0.62), Vector3(-0.82, 2.55, 0.62), 0.11, 0.11, Pal.STEEL, 12)
+	kit.tube(Vector3(-0.7, 1.7, 0.62), Vector3(-0.7, 2.7, 0.62), 0.1, 0.1, Pal.COPPER, 12)
 	kit.cast()
-	kit.tube(Vector3(-0.82, 2.5, 0.62), Vector3(-0.82, 2.66, 0.62), 0.14, 0.14, Pal.GRAPHITE, 12)
-	# sign mast
+	kit.turned(Vector3(-0.7, 2.7, 0.62), Vector3(-0.7, 2.95, 0.62), PackedVector2Array([Vector2(0.2, 0.0), Vector2(0.2, 0.05), Vector2(0.12, 0.2), Vector2(0.0, 0.25)]), Pal.BRONZE, 14, true)
+	# sign mast with a round cream sign
 	kit.bare()
-	kit.tube(Vector3(0.9, 1.6, 0.62), Vector3(0.9, 2.75, 0.62), 0.045, 0.045, Pal.STEEL_DARK, 8)
-	kit.paint()
-	kit.block(Vector3(0.9, 3.05, 0.62), Vector3(0.95, 0.56, 0.08), Pal.GRAPHITE, 0.03)
+	kit.tube(Vector3(0.95, 1.6, 0.62), Vector3(0.95, 2.75, 0.62), 0.045, 0.045, Pal.STEEL_DARK, 8)
+	kit.cast()
+	kit.turned(Vector3(0.95, 3.05, 0.58), Vector3(0.95, 3.05, 0.66), PackedVector2Array([Vector2(0.52, 0.0), Vector2(0.52, 0.08)]), Pal.BRONZE, 24)
+	kit.gloss()
+	kit.turned(Vector3(0.95, 3.05, 0.575), Vector3(0.95, 3.05, 0.665), PackedVector2Array([Vector2(0.46, 0.0), Vector2(0.46, 0.09)]), Pal.CREAM, 24)
 	node.add_child(kit.instance())
 	# hopper (dips when fed)
 	hopper_node = Node3D.new()
@@ -286,37 +362,44 @@ func _build_depot(local: Vector2) -> void:
 	hopper_node.position = Vector3(0, 1.7, 0.1)
 	node.add_child(hopper_node)
 	var hk := MeshKit.new().cast()
-	hk.lathe(PackedVector2Array([Vector2(0.4, 0.0), Vector2(0.46, 0.12), Vector2(0.95, 0.72), Vector2(0.95, 0.84)]), Transform3D.IDENTITY, Pal.GRAPHITE, 8, false, true)
-	hk.lathe(PackedVector2Array([Vector2(0.88, 0.84), Vector2(0.88, 0.7), Vector2(0.4, 0.1), Vector2(0.0, 0.1)]), Transform3D.IDENTITY, Pal.CHARCOAL, 8, false, true)
+	hk.lathe(PackedVector2Array([Vector2(0.4, 0.0), Vector2(0.46, 0.12), Vector2(0.95, 0.72), Vector2(0.95, 0.84)]), Transform3D.IDENTITY, Pal.BRONZE, 20, true)
+	hk.lathe(PackedVector2Array([Vector2(0.88, 0.84), Vector2(0.88, 0.7), Vector2(0.4, 0.1), Vector2(0.0, 0.1)]), Transform3D.IDENTITY, Pal.DEEP, 20, true)
 	hk.paint()
-	hk.lathe(PackedVector2Array([Vector2(0.97, 0.76), Vector2(0.97, 0.86), Vector2(0.88, 0.86)]), Transform3D.IDENTITY, Pal.AMBER, 8, false, true)
+	hk.torus(Transform3D(Basis.IDENTITY, Vector3(0, 0.85, 0)), 0.93, 0.035, Pal.JADE, 32, 6)
 	hopper_node.add_child(hk.instance())
-	_label(node, "SELL", Vector3(0.9, 3.05, 0.575), 0.95, Pal.AMBER).rotation.y = PI
-	_label(node, "SELL", Vector3(0.9, 3.05, 0.665), 0.95, Pal.AMBER)
-	_label(node, "DEPOT", Vector3(-0.42, 1.24, -0.745), 0.62, Color(0.75, 0.8, 0.82), true).rotation.y = PI
-	sell_display = _label(node, "Step on the pad", Vector3(0, 0.93, -0.745), 0.56, Pal.TEAL, true)
+	_label(node, "SELL", Vector3(0.95, 3.05, 0.57), 0.9, Pal.BRONZE).rotation.y = PI
+	_label(node, "SELL", Vector3(0.95, 3.05, 0.67), 0.9, Pal.BRONZE)
+	_label(node, "DEPOT", Vector3(0, 1.17, -0.96), 0.5, Pal.CREAM, true).rotation.y = PI
+	sell_display = _label(node, "Step on the pad", Vector3(0, 0.92, -0.96), 0.44, Pal.ION, true)
 	sell_display.rotation.y = PI
-	var box := BoxShape3D.new()
-	box.size = Vector3(2.3, 2.4, 1.6)
-	_static(node, box, Vector3(0, 1.2, 0.1))
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 1.12
+	cyl.height = 2.4
+	_static(node, cyl, Vector3(0, 1.2, 0.1))
 
-	# the sell pad in front of the machine (towards the rocket)
+	# the sell pad in front of the machine (towards the lander)
 	var pad := Node3D.new()
 	pad.name = "SellPad"
 	node.add_child(pad)
 	pad.position = Vector3(0, 0.0, -2.4)
 	var pk := MeshKit.new()
-	_hex_pad(pk, 1.55, 0.07, 0.4, Pal.CONCRETE_DARK)
+	_plinth(pk, 1.55, 0.08, 0.4, Pal.CONCRETE_DARK)
 	pk.paint()
 	for i in 3:
-		# chevrons pointing at the machine
-		var z := -0.55 + 0.42 * float(i)
-		for sx: float in [-1.0, 1.0]:
-			pk.hbox(Transform3D(Basis.from_euler(Vector3(0, sx * 0.6, 0)), Vector3(0.2 * sx, 0.072, z)), Vector3(0.46, 0.006, 0.09), Pal.AMBER, 0.001)
+		# arcs pointing at the machine
+		var r := 0.45 + 0.32 * float(i)
+		var arc := PackedVector2Array()
+		for j in 7:
+			var aa := -0.6 + 1.2 * float(j) / 6.0
+			arc.append(Vector2(sin(aa) * r, -cos(aa) * r))
+		for j in 7:
+			var aa2 := 0.6 - 1.2 * float(j) / 6.0
+			arc.append(Vector2(sin(aa2) * (r - 0.08), -cos(aa2) * (r - 0.08)))
+		pk.prism(arc, -0.003, 0.003, Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), Vector3(0, 0.083, -0.75)), Pal.JADE)
 	pad.add_child(pk.instance())
 	var glow := MeshKit.new().surf(0.4)
 	glow.set_emission(1.0)
-	glow.lathe(PackedVector2Array([Vector2(1.42, 0.07), Vector2(1.42, 0.085), Vector2(1.32, 0.085), Vector2(1.32, 0.07)]), Transform3D(Basis.from_euler(Vector3(0, PI / 6.0, 0)), Vector3.ZERO), Pal.GREEN, 6, false, true)
+	glow.lathe(PackedVector2Array([Vector2(1.36, 0.08), Vector2(1.36, 0.095), Vector2(1.27, 0.095), Vector2(1.27, 0.08)]), Transform3D.IDENTITY, Pal.GREEN, 32)
 	_pad_glow = MeshKit.new_material(1.0)
 	pad.add_child(glow.instance(_pad_glow, false))
 	var pshape := CylinderShape3D.new()
@@ -326,74 +409,87 @@ func _build_depot(local: Vector2) -> void:
 	sell_pad_center = pad.global_position
 
 
-## The tool shop: a service-window module with a steel counter, a flat canopy and a lit
-## turntable that shows the next tool you can buy.
+## The Workshop (tools): a tall drum with a curved service counter wrapped around its front,
+## a pegboard of hanging tools inside the opening, a half-disc canopy and a lit turntable that
+## shows the next tool you can buy.
 func _build_workshop(local: Vector2) -> Node3D:
 	var node := Node3D.new()
 	node.name = "Kiosk_tools"
 	add_child(node)
 	node.global_transform = _spot(local, _yaw_to_center(local))
 	var kit := MeshKit.new()
-	_hex_pad(kit, 2.6, 0.03, 0.5)
-	_module(kit, Vector3(0, 1.3, 0.45), Vector3(3.0, 2.6, 1.5), 0.5)
-	# service window: dark recess with a pegboard back
+	_plinth(kit, 2.5, 0.05, 0.5)
+	var top := _drum(kit, Vector3(0, 0.05, 0.55), 1.3, 2.45)
+	# the opening: a dark recess with a bronze surround, pegboard inside
+	kit.cast()
+	kit.hbox(Transform3D(Basis.IDENTITY, Vector3(0, 1.75, -0.66)), Vector3(1.8, 1.16, 0.1), Pal.BRONZE, 0.03)
 	kit.rubber()
-	kit.block(Vector3(0, 1.72, -0.31), Vector3(2.3, 1.12, 0.06), Pal.CHARCOAL, 0.02)
-	kit.paint()
-	kit.block(Vector3(0, 1.72, -0.285), Vector3(2.16, 0.98, 0.03), Pal.GRAPHITE, 0.01)
-	# tools hanging on the pegboard (flat silhouettes: spade, pick, wrench)
+	kit.hbox(Transform3D(Basis.IDENTITY, Vector3(0, 1.75, -0.7)), Vector3(1.62, 1.0, 0.06), Pal.DEEP, 0.02)
 	kit.bare()
-	kit.block(Vector3(-0.8, 1.78, -0.31), Vector3(0.05, 0.62, 0.03), Pal.STEEL_DARK, 0.008)
-	kit.block(Vector3(-0.8, 1.42, -0.31), Vector3(0.2, 0.22, 0.03), Pal.STEEL, 0.02)
-	kit.block(Vector3(0.82, 1.76, -0.31), Vector3(0.05, 0.6, 0.03), Pal.WOOD, 0.008)
-	kit.hbox(Transform3D(Basis.from_euler(Vector3(0, 0, 0.25)), Vector3(0.82, 2.04, -0.31)), Vector3(0.46, 0.07, 0.03), Pal.STEEL, 0.012)
-	kit.block(Vector3(0.48, 1.7, -0.31), Vector3(0.05, 0.46, 0.03), Pal.STEEL, 0.008)
-	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0.48, 1.98, -0.31)), 0.07, 0.022, Pal.STEEL, 10, 5)
-	# counter: steel top on brackets
+	kit.block(Vector3(-0.55, 1.8, -0.74), Vector3(0.05, 0.6, 0.03), Pal.STEEL_DARK, 0.008)
+	kit.block(Vector3(-0.55, 1.45, -0.74), Vector3(0.2, 0.22, 0.03), Pal.STEEL, 0.02)
+	kit.block(Vector3(0.6, 1.78, -0.74), Vector3(0.05, 0.6, 0.03), Pal.WOOD, 0.008)
+	kit.hbox(Transform3D(Basis.from_euler(Vector3(0, 0, 0.25)), Vector3(0.6, 2.05, -0.74)), Vector3(0.44, 0.07, 0.03), Pal.STEEL, 0.012)
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0.0, 2.02, -0.74)), 0.07, 0.022, Pal.COPPER, 10, 5)
+	# curved counter: a half-ring slab on a enamel front skirt
+	var outer := PackedVector2Array()
+	for j in 13:
+		var aa := PI * float(j) / 12.0
+		outer.append(Vector2(cos(aa) * 1.45, sin(aa) * 0.85))
+	for j in 13:
+		var aa2 := PI - PI * float(j) / 12.0
+		outer.append(Vector2(cos(aa2) * 1.05, sin(aa2) * 0.45))
 	kit.bare()
-	kit.block(Vector3(0, 1.1, -0.62), Vector3(2.5, 0.07, 0.72), Pal.STEEL, 0.015)
+	kit.prism(outer, 1.06, 1.12, Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), Vector3(0, 0, -0.62)), Pal.STEEL)
 	kit.paint()
-	kit.block(Vector3(0, 0.62, -0.42), Vector3(2.4, 0.9, 0.3), Pal.HULL_SHADE, 0.04)
-	for sx: float in [-1.0, 1.0]:
-		kit.prism(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.5, 0.0), Vector2(0.0, -0.4)]), -0.03, 0.03,
-			Transform3D(Basis.from_euler(Vector3(0, PI * 0.5, 0)), Vector3(1.05 * sx, 1.06, -0.52)), Pal.GRAPHITE)
-	# canopy: a flat plate with an amber leading edge on two struts
-	var cb := Basis.from_euler(Vector3(0.08, 0, 0))
+	var skirt := PackedVector2Array()
+	for j in 13:
+		var aa3 := PI * float(j) / 12.0
+		skirt.append(Vector2(cos(aa3) * 1.38, sin(aa3) * 0.78))
+	for j in 13:
+		var aa4 := PI - PI * float(j) / 12.0
+		skirt.append(Vector2(cos(aa4) * 1.18, sin(aa4) * 0.58))
+	kit.prism(skirt, 0.05, 1.06, Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), Vector3(0, 0, -0.62)), Pal.ENAMEL_SHADE)
+	# half-disc canopy on two bronze arms
+	var canopy := PackedVector2Array()
+	for j in 13:
+		var aa5 := PI * float(j) / 12.0
+		canopy.append(Vector2(cos(aa5) * 1.7, sin(aa5) * 1.15))
 	kit.paint()
-	kit.hbox(Transform3D(cb, Vector3(0, 2.72, -0.72)), Vector3(3.1, 0.07, 1.5), Pal.HULL, 0.02)
-	kit.hbox(Transform3D(cb, Vector3(0, 2.66, -1.46)), Vector3(3.1, 0.1, 0.06), Pal.AMBER, 0.012)
-	kit.bare()
+	kit.prism(canopy, 2.66, 2.72, Transform3D(Basis.from_euler(Vector3(-PI * 0.5, 0, 0)), Vector3(0, 0, -0.4)), Pal.ENAMEL)
+	kit.cast()
 	for sx2: float in [-1.0, 1.0]:
-		kit.tube(Vector3(1.4 * sx2, 2.2, -0.3), Vector3(1.4 * sx2, 2.63, -1.3), 0.025, 0.025, Pal.STEEL_DARK, 6)
-	# sign board on the roof
-	kit.paint()
-	kit.block(Vector3(0, 3.02, 0.2), Vector3(1.9, 0.5, 0.1), Pal.GRAPHITE, 0.03)
-	kit.bare()
-	for sx3: float in [-1.0, 1.0]:
-		kit.tube(Vector3(0.7 * sx3, 2.62, 0.2), Vector3(0.7 * sx3, 2.8, 0.2), 0.03, 0.03, Pal.STEEL_DARK, 6)
-	# side details: vent, glazing strip
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, PI * 0.5, 0)), Vector3(1.505, 1.9, 0.45)), Vector3(0.8, 0.44, 0.05), 5, Pal.CHARCOAL, Pal.GRAPHITE)
+		kit.tube(Vector3(1.05 * sx2, 2.1, -0.4), Vector3(1.25 * sx2, 2.66, -1.0), 0.03, 0.03, Pal.BRONZE, 6)
+	# round sign on the roof
+	kit.cast()
+	kit.tube(Vector3(0, top - 0.05, 0.55), Vector3(0, top + 0.35, 0.55), 0.04, 0.04, Pal.BRONZE, 6)
+	kit.turned(Vector3(0, top + 0.72, 0.5), Vector3(0, top + 0.72, 0.6), PackedVector2Array([Vector2(0.5, 0.0), Vector2(0.5, 0.1)]), Pal.BRONZE, 24)
 	kit.gloss()
-	kit.block(Vector3(-1.505, 1.5, 0.45), Vector3(0.03, 1.5, 0.3), Pal.GLASS, 0.008)
+	kit.turned(Vector3(0, top + 0.72, 0.495), Vector3(0, top + 0.72, 0.605), PackedVector2Array([Vector2(0.44, 0.0), Vector2(0.44, 0.11)]), Pal.CREAM, 24)
+	# side grilles and a copper conduit
+	_grille(kit, Transform3D(Basis.from_euler(Vector3(0, 0, -PI * 0.5)), Vector3(1.31, 1.6, 0.55)), 0.28)
+	kit.bare()
+	kit.pipe(PackedVector3Array([Vector3(-1.32, 0.3, 0.9), Vector3(-1.42, 0.6, 0.9), Vector3(-1.42, 2.2, 0.9), Vector3(-1.2, 2.45, 0.9)]), 0.04, Pal.COPPER, 7)
 	# turntable on the counter
 	kit.cast()
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 1.135, -0.66)), 0.36, 0.0, 0.05, Pal.GRAPHITE, 20)
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 1.12, -1.12)), 0.32, 0.0, 0.05, Pal.BRONZE, 20)
 	kit.surf(0.3).set_emission(1.3)
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 1.185, -0.66)), 0.3, 0.27, 0.006, Pal.TEAL, 24)
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 1.17, -1.12)), 0.27, 0.24, 0.006, Pal.ION, 24)
 	kit.set_emission(0.0)
 	node.add_child(kit.instance())
-	_label(node, "TOOLS", Vector3(0, 3.02, 0.145), 1.15, Pal.HULL).rotation.y = PI
-	_label(node, "TOOLS", Vector3(0, 3.02, 0.255), 1.15, Pal.HULL)
-	var box := BoxShape3D.new()
-	box.size = Vector3(3.0, 2.7, 1.5)
-	_static(node, box, Vector3(0, 1.35, 0.45))
+	_label(node, "TOOLS", Vector3(0, top + 0.72, 0.49), 0.85, Pal.BRONZE).rotation.y = PI
+	_label(node, "TOOLS", Vector3(0, top + 0.72, 0.61), 0.85, Pal.BRONZE)
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 1.35
+	cyl.height = 2.7
+	_static(node, cyl, Vector3(0, 1.35, 0.55))
 	var cbox := BoxShape3D.new()
-	cbox.size = Vector3(2.5, 1.1, 0.7)
-	_static(node, cbox, Vector3(0, 0.55, -0.6))
-	_interactable(node, 2.0, 2.6, Vector3(0, 1.3, -0.7), "Workshop - buy and upgrade tools", "tools")
+	cbox.size = Vector3(2.6, 1.1, 0.6)
+	_static(node, cbox, Vector3(0, 0.55, -1.05))
+	_interactable(node, 2.0, 2.6, Vector3(0, 1.3, -1.1), "Workshop - buy and upgrade tools", "tools")
 	_tool_display = Node3D.new()
 	_tool_display.name = "Display"
-	_tool_display.position = Vector3(0, 1.75, -0.66)
+	_tool_display.position = Vector3(0, 1.75, -1.12)
 	node.add_child(_tool_display)
 	var spot := SpotLight3D.new()
 	spot.light_color = Pal.LAMP_WARM
@@ -401,63 +497,73 @@ func _build_workshop(local: Vector2) -> Node3D:
 	spot.spot_range = 3.2
 	spot.spot_angle = 38.0
 	spot.shadow_enabled = false
-	spot.position = Vector3(0, 2.6, -0.9)
+	spot.position = Vector3(0, 2.6, -1.25)
 	spot.rotation = Vector3(-PI * 0.5 + 0.2, 0, 0)
 	node.add_child(spot)
 	return node
 
 
-## The gear shop: a locker wall with a glass display case for the backpack.
+## The Outfitter (gear): a drum flanked by two tall canister lockers, with a glass bell jar on a
+## plinth out front that shows the backpack.
 func _build_outfitter(local: Vector2) -> Node3D:
 	var node := Node3D.new()
 	node.name = "Kiosk_gear"
 	add_child(node)
 	node.global_transform = _spot(local, _yaw_to_center(local))
 	var kit := MeshKit.new()
-	_hex_pad(kit, 2.4, 0.03, 0.5)
-	_module(kit, Vector3(0, 1.25, 0.4), Vector3(3.0, 2.5, 1.3), 0.34)
-	# lockers left and right of the display case
+	_plinth(kit, 2.4, 0.05, 0.5)
+	var top := _drum(kit, Vector3(0, 0.05, 0.55), 1.15, 2.2)
+	# canister lockers either side: tall cylinders with hinged fronts and a status pip
 	for sx: float in [-1.0, 1.0]:
-		for k in 2:
-			var x := sx * (0.78 + 0.5 * float(k))
-			kit.paint()
-			kit.block(Vector3(x, 1.38, -0.262), Vector3(0.46, 1.7, 0.05), Pal.GRAPHITE, 0.015)
-			kit.block(Vector3(x, 1.38, -0.285), Vector3(0.38, 1.6, 0.04), Pal.HULL_SHADE, 0.012)
-			kit.louvre(Transform3D(Basis.from_euler(Vector3(0, PI, 0)), Vector3(x, 1.92, -0.31)), Vector3(0.24, 0.16, 0.025), 4, Pal.CHARCOAL, Pal.GRAPHITE)
-			kit.bare()
-			kit.block(Vector3(x + 0.12 * sx, 1.3, -0.315), Vector3(0.03, 0.16, 0.03), Pal.STEEL, 0.008)
-			kit.surf(0.3).set_emission(1.4)
-			kit.block(Vector3(x, 2.1, -0.31), Vector3(0.05, 0.025, 0.02), Pal.TEAL, 0.004)
-			kit.set_emission(0.0)
-	# display case: plinth, frame and glass
+		var c := Vector3(1.45 * sx, 0.05, 0.2)
+		kit.cast()
+		kit.turned(c, c + Vector3(0, 0.18, 0), PackedVector2Array([Vector2(0.42, 0.0), Vector2(0.42, 0.18)]), Pal.BRONZE, 18)
+		kit.paint()
+		kit.turned(c + Vector3(0, 0.18, 0), c + Vector3(0, 2.0, 0), PackedVector2Array([Vector2(0.38, 0.0), Vector2(0.38, 1.82), Vector2(0.3, 1.9), Vector2(0.0, 1.95)]), Pal.ENAMEL_SHADE, 18, true)
+		kit.cast()
+		for ry: float in [0.7, 1.5]:
+			kit.torus(Transform3D(Basis.IDENTITY, c + Vector3(0, ry, 0)), 0.39, 0.025, Pal.BRONZE, 20, 5)
+		kit.bare()
+		kit.block(c + Vector3(-0.12 * sx, 1.1, -0.39), Vector3(0.03, 0.2, 0.03), Pal.STEEL, 0.008)
+		kit.surf(0.3).set_emission(1.4)
+		kit.sphere(c + Vector3(0, 1.85, -0.36), 0.03, Pal.ION, Vector3.ONE, 6, 4)
+		kit.set_emission(0.0)
+	# bell jar display: plinth, bronze base ring, glass dome
 	kit.paint()
-	kit.block(Vector3(0, 0.55, -0.5), Vector3(0.96, 0.96, 0.7), Pal.HULL_SHADE, 0.04)
-	kit.block(Vector3(0, 1.05, -0.5), Vector3(1.02, 0.06, 0.76), Pal.GRAPHITE, 0.015)
-	kit.block(Vector3(0, 2.26, -0.5), Vector3(1.02, 0.08, 0.76), Pal.GRAPHITE, 0.015)
-	kit.bare()
-	for sx2: float in [-1.0, 1.0]:
-		for sz: float in [-1.0, 1.0]:
-			kit.block(Vector3(0.48 * sx2, 1.65, -0.5 + 0.35 * sz), Vector3(0.035, 1.16, 0.035), Pal.STEEL_DARK, 0.008)
-	# sign board
-	kit.paint()
-	kit.block(Vector3(0, 2.92, 0.2), Vector3(1.7, 0.5, 0.1), Pal.GRAPHITE, 0.03)
-	kit.bare()
-	for sx3: float in [-1.0, 1.0]:
-		kit.tube(Vector3(0.6 * sx3, 2.52, 0.2), Vector3(0.6 * sx3, 2.7, 0.2), 0.03, 0.03, Pal.STEEL_DARK, 6)
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, -PI * 0.5, 0)), Vector3(-1.505, 1.9, 0.4)), Vector3(0.7, 0.44, 0.05), 5, Pal.CHARCOAL, Pal.GRAPHITE)
+	kit.turned(Vector3(0, 0.05, -0.75), Vector3(0, 1.0, -0.75), PackedVector2Array([Vector2(0.5, 0.0), Vector2(0.5, 0.85), Vector2(0.56, 0.9), Vector2(0.56, 0.95)]), Pal.ENAMEL, 18)
+	kit.cast()
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 1.0, -0.75)), 0.58, 0.0, 0.06, Pal.BRONZE, 24)
+	kit.gloss()
+	kit.turned(Vector3(0, 1.06, -0.75), Vector3(0, 2.25, -0.75), PackedVector2Array([Vector2(0.5, 0.0), Vector2(0.5, 0.8), Vector2(0.42, 1.04), Vector2(0.22, 1.16), Vector2(0.0, 1.19)]), Pal.GLASS.lightened(0.25), 24, true)
+	kit.cast()
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 2.24, -0.75)), 0.1, 0.0, 0.06, Pal.BRONZE, 10)
+	# round sign on the roof
+	kit.cast()
+	kit.tube(Vector3(0, top - 0.05, 0.55), Vector3(0, top + 0.3, 0.55), 0.04, 0.04, Pal.BRONZE, 6)
+	kit.turned(Vector3(0, top + 0.66, 0.5), Vector3(0, top + 0.66, 0.6), PackedVector2Array([Vector2(0.48, 0.0), Vector2(0.48, 0.1)]), Pal.BRONZE, 24)
+	kit.gloss()
+	kit.turned(Vector3(0, top + 0.66, 0.495), Vector3(0, top + 0.66, 0.605), PackedVector2Array([Vector2(0.42, 0.0), Vector2(0.42, 0.11)]), Pal.CREAM, 24)
+	_grille(kit, Transform3D(Basis.from_euler(Vector3(0, 0, PI * 0.5)), Vector3(-1.16, 1.5, 0.75)), 0.24)
 	node.add_child(kit.instance())
-	_label(node, "GEAR", Vector3(0, 2.92, 0.145), 1.15, Pal.HULL).rotation.y = PI
-	_label(node, "GEAR", Vector3(0, 2.92, 0.255), 1.15, Pal.HULL)
-	var box := BoxShape3D.new()
-	box.size = Vector3(3.0, 2.6, 1.3)
-	_static(node, box, Vector3(0, 1.3, 0.4))
-	var cbox := BoxShape3D.new()
-	cbox.size = Vector3(1.0, 2.3, 0.75)
-	_static(node, cbox, Vector3(0, 1.15, -0.5))
-	_interactable(node, 2.0, 2.6, Vector3(0, 1.3, -0.6), "Outfitter - upgrade your gear", "gear")
+	_label(node, "GEAR", Vector3(0, top + 0.66, 0.49), 0.85, Pal.BRONZE).rotation.y = PI
+	_label(node, "GEAR", Vector3(0, top + 0.66, 0.61), 0.85, Pal.BRONZE)
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 1.2
+	cyl.height = 2.5
+	_static(node, cyl, Vector3(0, 1.25, 0.55))
+	for sx3: float in [-1.0, 1.0]:
+		var lc := CylinderShape3D.new()
+		lc.radius = 0.42
+		lc.height = 2.0
+		_static(node, lc, Vector3(1.45 * sx3, 1.05, 0.2))
+	var jar := CylinderShape3D.new()
+	jar.radius = 0.58
+	jar.height = 2.25
+	_static(node, jar, Vector3(0, 1.12, -0.75))
+	_interactable(node, 2.0, 2.6, Vector3(0, 1.3, -0.9), "Outfitter - upgrade your gear", "gear")
 	_gear_display = Node3D.new()
 	_gear_display.name = "Display"
-	_gear_display.position = Vector3(0, 1.62, -0.5)
+	_gear_display.position = Vector3(0, 1.55, -0.75)
 	node.add_child(_gear_display)
 	var spot := SpotLight3D.new()
 	spot.light_color = Pal.LAMP_COOL
@@ -465,32 +571,38 @@ func _build_outfitter(local: Vector2) -> Node3D:
 	spot.spot_range = 2.4
 	spot.spot_angle = 40.0
 	spot.shadow_enabled = false
-	spot.position = Vector3(0, 2.2, -0.5)
+	spot.position = Vector3(0, 2.15, -0.75)
 	spot.rotation = Vector3(-PI * 0.5, 0, 0)
 	node.add_child(spot)
 	return node
 
 
+## The bot dock: a round landing dish with an ion ring, and a tripod mast carrying a gimbal
+## ring beacon.
 func _build_dock(local: Vector2) -> Node3D:
 	var node := Node3D.new()
 	node.name = "BotDock"
 	add_child(node)
 	node.global_transform = _spot(local, _yaw_to_center(local))
 	var kit := MeshKit.new()
-	_hex_pad(kit, 1.3, 0.1, 0.5, Pal.CONCRETE_DARK)
+	_plinth(kit, 1.3, 0.1, 0.5, Pal.CONCRETE_DARK)
 	kit.cast()
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 0.1, 0)), 0.8, 0.0, 0.05, Pal.GRAPHITE, 6, true)
+	kit.lathe(PackedVector2Array([Vector2(0.85, 0.1), Vector2(0.85, 0.14), Vector2(0.4, 0.2), Vector2(0.0, 0.2)]), Transform3D.IDENTITY, Pal.BRONZE, 24, false, true)
 	kit.surf(0.3).set_emission(1.2)
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 0.15, 0)), 0.62, 0.57, 0.006, Pal.TEAL, 24)
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, 0.2, 0)), 0.62, 0.56, 0.006, Pal.ION, 24)
 	kit.set_emission(0.0)
-	# mast with a status light and two charging arms
+	# tripod mast
+	var mast := Vector3(1.0, 0.1, 0.0)
+	kit.cast()
+	for k in 3:
+		var a := TAU * float(k) / 3.0
+		kit.tube(mast + Vector3(cos(a), 0, sin(a)) * 0.28, mast + Vector3(0, 1.4, 0), 0.03, 0.025, Pal.BRONZE, 6)
 	kit.bare()
-	kit.tube(Vector3(0.98, 0.1, 0.0), Vector3(0.98, 1.9, 0.0), 0.04, 0.035, Pal.STEEL_DARK, 6)
-	kit.paint()
-	kit.block(Vector3(0.98, 1.98, 0), Vector3(0.14, 0.16, 0.14), Pal.GRAPHITE, 0.02)
-	kit.block(Vector3(0.8, 1.0, 0), Vector3(0.36, 0.05, 0.05), Pal.HULL_SHADE, 0.012)
+	kit.tube(mast + Vector3(0, 1.35, 0), mast + Vector3(0, 2.0, 0), 0.035, 0.03, Pal.STEEL_DARK, 6)
+	kit.cast()
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), mast + Vector3(0, 2.05, 0)), 0.16, 0.02, Pal.COPPER, 18, 5)
 	kit.surf(0.3).set_emission(1.6)
-	kit.block(Vector3(0.9, 1.98, 0), Vector3(0.03, 0.08, 0.08), Pal.TEAL, 0.006)
+	kit.sphere(mast + Vector3(0, 2.05, 0), 0.06, Pal.ION, Vector3.ONE, 8, 5)
 	kit.set_emission(0.0)
 	node.add_child(kit.instance())
 	var shape := CylinderShape3D.new()
@@ -501,39 +613,49 @@ func _build_dock(local: Vector2) -> Node3D:
 	return node
 
 
+## The site marker: a round cream survey plate on a bronze post with tripod feet.
 func _build_sign(local: Vector2) -> void:
 	var node := Node3D.new()
 	node.name = "Sign"
 	add_child(node)
 	node.global_transform = _spot(local, _yaw_to_center(local))
-	var kit := MeshKit.new().bare()
-	for sx: float in [-1.0, 1.0]:
-		kit.tube(Vector3(0.8 * sx, -0.2, 0), Vector3(0.8 * sx, 1.72, 0), 0.035, 0.035, Pal.STEEL_DARK, 6)
+	var kit := MeshKit.new().cast()
+	for k in 3:
+		var a := TAU * float(k) / 3.0 + 0.3
+		kit.tube(Vector3(cos(a), 0, sin(a)) * 0.45 + Vector3(0, -0.1, 0), Vector3(0, 0.7, 0), 0.03, 0.03, Pal.BRONZE, 6)
+	kit.tube(Vector3(0, 0.6, 0), Vector3(0, 1.0, 0), 0.05, 0.05, Pal.BRONZE, 8)
+	kit.turned(Vector3(0, 1.62, -0.05), Vector3(0, 1.62, 0.05), PackedVector2Array([Vector2(0.72, 0.0), Vector2(0.72, 0.1)]), Pal.BRONZE, 32)
+	kit.gloss()
+	kit.turned(Vector3(0, 1.62, -0.056), Vector3(0, 1.62, 0.056), PackedVector2Array([Vector2(0.65, 0.0), Vector2(0.65, 0.112)]), Pal.CREAM, 32)
 	kit.paint()
-	kit.block(Vector3(0, 1.4, 0), Vector3(2.0, 0.7, 0.06), Pal.HULL, 0.02)
-	kit.block(Vector3(0, 1.09, 0), Vector3(2.0, 0.06, 0.066), Pal.AMBER, 0.01)
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 1.62, 0.0)), 0.5, 0.012, Pal.JADE, 40, 4)
 	node.add_child(kit.instance())
 	var title := str(planet.config.get("name", "Planet")).to_upper()
 	var site := "SURVEY SITE %02d" % (int(planet.config.get("order", 0)) + 1)
 	for side: float in [-1.0, 1.0]:
-		var l := _label(node, title, Vector3(0, 1.5, 0.034 * side), 0.95, Pal.GRAPHITE)
+		var l := _label(node, title, Vector3(0, 1.7, 0.058 * side), 0.7, Pal.BRONZE)
 		l.rotation = Vector3(0, 0.0 if side > 0 else PI, 0)
-		var l2 := _label(node, site, Vector3(0, 1.24, 0.034 * side), 0.4, Pal.STEEL_DARK)
+		var l2 := _label(node, site, Vector3(0, 1.46, 0.058 * side), 0.3, Pal.ENAMEL_SHADE)
 		l2.rotation = Vector3(0, 0.0 if side > 0 else PI, 0)
 
 
+## A path lantern: a bronze crook post with a small domed lantern hanging from it.
 func _build_lamp(local: Vector2) -> void:
 	var node := Node3D.new()
 	add_child(node)
 	node.global_transform = _spot(local, _yaw_to_center(local))
 	var kit := MeshKit.new().cast()
-	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, -0.05, 0)), 0.16, 0.0, 0.1, Pal.GRAPHITE, 8)
-	kit.tube(Vector3(0, 0, 0), Vector3(0, 2.7, 0), 0.04, 0.03, Pal.GRAPHITE, 8)
-	kit.tube(Vector3(0, 2.68, 0), Vector3(0, 2.76, -0.42), 0.022, 0.022, Pal.GRAPHITE, 6)
-	kit.paint()
-	kit.block(Vector3(0, 2.76, -0.5), Vector3(0.16, 0.05, 0.36), Pal.HULL_SHADE, 0.012)
+	kit.disc(Transform3D(Basis.IDENTITY, Vector3(0, -0.05, 0)), 0.16, 0.0, 0.1, Pal.BRONZE, 10)
+	kit.tube(Vector3(0, 0, 0), Vector3(0, 2.4, 0), 0.04, 0.03, Pal.BRONZE, 8)
+	var crook := PackedVector3Array()
+	for j in 7:
+		var a := PI * float(j) / 6.0
+		crook.append(Vector3(0, 2.4 + sin(a) * 0.22, -0.22 + cos(a) * 0.22))
+	kit.pipe(crook, 0.025, Pal.BRONZE, 6)
+	kit.tube(Vector3(0, 2.4, -0.44), Vector3(0, 2.25, -0.44), 0.01, 0.01, Pal.STEEL_DARK, 4)
+	kit.turned(Vector3(0, 2.0, -0.44), Vector3(0, 2.26, -0.44), PackedVector2Array([Vector2(0.11, 0.0), Vector2(0.13, 0.14), Vector2(0.08, 0.24), Vector2(0.0, 0.26)]), Pal.ENAMEL, 12, true)
 	kit.surf(0.4).set_emission(2.4)
-	kit.block(Vector3(0, 2.732, -0.5), Vector3(0.11, 0.012, 0.3), Pal.LAMP_WARM, 0.002)
+	kit.turned(Vector3(0, 1.94, -0.44), Vector3(0, 2.02, -0.44), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.09, 0.02), Vector2(0.1, 0.08)]), Pal.LAMP_WARM, 12, true)
 	kit.set_emission(0.0)
 	node.add_child(kit.instance())
 	var light := OmniLight3D.new()
@@ -542,7 +664,7 @@ func _build_lamp(local: Vector2) -> void:
 	light.omni_range = 7.0
 	light.omni_attenuation = 1.4
 	light.shadow_enabled = false
-	light.position = Vector3(0, 2.55, -0.5)
+	light.position = Vector3(0, 1.85, -0.44)
 	node.add_child(light)
 
 
@@ -582,18 +704,18 @@ func _refresh_displays() -> void:
 static func gear_model(level: int) -> Node3D:
 	var s := 0.62 + 0.04 * float(level)
 	var kit := MeshKit.new().matte()
-	kit.block(Vector3(0, 0, 0), Vector3(0.56, 0.72, 0.34) * s, Pal.HULL_SHADE, 0.07 * s)
-	kit.block(Vector3(0, 0.3 * s, 0.0), Vector3(0.6, 0.2, 0.38) * s, Pal.GRAPHITE, 0.05 * s)
-	kit.block(Vector3(0, -0.12 * s, 0.19 * s), Vector3(0.4, 0.3, 0.1) * s, Pal.GRAPHITE, 0.03 * s)
+	kit.block(Vector3(0, 0, 0), Vector3(0.56, 0.72, 0.34) * s, Pal.ENAMEL_SHADE, 0.07 * s)
+	kit.block(Vector3(0, 0.3 * s, 0.0), Vector3(0.6, 0.2, 0.38) * s, Pal.BRONZE, 0.05 * s)
+	kit.block(Vector3(0, -0.12 * s, 0.19 * s), Vector3(0.4, 0.3, 0.1) * s, Pal.BRONZE, 0.03 * s)
 	kit.paint()
-	kit.block(Vector3(0, 0.12 * s, 0.172 * s), Vector3(0.5, 0.05, 0.02) * s, Pal.AMBER, 0.006)
+	kit.block(Vector3(0, 0.12 * s, 0.172 * s), Vector3(0.5, 0.05, 0.02) * s, Pal.JADE, 0.006)
 	kit.rubber()
 	for sx: float in [-1.0, 1.0]:
 		kit.tube(Vector3(0.18 * sx * s, 0.3 * s, -0.18 * s), Vector3(0.18 * sx * s, -0.3 * s, -0.18 * s), 0.035 * s, 0.035 * s, Pal.RUBBER, 6)
 	if level >= 2:
 		for sx2: float in [-1.0, 1.0]:
 			kit.matte()
-			kit.block(Vector3(0.33 * sx2 * s, -0.1 * s, 0.0), Vector3(0.12, 0.34, 0.24) * s, Pal.HULL_SHADE.darkened(0.08), 0.03 * s)
+			kit.block(Vector3(0.33 * sx2 * s, -0.1 * s, 0.0), Vector3(0.12, 0.34, 0.24) * s, Pal.ENAMEL_SHADE.darkened(0.08), 0.03 * s)
 	if level >= 4:
 		kit.bare()
 		for sx3: float in [-1.0, 1.0]:
@@ -601,7 +723,7 @@ static func gear_model(level: int) -> Node3D:
 		kit.tube(Vector3(-0.3 * s, 0.5 * s, -0.12 * s), Vector3(0.3 * s, 0.5 * s, -0.12 * s), 0.018 * s, 0.018 * s, Pal.STEEL, 6)
 	if level >= 6:
 		kit.surf(0.3).set_emission(1.5)
-		kit.block(Vector3(0, 0.3 * s, 0.195 * s), Vector3(0.2, 0.05, 0.01) * s, Pal.TEAL, 0.004)
+		kit.block(Vector3(0, 0.3 * s, 0.195 * s), Vector3(0.2, 0.05, 0.01) * s, Pal.ION, 0.004)
 		kit.set_emission(0.0)
 	return kit.instance()
 
@@ -630,26 +752,31 @@ func _refresh_progress() -> void:
 		var kit := MeshKit.new()
 		var slots := [Vector3(0, 0.3, 0), Vector3(0.72, 0.3, 0.1), Vector3(0.3, 0.9, 0.05), Vector3(-0.2, 0.3, 0.75), Vector3(1.42, 0.3, -0.1), Vector3(0.9, 0.9, 0.0)]
 		for i in crates:
-			var p: Vector3 = slots[i]
-			var b := Basis.from_euler(Vector3(0, 0.25 * float(i % 3) - 0.2, 0))
+			# sample canisters: enamel drums with bronze lids, stacked as the pack grows
+			var p: Vector3 = slots[i] - Vector3(0, 0.3, 0)
+			kit.cast()
+			kit.turned(p, p + Vector3(0, 0.08, 0), PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.3, 0.08)]), Pal.BRONZE, 14)
 			kit.paint()
-			kit.hbox(Transform3D(b, p), Vector3(0.6, 0.58, 0.6), Pal.HULL_SHADE if i % 2 == 0 else Pal.HULL, 0.03)
-			kit.hbox(Transform3D(b, p + Vector3(0, 0.2, 0)), Vector3(0.615, 0.06, 0.615), Pal.AMBER if i % 3 == 0 else Pal.GRAPHITE, 0.01)
-			kit.hbox(Transform3D(b, p + Vector3(0, -0.24, 0)), Vector3(0.62, 0.1, 0.62), Pal.GRAPHITE, 0.015)
+			kit.turned(p + Vector3(0, 0.08, 0), p + Vector3(0, 0.5, 0), PackedVector2Array([Vector2(0.27, 0.0), Vector2(0.27, 0.42)]), Pal.ENAMEL_SHADE if i % 2 == 0 else Pal.ENAMEL, 14)
+			kit.cast()
+			kit.turned(p + Vector3(0, 0.5, 0), p + Vector3(0, 0.6, 0), PackedVector2Array([Vector2(0.29, 0.0), Vector2(0.29, 0.05), Vector2(0.12, 0.1), Vector2(0.0, 0.1)]), Pal.BRONZE, 14)
+			if i % 3 == 0:
+				kit.gloss()
+				kit.turned(p + Vector3(0, 0.26, 0), p + Vector3(0, 0.36, 0), PackedVector2Array([Vector2(0.275, 0.0), Vector2(0.275, 0.1)]), Pal.CREAM, 14)
 		node.add_child(kit.instance())
 	if powered:
 		var node2 := Node3D.new()
 		_progress.add_child(node2)
 		node2.global_transform = _spot(Vector2(6.9, -4.6), -0.6)
 		var kit2 := MeshKit.new()
-		_hex_pad(kit2, 1.5, 0.05, 0.4, Pal.CONCRETE_DARK)
+		_plinth(kit2, 1.5, 0.05, 0.4, Pal.CONCRETE_DARK)
 		for i in 2:
 			var x := -0.75 + 1.5 * float(i)
 			kit2.bare()
 			kit2.tube(Vector3(x, 0.05, 0), Vector3(x, 0.95, 0), 0.05, 0.04, Pal.STEEL_DARK, 6)
 			var pb := Basis.from_euler(Vector3(-0.7, 0, 0))
 			kit2.paint()
-			kit2.hbox(Transform3D(pb, Vector3(x, 1.02, 0)), Vector3(1.3, 0.05, 0.95), Pal.HULL, 0.012)
+			kit2.hbox(Transform3D(pb, Vector3(x, 1.02, 0)), Vector3(1.3, 0.05, 0.95), Pal.ENAMEL, 0.012)
 			kit2.gloss()
 			kit2.hbox(Transform3D(pb, Vector3(x, 1.046, 0.0)), Vector3(1.2, 0.012, 0.86), Pal.GLASS_DARK, 0.003)
 			kit2.paint()
@@ -663,15 +790,15 @@ func _refresh_progress() -> void:
 		kit3.tube(Vector3(1.1, 2.6, 0.75), Vector3(1.1, 3.25, 0.75), 0.03, 0.03, Pal.STEEL_DARK, 6)
 		kit3.paint()
 		kit3.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.22, 0.03), Vector2(0.4, 0.12), Vector2(0.42, 0.12)]),
-			Transform3D(Basis.from_euler(Vector3(0.9, 0.5, 0)), Vector3(1.1, 3.25, 0.75)), Pal.HULL, 18, true)
+			Transform3D(Basis.from_euler(Vector3(0.9, 0.5, 0)), Vector3(1.1, 3.25, 0.75)), Pal.ENAMEL, 18, true)
 		kit3.surf(0.3).set_emission(1.6)
-		kit3.sphere(Vector3(1.1, 3.25, 0.75) + Basis.from_euler(Vector3(0.9, 0.5, 0)) * Vector3(0, 0.26, 0), 0.03, Pal.TEAL, Vector3.ONE, 6, 4)
+		kit3.sphere(Vector3(1.1, 3.25, 0.75) + Basis.from_euler(Vector3(0.9, 0.5, 0)) * Vector3(0, 0.26, 0), 0.03, Pal.ION, Vector3.ONE, 6, 4)
 		var mi := kit3.instance()
 		_progress.add_child(mi)
 		mi.global_transform = _tool_shop.global_transform
 	if bots and _dock != null:
 		var light := OmniLight3D.new()
-		light.light_color = Pal.TEAL
+		light.light_color = Pal.ION
 		light.light_energy = 0.5
 		light.omni_range = 4.0
 		_progress.add_child(light)
@@ -775,6 +902,6 @@ func feed_hopper(total: int, delay := 0.0) -> void:
 		var pos := hopper_position()
 		var up := planet.up_at(pos)
 		_hopper_bounce = 1.0
-		world.fx.sparks(pos + up * 0.3, up, Pal.AMBER, 12)
+		world.fx.sparks(pos + up * 0.3, up, Pal.JADE, 12)
 		world.fx.floating_text(pos + up * 1.2, "+%s" % GameData.format_money(total), UiTheme.YELLOW, 1.4, 1.2, 1.5)
 		Audio.play_at("sell", pos, 2.0, 1.0, 0.03))

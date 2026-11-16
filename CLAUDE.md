@@ -60,7 +60,7 @@ real app flow must redirect `SaveSystem.save_dir` first (`start_game(true)` dele
    things use the hard-surface primitives (`hbox`, `prism`, `lathe`, `louvre`…) with a finish
    set (`paint()`, `bare()`, `rubber()`…); natural things are faceted (`rock`, `crystal`).
    Colours come from `Pal` (models), the planet palette (terrain, sky, foliage) or `UiTheme`
-   (interface) — no hex codes in model code. One accent (`AMBER`), small lights, emission
+   (interface) — no hex codes in model code. One accent (`JADE`), small lights, emission
    within the budget in the art-direction doc.
 7. **Anything the player buys must change something visible** (tool model part, base
    installation, stat line in the shop). `test_every_tool_tier_and_mod_builds_a_model` enforces

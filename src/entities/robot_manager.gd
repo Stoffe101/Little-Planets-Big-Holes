@@ -56,38 +56,46 @@ func _spawn(index: int) -> void:
 	var node := Node3D.new()
 	node.name = "Scoopy_%d" % index
 	add_child(node)
-	# Scoopy: a compact hover drone in the outpost's livery. Bevelled hull, a visor strip that
-	# reads as a face without being a cartoon, two cargo arms and one downward thruster.
-	var stripe: Color = [Pal.AMBER, Pal.TEAL, Pal.STEEL_BLUE][index % 3]
-	var kit := MeshKit.new().paint()
-	kit.block(Vector3(0, 0.02, 0), Vector3(0.62, 0.36, 0.56), Pal.HULL, 0.11)
-	kit.block(Vector3(0, 0.02, 0), Vector3(0.628, 0.06, 0.566), stripe, 0.02)
+	# Scoopy: a round hover drone in the outpost's livery - a glazed cream upper shell over an
+	# enamel lower half, a bronze equator ring with a single ion lens, copper stabiliser fins
+	# and two jointed arms with jade scoops. Each bot gets its own lens-ring colour.
+	var lens_ring: Color = [Pal.JADE, Pal.COPPER, Pal.STEEL_BLUE][index % 3]
+	var kit := MeshKit.new().gloss()
+	kit.lathe(PackedVector2Array([Vector2(0.32, 0.02), Vector2(0.29, 0.14), Vector2(0.2, 0.25), Vector2(0.0, 0.29)]), Transform3D.IDENTITY, Pal.CREAM, 18, true)
+	kit.paint()
+	kit.lathe(PackedVector2Array([Vector2(0.0, -0.2), Vector2(0.18, -0.17), Vector2(0.29, -0.08), Vector2(0.32, 0.02)]), Transform3D.IDENTITY, Pal.ENAMEL, 18, true)
 	kit.cast()
-	kit.block(Vector3(0, -0.17, 0), Vector3(0.46, 0.1, 0.42), Pal.GRAPHITE, 0.04)
-	kit.rubber()
-	kit.block(Vector3(0, 0.07, 0.275), Vector3(0.4, 0.13, 0.03), Pal.CHARCOAL, 0.012)
-	kit.surf(0.25).set_emission(1.6)
-	for sx: float in [-1.0, 1.0]:
-		kit.block(Vector3(0.09 * sx, 0.075, 0.292), Vector3(0.07, 0.05, 0.008), Pal.TEAL, 0.004)
-	kit.set_emission(0.0)
-	kit.bare()
-	kit.tube(Vector3(0.14, 0.2, -0.1), Vector3(0.17, 0.44, -0.13), 0.01, 0.007, Pal.STEEL_DARK, 5)
+	kit.torus(Transform3D(Basis.IDENTITY, Vector3(0, 0.02, 0)), 0.325, 0.03, Pal.BRONZE, 24, 6)
+	# lens: bronze bezel, coloured ring, glowing ion pupil (faces +Z)
+	kit.cast()
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 0.07, 0.29)), 0.075, 0.022, Pal.BRONZE, 16, 5)
+	kit.paint()
+	kit.disc(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 0.07, 0.295)), 0.06, 0.035, 0.01, lens_ring, 16)
 	kit.surf(0.25).set_emission(1.8)
-	kit.sphere(Vector3(0.17, 0.45, -0.13), 0.022, stripe, Vector3.ONE, 6, 4)
+	kit.sphere(Vector3(0, 0.07, 0.29), 0.035, Pal.ION, Vector3(1, 1, 0.6), 10, 5)
 	kit.set_emission(0.0)
+	# copper fins at the back and a short antenna with a cream insulator
+	kit.bare()
+	for sx: float in [-1.0, 1.0]:
+		kit.hbox(Transform3D(Basis.from_euler(Vector3(0, 0, sx * 0.5)), Vector3(0.2 * sx, 0.06, -0.29)), Vector3(0.12, 0.012, 0.1), Pal.COPPER, 0.004)
+	kit.tube(Vector3(0.08, 0.26, -0.08), Vector3(0.1, 0.44, -0.12), 0.008, 0.006, Pal.STEEL_DARK, 5)
+	kit.gloss()
+	kit.sphere(Vector3(0.1, 0.45, -0.12), 0.02, Pal.CREAM, Vector3.ONE, 6, 4)
 	# cargo arms with small scoops
 	for sx2: float in [-1.0, 1.0]:
+		kit.cast()
+		kit.sphere(Vector3(0.3 * sx2, -0.04, 0.08), 0.04, Pal.BRONZE, Vector3.ONE, 8, 5)
 		kit.bare()
-		kit.tube(Vector3(0.3 * sx2, -0.08, 0.1), Vector3(0.4 * sx2, -0.3, 0.24), 0.022, 0.018, Pal.STEEL_DARK, 6)
+		kit.tube(Vector3(0.3 * sx2, -0.04, 0.08), Vector3(0.36 * sx2, -0.24, 0.22), 0.02, 0.016, Pal.STEEL_DARK, 6)
 		kit.paint()
-		kit.hbox(Transform3D(Basis.from_euler(Vector3(0.5, 0, 0)), Vector3(0.4 * sx2, -0.36, 0.28)), Vector3(0.14, 0.03, 0.18), Pal.AMBER, 0.01)
+		kit.hbox(Transform3D(Basis.from_euler(Vector3(0.5, 0, 0)), Vector3(0.36 * sx2, -0.3, 0.27)), Vector3(0.13, 0.03, 0.16), Pal.JADE, 0.01)
 	# thruster nozzle
 	kit.cast()
-	kit.lathe(PackedVector2Array([Vector2(0.12, -0.22), Vector2(0.17, -0.34), Vector2(0.15, -0.34), Vector2(0.1, -0.24)]), Transform3D.IDENTITY, Pal.STEEL_DARK, 12)
+	kit.lathe(PackedVector2Array([Vector2(0.12, -0.22), Vector2(0.15, -0.32), Vector2(0.13, -0.32), Vector2(0.09, -0.23)]), Transform3D.IDENTITY, Pal.BRONZE, 14)
 	node.add_child(kit.instance())
 	var glow := MeshKit.new().surf(0.3)
 	glow.emission = 2.0
-	glow.lathe(PackedVector2Array([Vector2(0.0, -0.36), Vector2(0.11, -0.3), Vector2(0.0, -0.28)]), Transform3D.IDENTITY, Pal.TEAL, 10, true)
+	glow.lathe(PackedVector2Array([Vector2(0.0, -0.36), Vector2(0.11, -0.3), Vector2(0.0, -0.28)]), Transform3D.IDENTITY, Pal.ION, 10, true)
 	var glow_node := glow.instance(MeshKit.material(), false)
 	glow_node.name = "Glow"
 	node.add_child(glow_node)
@@ -99,7 +107,7 @@ func _spawn(index: int) -> void:
 	cargo.visible = false
 	node.add_child(cargo)
 	var light := OmniLight3D.new()
-	light.light_color = Pal.TEAL
+	light.light_color = Pal.ION
 	light.light_energy = 0.35
 	light.omni_range = 3.0
 	light.position = Vector3(0, -0.4, 0)

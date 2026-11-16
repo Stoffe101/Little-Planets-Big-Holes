@@ -4,8 +4,11 @@ extends RefCounted
 ##
 ## Design rules (docs/ART_DIRECTION.md, "Tools"):
 ##   * One family, one silhouette idea; each tier adds real construction (powered head, rams,
-##     turbines), never just a new colour. Paint is off-white with graphite, bare steel does the
-##     work, amber marks what the hand touches, teal means stored energy.
+##     turbines), never just a new colour. Terracotta enamel bodies held by bronze rings, bare
+##     steel does the work, jade marks what the hand touches, ion blue means stored energy,
+##     round perforated grilles instead of slatted vents.
+##   * The player's gloved hands are part of every tool: a leather work glove closes around each
+##     grip, with a canvas cuff and the suit sleeve leading off-screen.
 ##   * Every purchased mod bolts something visible onto the model.
 ##   * The player looks at the tool from behind, above and slightly from the left, so the
 ##     interesting detail sits on top and on the -X side.
@@ -21,7 +24,12 @@ const FLAT := Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0))
 const SIDE := Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0))
 
 
+## Gloved hands are only built for the first-person viewmodel (not for shop previews).
+static var _hands := true
+
+
 static func build(family_id: String, tier: int, mods: Dictionary = {}, viewmodel := true) -> Dictionary:
+	_hands = viewmodel
 	var root := Node3D.new()
 	root.name = "Tool_%s_%d" % [family_id, tier]
 	var mat: ShaderMaterial = MeshKit.new_viewmodel_material() if viewmodel else MeshKit.new_material()
@@ -58,35 +66,91 @@ static func _muzzle(out: Dictionary, pos: Vector3) -> void:
 
 # ------------------------------------------------------------------ shared parts
 
-## Rubber pistol grip hanging below `top`, raked back a little, with moulded finger ridges.
+## A gloved hand closed around a grip. `axis` runs from the little finger to the index finger,
+## `back` points from the grip to the back of the hand, `grip_r` is the grip's radius. The cuff
+## and sleeve lead off towards `sleeve` (tool space), i.e. back towards the player.
+static func _glove(kit: MeshKit, at: Vector3, axis: Vector3, back: Vector3, grip_r: float, sleeve: Vector3, s := 1.0) -> void:
+	if not _hands:
+		return
+	var a := axis.normalized()
+	var bk := (back - a * back.dot(a)).normalized()
+	var side := a.cross(bk).normalized()
+	var r := grip_r + 0.012 * s
+	# back of the hand
+	kit.matte()
+	var hand_c := at + bk * (r + 0.006 * s) - a * 0.004 * s
+	kit.hbox(Transform3D(Basis(side, a, bk), hand_c), Vector3(0.05, 0.086, 0.026) * s, Pal.LEATHER, 0.011 * s)
+	# four fingers wrapping round the grip
+	for i in 4:
+		var off := (-0.031 + 0.021 * float(i)) * s
+		var pts := PackedVector3Array()
+		for k in 5:
+			var th := 0.15 + 0.72 * float(k)
+			pts.append(at + a * off + (bk * cos(th) + side * sin(th)) * r)
+		kit.pipe(pts, 0.0105 * s, Pal.LEATHER if i % 2 == 0 else Pal.LEATHER.darkened(0.06), 6)
+		kit.sphere(pts[4], 0.0108 * s, Pal.LEATHER_DARK, Vector3.ONE, 6, 4)
+	# thumb over the top, the other way round
+	var tpts := PackedVector3Array()
+	for k in 4:
+		var th2 := -0.2 - 0.62 * float(k)
+		tpts.append(at + a * 0.05 * s + (bk * cos(th2) + side * sin(th2)) * (r + 0.004 * s))
+	kit.pipe(tpts, 0.0115 * s, Pal.LEATHER, 6)
+	kit.sphere(tpts[3], 0.012 * s, Pal.LEATHER_DARK, Vector3.ONE, 6, 4)
+	# knuckle patch
+	kit.hbox(Transform3D(Basis(side, a, bk), hand_c + bk * 0.013 * s + a * 0.012 * s), Vector3(0.034, 0.05, 0.006) * s, Pal.LEATHER_DARK, 0.003 * s)
+	# canvas cuff with a jade tab, then the suit sleeve
+	var wrist := hand_c - a * 0.05 * s
+	var sdir := sleeve.normalized()
+	kit.matte()
+	kit.tube(wrist, wrist + sdir * 0.055 * s, 0.03 * s, 0.033 * s, Pal.CREAM.darkened(0.12), 10)
+	kit.paint()
+	kit.tube(wrist + sdir * 0.012 * s, wrist + sdir * 0.026 * s, 0.0335 * s, 0.0335 * s, Pal.JADE, 10)
+	kit.matte()
+	kit.tube(wrist + sdir * 0.05 * s, wrist + sdir * 0.42 * s, 0.038 * s, 0.05 * s, Pal.ENAMEL_SHADE.darkened(0.15), 10)
+
+
+## A small round perforated vent (bronze bezel, dark holes). Faces local +Y of `xform`.
+static func _round_vent(kit: MeshKit, xform: Transform3D, radius: float) -> void:
+	kit.cast()
+	kit.disc(xform, radius, radius * 0.8, 0.004, Pal.BRONZE, 14)
+	kit.rubber()
+	kit.disc(xform, radius * 0.8, 0.0, 0.002, Pal.BRONZE.darkened(0.2), 14)
+	for i in 7:
+		var p := Vector2.ZERO if i == 6 else Vector2(cos(TAU * float(i) / 6.0), sin(TAU * float(i) / 6.0)) * radius * 0.5
+		kit.disc(xform * Transform3D(Basis.IDENTITY, Vector3(p.x, 0.0, p.y)), radius * 0.15, 0.0, 0.003, Pal.DEEP, 6)
+
+
+## Rubber pistol grip hanging below `top`, raked back a little, with moulded finger ridges, and
+## the right glove closed around it.
 static func _pistol_grip(kit: MeshKit, top: Vector3, length := 0.13, s := 1.0) -> void:
 	var b := Basis.from_euler(Vector3(0.3, 0, 0))
+	_glove(kit, top + b * Vector3(0, -length * 0.5, 0), b * Vector3(0, 1, 0), Vector3(1, 0, 0.15), 0.026 * s, Vector3(0.3, -0.45, 0.85), s)
 	kit.rubber()
 	kit.hbox(Transform3D(b, top + b * Vector3(0, -length * 0.5, 0)), Vector3(0.036 * s, length, 0.05 * s), Pal.RUBBER, 0.012 * s)
 	for i in 3:
-		kit.hbox(Transform3D(b, top + b * Vector3(0, -length * (0.25 + 0.25 * float(i)), -0.026 * s)), Vector3(0.038 * s, length * 0.13, 0.012 * s), Pal.CHARCOAL, 0.004)
+		kit.hbox(Transform3D(b, top + b * Vector3(0, -length * (0.25 + 0.25 * float(i)), -0.026 * s)), Vector3(0.038 * s, length * 0.13, 0.012 * s), Pal.DEEP, 0.004)
 	kit.paint()
-	kit.hbox(Transform3D(b, top + b * Vector3(0, -length - 0.004, 0)), Vector3(0.04 * s, 0.012, 0.054 * s), Pal.GRAPHITE, 0.004)
+	kit.hbox(Transform3D(b, top + b * Vector3(0, -length - 0.004, 0)), Vector3(0.04 * s, 0.012, 0.054 * s), Pal.BRONZE, 0.004)
 
 
 ## Trigger and guard in front of a pistol grip.
 static func _trigger(kit: MeshKit, at: Vector3, s := 1.0) -> void:
 	kit.paint()
-	kit.hbox(Transform3D(Basis.from_euler(Vector3(-0.35, 0, 0)), at + Vector3(0, -0.02 * s, 0)), Vector3(0.012 * s, 0.04 * s, 0.012 * s), Pal.AMBER, 0.004)
+	kit.hbox(Transform3D(Basis.from_euler(Vector3(-0.35, 0, 0)), at + Vector3(0, -0.02 * s, 0)), Vector3(0.012 * s, 0.04 * s, 0.012 * s), Pal.JADE, 0.004)
 	kit.cast()
-	kit.pipe(PackedVector3Array([at + Vector3(0, 0, 0.022 * s), at + Vector3(0, -0.05 * s, 0.018 * s), at + Vector3(0, -0.055 * s, -0.03 * s), at + Vector3(0, -0.004, -0.045 * s)]), 0.004 * s, Pal.GRAPHITE, 5)
+	kit.pipe(PackedVector3Array([at + Vector3(0, 0, 0.022 * s), at + Vector3(0, -0.05 * s, 0.018 * s), at + Vector3(0, -0.055 * s, -0.03 * s), at + Vector3(0, -0.004, -0.045 * s)]), 0.004 * s, Pal.BRONZE, 5)
 
 
 ## Closed D-handle loop in the YZ plane, behind `at` (shovel grips, carry handles).
 static func _d_handle(kit: MeshKit, at: Vector3, width := 0.1, depth := 0.08) -> void:
 	kit.paint()
-	kit.pipe(PackedVector3Array([at, at + Vector3(-width * 0.5, 0, depth * 0.35), at + Vector3(-width * 0.5, 0, depth)]), 0.011, Pal.GRAPHITE, 6)
-	kit.pipe(PackedVector3Array([at, at + Vector3(width * 0.5, 0, depth * 0.35), at + Vector3(width * 0.5, 0, depth)]), 0.011, Pal.GRAPHITE, 6)
+	kit.pipe(PackedVector3Array([at, at + Vector3(-width * 0.5, 0, depth * 0.35), at + Vector3(-width * 0.5, 0, depth)]), 0.011, Pal.BRONZE, 6)
+	kit.pipe(PackedVector3Array([at, at + Vector3(width * 0.5, 0, depth * 0.35), at + Vector3(width * 0.5, 0, depth)]), 0.011, Pal.BRONZE, 6)
 	kit.rubber()
 	kit.tube(at + Vector3(-width * 0.5 - 0.006, 0, depth), at + Vector3(width * 0.5 + 0.006, 0, depth), 0.016, 0.016, Pal.RUBBER, 8)
 	kit.paint()
 	for sx: float in [-1.0, 1.0]:
-		kit.tube(at + Vector3(sx * (width * 0.5 - 0.004), 0, depth), at + Vector3(sx * (width * 0.5 + 0.008), 0, depth), 0.019, 0.019, Pal.AMBER, 8)
+		kit.tube(at + Vector3(sx * (width * 0.5 - 0.004), 0, depth), at + Vector3(sx * (width * 0.5 + 0.008), 0, depth), 0.019, 0.019, Pal.JADE, 8)
 
 
 ## A ring of small bolt heads around the Z axis.
@@ -101,7 +165,7 @@ static func _bolts(kit: MeshKit, center: Vector3, radius: float, count: int, siz
 ## Small indicator light (unlit housing + emissive lens).
 static func _lamp(kit: MeshKit, pos: Vector3, color: Color, size := 0.008, strength := 1.6) -> void:
 	kit.paint().set_emission(0.0)
-	kit.block(pos, Vector3(size * 2.4, size * 0.8, size * 2.4), Pal.CHARCOAL, size * 0.3)
+	kit.block(pos, Vector3(size * 2.4, size * 0.8, size * 2.4), Pal.DEEP, size * 0.3)
 	kit.surf(0.25).set_emission(strength)
 	kit.block(pos + Vector3(0, size * 0.5, 0), Vector3(size * 1.5, size * 0.6, size * 1.5), color, size * 0.25)
 	kit.set_emission(0.0)
@@ -159,6 +223,9 @@ static func _shovel(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 			kit.cast()
 			kit.hbox(Transform3D(tilt, Vector3(0.012, -0.012, -0.355)), Vector3(0.012, 0.01, 0.03), Pal.STEEL_DARK, 0.004)
 			_add_blade_mods(kit, tilt, wide, teeth, trench, Vector3(0, -0.075, -0.535), 0.07, 1)
+			# right hand on the tape wrap, left hand choked up the handle
+			_glove(kit, Vector3(0, 0, 0.05), Vector3(0, 0, -1), Vector3(0.55, 0.85, 0), 0.023, Vector3(0.35, -0.5, 0.8))
+			_glove(kit, Vector3(0, 0, -0.12), Vector3(0, 0, -1), Vector3(-0.5, 0.85, 0), 0.021, Vector3(-0.6, -0.55, 0.6))
 			tip_z = -0.56
 		2:
 			# Sturdy Spade: tubular steel shaft, D-grip, forged blued blade with a centre rib,
@@ -188,6 +255,9 @@ static func _shovel(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 			for sx2: float in [-1.0, 1.0]:
 				kit.hbox(Transform3D(tilt, Vector3(0.066 * wide * sx2, -0.02, -0.43)), Vector3(0.06 * wide, 0.014, 0.022), Pal.STEEL_BLUE.lightened(0.08), 0.005)
 			_add_blade_mods(kit, tilt, wide, teeth, trench, Vector3(0, -0.096, -0.71), 0.085, 2)
+			# right hand on the D-grip crossbar, left hand on the rubber sleeve
+			_glove(kit, Vector3(0, 0, 0.21), Vector3(-1, 0, 0), Vector3(0, 0.6, 0.8), 0.016, Vector3(0.3, -0.55, 0.8))
+			_glove(kit, Vector3(0, 0, -0.03), Vector3(0, 0, -1), Vector3(-0.5, 0.85, 0), 0.02, Vector3(-0.6, -0.55, 0.6))
 			tip_z = -0.74
 		3:
 			# Thumper 3000: a pneumatic breaker. Motor housing with a rear D-handle and a side
@@ -198,24 +268,29 @@ static func _shovel(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 			for sx3: float in [-1.0, 1.0]:
 				head.tube(Vector3(0.052 * sx3, 0.0, 0.14), Vector3(0.052 * sx3, 0.0, -0.05), 0.012, 0.012, Pal.STEEL, 8)
 			head.cast()
-			head.block(Vector3(0, 0, -0.065), Vector3(0.17, 0.05, 0.05), Pal.GRAPHITE, 0.012)
-			_bolts(head, Vector3(0, 0, -0.092), 0.0, 1, 0.007)
+			head.block(Vector3(0, 0, -0.065), Vector3(0.21, 0.06, 0.06), Pal.BRONZE, 0.014)
+			_bolts(head, Vector3(0, 0, -0.096), 0.0, 1, 0.008)
 			var hxf := Transform3D(tilt * FLAT, Vector3(0, -0.02, -0.07))
-			head.paint()
-			head.prism(PackedVector2Array([Vector2(-0.11 * wide, 0.0), Vector2(-0.125 * wide, 0.05), Vector2(-0.125 * wide, 0.2), Vector2(-0.09 * wide, 0.26),
-				Vector2(0.09 * wide, 0.26), Vector2(0.125 * wide, 0.2), Vector2(0.125 * wide, 0.05), Vector2(0.11 * wide, 0.0)]), -0.007, 0.007, hxf, Pal.AMBER)
+			var hw := 0.17 * wide
+			var hl := 0.37
+			head.surf(0.4, 0.75)
+			head.prism(PackedVector2Array([Vector2(-hw * 0.88, 0.0), Vector2(-hw, hl * 0.18), Vector2(-hw, hl * 0.78), Vector2(-hw * 0.72, hl),
+				Vector2(hw * 0.72, hl), Vector2(hw, hl * 0.78), Vector2(hw, hl * 0.18), Vector2(hw * 0.88, 0.0)]), -0.008, 0.008, hxf, Pal.STEEL_BLUE)
 			head.bare()
-			head.prism(PackedVector2Array([Vector2(-0.125 * wide, 0.18), Vector2(-0.09 * wide, 0.26), Vector2(0.09 * wide, 0.26), Vector2(0.125 * wide, 0.18),
-				Vector2(0.11 * wide, 0.18), Vector2(0.08 * wide, 0.235), Vector2(-0.08 * wide, 0.235), Vector2(-0.11 * wide, 0.18)]), 0.0072, 0.009, hxf, Pal.STEEL)
+			head.prism(PackedVector2Array([Vector2(-hw, hl * 0.7), Vector2(-hw * 0.72, hl), Vector2(hw * 0.72, hl), Vector2(hw, hl * 0.7),
+				Vector2(hw * 0.88, hl * 0.7), Vector2(hw * 0.64, hl * 0.91), Vector2(-hw * 0.64, hl * 0.91), Vector2(-hw * 0.88, hl * 0.7)]), 0.0082, 0.0102, hxf, Pal.STEEL)
+			# enamel back plate with a bronze rim (the part you see from behind)
 			head.paint()
+			head.prism(PackedVector2Array([Vector2(-hw * 0.8, 0.0), Vector2(-hw * 0.86, hl * 0.35), Vector2(hw * 0.86, hl * 0.35), Vector2(hw * 0.8, 0.0)]), 0.0082, 0.016, hxf, Pal.ENAMEL)
+			head.cast()
 			for sx4: float in [-1.0, 1.0]:
-				head.hbox(Transform3D(tilt, Vector3(0.121 * wide * sx4, -0.026, -0.2)), Vector3(0.012, 0.03, 0.18), Pal.GRAPHITE, 0.004)
-			head.hbox(Transform3D(tilt, Vector3(0, -0.028, -0.13)), Vector3(0.2 * wide, 0.02, 0.016), Pal.GRAPHITE, 0.004)
-			_add_blade_mods(head, tilt, wide, teeth, trench, Vector3(0, -0.08, -0.325), 0.1, 3)
+				head.hbox(Transform3D(tilt, Vector3(hw * 0.98 * sx4, -0.03, -0.25)), Vector3(0.014, 0.036, hl * 0.66), Pal.BRONZE, 0.004)
+			head.hbox(Transform3D(tilt, Vector3(0, -0.03, -0.2)), Vector3(hw * 2.0, 0.022, 0.018), Pal.BRONZE, 0.004)
+			_add_blade_mods(head, tilt, wide, teeth, trench, Vector3(0, -0.1, -0.44), 0.14, 3)
 			var piston := _node(root, "Piston", Vector3(0, 0, -0.3))
 			_part(piston, head, mat, "Head")
 			out["piston"] = piston
-			tip_z = -0.66
+			tip_z = -0.76
 		_:
 			# Mega Scooper: hydraulic excavator bucket. Larger housing with an accumulator tank,
 			# twin chrome rams and a toothed bucket that bites forward.
@@ -225,32 +300,59 @@ static func _shovel(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 			for sx5: float in [-1.0, 1.0]:
 				bucket.tube(Vector3(0.075 * sx5, 0.01, 0.17), Vector3(0.075 * sx5, 0.01, -0.06), 0.016, 0.016, Pal.STEEL, 10)
 				bucket.cast()
-				bucket.tube(Vector3(0.075 * sx5, 0.01, -0.05), Vector3(0.075 * sx5, 0.01, -0.085), 0.024, 0.024, Pal.GRAPHITE, 10)
+				bucket.tube(Vector3(0.075 * sx5, 0.01, -0.05), Vector3(0.075 * sx5, 0.01, -0.085), 0.024, 0.024, Pal.BRONZE, 10)
 				bucket.bare()
-			var bw := 0.16 * wide
-			# side plates
-			var side_outline := PackedVector2Array([Vector2(0.0, 0.07), Vector2(0.1, 0.085), Vector2(0.27, 0.02), Vector2(0.3, -0.05), Vector2(0.2, -0.085), Vector2(0.06, -0.07), Vector2(0.0, -0.02)])
+			var bw := 0.19 * wide
+			# the shell: slats following a 135-degree arc - open to the front and top, so it
+			# reads as a scoop from behind instead of a solid wedge
+			var bc := Vector3(0, 0.07, -0.29)
+			var br := 0.2
+			var arc_pts: Array[Vector3] = []
+			for k in 10:
+				var phi := deg_to_rad(135.0) * float(k) / 9.0
+				arc_pts.append(bc + Vector3(0, -sin(phi), cos(phi)) * br)
+			for k in 9:
+				var p0: Vector3 = arc_pts[k]
+				var p1: Vector3 = arc_pts[k + 1]
+				var tng := (p1 - p0).normalized()
+				var nrm := ((p0 + p1) * 0.5 - bc).normalized()
+				var col := Pal.ENAMEL if k < 4 else Pal.STEEL_DARK
+				if k < 4:
+					bucket.paint()
+				else:
+					bucket.cast()
+				bucket.hbox(Transform3D(Basis(Vector3.RIGHT, nrm, tng), (p0 + p1) * 0.5 + nrm * 0.006), Vector3(bw * 2.0, 0.014, p0.distance_to(p1) + 0.004), col, 0.003)
+			# side plates follow the same arc
+			var side_outline := PackedVector2Array()
+			for q: Vector3 in arc_pts:
+				side_outline.append(Vector2(-q.z, q.y))
+			side_outline.append(Vector2(-bc.z + 0.07, bc.y + 0.02))
+			side_outline.append(Vector2(-arc_pts[0].z, bc.y + 0.02))
 			bucket.paint()
 			for sx6: float in [-1.0, 1.0]:
-				bucket.prism(side_outline, -0.007, 0.007, Transform3D(SIDE, Vector3(bw * sx6, 0.0, -0.08)), Pal.AMBER)
-			# curved shell: back, belly and floor
-			bucket.hbox(Transform3D(Basis.from_euler(Vector3(0.35, 0, 0)), Vector3(0, 0.03, -0.095)), Vector3(bw * 2.0, 0.11, 0.012), Pal.AMBER_DARK, 0.004)
-			bucket.hbox(Transform3D(Basis.from_euler(Vector3(1.25, 0, 0)), Vector3(0, -0.06, -0.14)), Vector3(bw * 2.0, 0.1, 0.012), Pal.STEEL_DARK, 0.004)
-			bucket.hbox(Transform3D(Basis.from_euler(Vector3(1.75, 0, 0)), Vector3(0, -0.078, -0.25)), Vector3(bw * 2.0, 0.14, 0.012), Pal.STEEL_DARK, 0.004)
-			bucket.block(Vector3(0, 0.082, -0.13), Vector3(bw * 2.0 + 0.02, 0.014, 0.1), Pal.GRAPHITE, 0.004)
-			# cutting edge and teeth
+				bucket.prism(side_outline, -0.008, 0.008, Transform3D(SIDE, Vector3(bw * sx6, 0.0, 0.0)), Pal.ENAMEL_SHADE)
+				bucket.cast()
+				bucket.torus(Transform3D(Basis.from_euler(Vector3(0, 0, PI * 0.5)), Vector3((bw + 0.01) * sx6, bc.y - 0.02, bc.z + 0.12)), 0.028, 0.008, Pal.BRONZE, 12, 5)
+				bucket.paint()
+			# bronze top rim and pivot lugs where the rams attach
+			bucket.cast()
+			bucket.hbox(Transform3D(Basis.IDENTITY, Vector3(0, bc.y + 0.02, arc_pts[0].z - 0.01)), Vector3(bw * 2.0 + 0.02, 0.022, 0.03), Pal.BRONZE, 0.005)
+			for sx7: float in [-1.0, 1.0]:
+				bucket.block(Vector3(0.075 * sx7, 0.03, -0.075), Vector3(0.03, 0.05, 0.04), Pal.BRONZE, 0.008)
+			# cutting edge and teeth along the lip
+			var lip: Vector3 = arc_pts[9]
+			var lip_t := (arc_pts[9] - arc_pts[8]).normalized()
 			bucket.bare()
-			bucket.hbox(Transform3D(Basis.from_euler(Vector3(1.9, 0, 0)), Vector3(0, -0.062, -0.345)), Vector3(bw * 2.0 + 0.016, 0.05, 0.014), Pal.STEEL, 0.004)
+			bucket.hbox(Transform3D(Basis(Vector3.RIGHT, lip_t.cross(Vector3.RIGHT).normalized(), lip_t), lip + lip_t * 0.012), Vector3(bw * 2.0 + 0.016, 0.016, 0.03), Pal.STEEL, 0.004)
 			for i in 5:
 				var tx := (float(i) - 2.0) * bw * 0.44
-				bucket.prism(PackedVector2Array([Vector2(-0.016, 0.0), Vector2(0.0, 0.07), Vector2(0.016, 0.0)]), -0.009, 0.009,
-					Transform3D(Basis.from_euler(Vector3(deg_to_rad(-20.0), 0, 0)) * FLAT, Vector3(tx, -0.05, -0.36)), Pal.STEEL)
-			_bolts(bucket, Vector3(-bw - 0.008, 0.02, -0.14), 0.0, 1, 0.007)
-			_add_blade_mods(bucket, tilt, wide * 1.4, teeth, trench, Vector3(0, -0.075, -0.42), 0.13, 4)
+				bucket.prism(PackedVector2Array([Vector2(-0.018, 0.0), Vector2(0.0, 0.075), Vector2(0.018, 0.0)]), -0.01, 0.01,
+					Transform3D(Basis(Vector3.RIGHT, lip_t, Vector3.RIGHT.cross(lip_t).normalized()), lip + Vector3(tx, 0, 0) + lip_t * 0.02), Pal.STEEL)
+			_add_blade_mods(bucket, tilt, wide * 1.4, teeth, trench, Vector3(0, -0.08, -0.46), 0.13, 4)
 			var ram := _node(root, "Piston", Vector3(0, 0, -0.36))
 			_part(ram, bucket, mat, "Bucket")
 			out["piston"] = ram
-			tip_z = -0.8
+			tip_z = -0.86
 	if tier <= 2:
 		# Quick Hands on a hand tool: counterweight collars at the butt, one per level.
 		for i in quick:
@@ -265,15 +367,17 @@ static func _shovel(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 ## canisters on the left side, one per level.
 static func _power_shovel_body(kit: MeshKit, s: float, tier: int, quick: int) -> void:
 	kit.paint()
-	kit.block(Vector3(0, 0.0, -0.08 * s), Vector3(0.12, 0.11, 0.3) * s, Pal.HULL, 0.022 * s)
-	kit.block(Vector3(0, 0.0, 0.075 * s), Vector3(0.126, 0.116, 0.03) * s, Pal.GRAPHITE, 0.012 * s)
-	kit.block(Vector3(0, 0.0, -0.235 * s), Vector3(0.132, 0.12, 0.03) * s, Pal.GRAPHITE, 0.012 * s)
-	# belt stripe and top spine
-	kit.block(Vector3(0, 0.0, -0.02 * s), Vector3(0.1215, 0.1115, 0.022) * s, Pal.AMBER, 0.006)
-	kit.block(Vector3(0, 0.058 * s, -0.1 * s), Vector3(0.05, 0.016, 0.2) * s, Pal.GRAPHITE, 0.006 * s)
+	kit.block(Vector3(0, 0.0, -0.08 * s), Vector3(0.12, 0.11, 0.3) * s, Pal.ENAMEL, 0.022 * s)
+	kit.block(Vector3(0, 0.0, 0.075 * s), Vector3(0.126, 0.116, 0.03) * s, Pal.BRONZE, 0.012 * s)
+	kit.block(Vector3(0, 0.0, -0.235 * s), Vector3(0.132, 0.12, 0.03) * s, Pal.BRONZE, 0.012 * s)
+	# raised bronze rib and top spine
+	kit.cast()
+	kit.block(Vector3(0, 0.0, -0.02 * s), Vector3(0.128, 0.118, 0.016) * s, Pal.BRONZE, 0.006)
+	kit.paint()
+	kit.block(Vector3(0, 0.058 * s, -0.1 * s), Vector3(0.05, 0.016, 0.2) * s, Pal.BRONZE, 0.006 * s)
 	# vent on the visible (left) side and top status light
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, -PI * 0.5, 0)), Vector3(-0.0605 * s, 0.0, -0.13 * s)), Vector3(0.12, 0.05, 0.012) * s, 5, Pal.CHARCOAL, Pal.GRAPHITE)
-	_lamp(kit, Vector3(0, 0.066 * s, 0.03 * s), Pal.TEAL, 0.008 * s)
+	_round_vent(kit, Transform3D(Basis.from_euler(Vector3(0, 0, PI * 0.5)), Vector3(-0.0605 * s, 0.0, -0.13 * s)), 0.026 * s)
+	_lamp(kit, Vector3(0, 0.066 * s, 0.03 * s), Pal.ION, 0.008 * s)
 	# rear D-handle and pistol grip with trigger
 	_d_handle(kit, Vector3(0, 0.0, 0.09 * s), 0.1 * s, 0.085 * s)
 	_pistol_grip(kit, Vector3(0, -0.055 * s, 0.03 * s), 0.12 * s, s)
@@ -283,6 +387,7 @@ static func _power_shovel_body(kit: MeshKit, s: float, tier: int, quick: int) ->
 	kit.tube(Vector3(-0.06 * s, 0.0, -0.19 * s), Vector3(-0.115 * s, 0.01 * s, -0.19 * s), 0.008 * s, 0.008 * s, Pal.STEEL_DARK, 6)
 	kit.rubber()
 	kit.tube(Vector3(-0.115 * s, 0.0, -0.15 * s), Vector3(-0.115 * s, 0.02 * s, -0.235 * s), 0.015 * s, 0.015 * s, Pal.RUBBER, 8)
+	_glove(kit, Vector3(-0.115 * s, 0.01 * s, -0.19 * s), Vector3(0, 0.23, -1), Vector3(-1, 0.3, 0), 0.015 * s, Vector3(-0.5, -0.45, 0.75), s)
 	# drive cylinders
 	kit.cast()
 	for sx: float in [-1.0, 1.0]:
@@ -295,14 +400,14 @@ static func _power_shovel_body(kit: MeshKit, s: float, tier: int, quick: int) ->
 		# accumulator tank with a sight gauge and an energy strip
 		kit.paint()
 		kit.turned(Vector3(-0.012, 0.098 * s, 0.03 * s), Vector3(-0.012, 0.098 * s, -0.19 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.026 * s, 0.006), Vector2(0.034 * s, 0.03),
-			Vector2(0.034 * s, 0.19 * s), Vector2(0.026 * s, 0.215 * s), Vector2(0.0, 0.22 * s)]), Pal.HULL_SHADE, 12, true)
+			Vector2(0.034 * s, 0.19 * s), Vector2(0.026 * s, 0.215 * s), Vector2(0.0, 0.22 * s)]), Pal.ENAMEL_SHADE, 12, true)
 		kit.cast()
 		for z: float in [-0.02, -0.14]:
-			kit.tube(Vector3(-0.012, 0.098 * s, z * s), Vector3(-0.012, 0.098 * s, (z - 0.014) * s), 0.0365 * s, 0.0365 * s, Pal.GRAPHITE, 12)
+			kit.tube(Vector3(-0.012, 0.098 * s, z * s), Vector3(-0.012, 0.098 * s, (z - 0.014) * s), 0.0365 * s, 0.0365 * s, Pal.BRONZE, 12)
 		kit.gloss()
 		kit.tube(Vector3(-0.052 * s, 0.1 * s, -0.08 * s), Vector3(-0.058 * s, 0.1 * s, -0.08 * s), 0.014 * s, 0.014 * s, Pal.GLASS, 10)
 		kit.surf(0.25).set_emission(1.4)
-		kit.block(Vector3(0.0, 0.0, -0.065 * s), Vector3(0.1225, 0.02, 0.05) * s, Pal.TEAL, 0.004)
+		kit.block(Vector3(0.0, 0.0, -0.065 * s), Vector3(0.1225, 0.02, 0.05) * s, Pal.ION, 0.004)
 		kit.set_emission(0.0)
 	for i in quick:
 		var z2 := (0.04 - 0.045 * float(i)) * s
@@ -332,7 +437,7 @@ static func _add_blade_mods(kit: MeshKit, tilt: Basis, wide: float, teeth: int, 
 		kit.prism(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.24, 0.0), Vector2(0.31, -0.03), Vector2(0.24, -0.05), Vector2(0.0, -0.035)]), -0.006, 0.006,
 			Transform3D(tilt * SIDE, front + Vector3(0, 0.04, 0.2)), Pal.STEEL_BLUE)
 		kit.paint()
-		kit.hbox(Transform3D(tilt, front + Vector3(0, 0.047, 0.12)), Vector3(0.016, 0.012, 0.12), Pal.AMBER, 0.004)
+		kit.hbox(Transform3D(tilt, front + Vector3(0, 0.047, 0.12)), Vector3(0.016, 0.012, 0.12), Pal.JADE, 0.004)
 
 
 # ------------------------------------------------------------------ drills
@@ -349,38 +454,38 @@ static func _drill(out: Dictionary, tier: int, mods: Dictionary, mat: Material) 
 	var nose_z := -0.25 * s            # where the gearbox ends
 	# ---- motor housing (round, along Z)
 	kit.paint()
-	kit.turned(Vector3(0, 0, 0.1 * s), Vector3(0, 0, -0.14 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(r * 0.8, 0.0), Vector2(r, 0.012 * s), Vector2(r, 0.24 * s)]), Pal.HULL, 16)
-	kit.turned(Vector3(0, 0, 0.1 * s), Vector3(0, 0, 0.06 * s), PackedVector2Array([Vector2(r + 0.002, 0.012 * s), Vector2(r + 0.002, 0.04 * s)]), Pal.GRAPHITE, 16)
-	kit.turned(Vector3(0, 0, -0.02 * s), Vector3(0, 0, -0.045 * s), PackedVector2Array([Vector2(r + 0.0015, 0.0), Vector2(r + 0.0015, 0.025 * s)]), Pal.AMBER, 16)
+	kit.turned(Vector3(0, 0, 0.1 * s), Vector3(0, 0, -0.14 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(r * 0.8, 0.0), Vector2(r, 0.012 * s), Vector2(r, 0.24 * s)]), Pal.ENAMEL, 16)
+	kit.turned(Vector3(0, 0, 0.1 * s), Vector3(0, 0, 0.06 * s), PackedVector2Array([Vector2(r + 0.002, 0.012 * s), Vector2(r + 0.002, 0.04 * s)]), Pal.BRONZE, 16)
+	kit.turned(Vector3(0, 0, -0.02 * s), Vector3(0, 0, -0.045 * s), PackedVector2Array([Vector2(r + 0.0015, 0.0), Vector2(r + 0.0015, 0.025 * s)]), Pal.JADE, 16)
 	# cooling fins at the back
 	kit.cast()
 	for i in 4:
 		var z := (0.092 - 0.011 * float(i)) * s
-		kit.tube(Vector3(0, 0, z), Vector3(0, 0, z - 0.004 * s), r * (0.86 - 0.06 * float(i)) + 0.012 * s, r * (0.86 - 0.06 * float(i)) + 0.012 * s, Pal.GRAPHITE, 14)
+		kit.tube(Vector3(0, 0, z), Vector3(0, 0, z - 0.004 * s), r * (0.86 - 0.06 * float(i)) + 0.012 * s, r * (0.86 - 0.06 * float(i)) + 0.012 * s, Pal.BRONZE, 14)
 	# ---- gearbox: tapered cast nose
 	kit.cast()
-	kit.turned(Vector3(0, 0, -0.14 * s), Vector3(0, 0, nose_z), PackedVector2Array([Vector2(r + 0.004, 0.0), Vector2(r + 0.004, 0.03 * s), Vector2(r * 0.72, 0.085 * s), Vector2(r * 0.62, 0.11 * s)]), Pal.GRAPHITE, 16)
+	kit.turned(Vector3(0, 0, -0.14 * s), Vector3(0, 0, nose_z), PackedVector2Array([Vector2(r + 0.004, 0.0), Vector2(r + 0.004, 0.03 * s), Vector2(r * 0.72, 0.085 * s), Vector2(r * 0.62, 0.11 * s)]), Pal.BRONZE, 16)
 	_bolts(kit, Vector3(0, 0, -0.142 * s), r - 0.006, 6, 0.005 * s)
 	# long shaft collar (mod)
 	if shaft > 0.0:
 		kit.bare()
 		kit.tube(Vector3(0, 0, nose_z), Vector3(0, 0, nose_z - shaft), r * 0.42, r * 0.42, Pal.STEEL, 12)
 		kit.cast()
-		kit.tube(Vector3(0, 0, nose_z - shaft * 0.45), Vector3(0, 0, nose_z - shaft * 0.45 - 0.014), r * 0.52, r * 0.52, Pal.AMBER_DARK, 12)
+		kit.tube(Vector3(0, 0, nose_z - shaft * 0.45), Vector3(0, 0, nose_z - shaft * 0.45 - 0.014), r * 0.52, r * 0.52, Pal.JADE_DARK, 12)
 	# ---- grips
 	_pistol_grip(kit, Vector3(0, -r * 0.9, 0.04 * s), 0.12 * s, s)
 	_trigger(kit, Vector3(0, -r - 0.004, -0.004 * s), s)
 	# battery / power pack under the nose
 	kit.paint()
-	kit.block(Vector3(0, -r - 0.022 * s, -0.09 * s), Vector3(0.06, 0.04, 0.09) * s, Pal.GRAPHITE, 0.01 * s)
+	kit.block(Vector3(0, -r - 0.022 * s, -0.09 * s), Vector3(0.06, 0.04, 0.09) * s, Pal.BRONZE, 0.01 * s)
 	for i in 3:
-		_lamp(kit, Vector3(-0.031 * s, -r - 0.018 * s, (-0.065 - 0.022 * float(i)) * s), Pal.TEAL if i < tier else Pal.STEEL_DARK, 0.004 * s, 1.4 if i < tier else 0.0)
+		_lamp(kit, Vector3(-0.031 * s, -r - 0.018 * s, (-0.065 - 0.022 * float(i)) * s), Pal.ION if i < tier else Pal.STEEL_DARK, 0.004 * s, 1.4 if i < tier else 0.0)
 	# vent on the visible side
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, -PI * 0.5, 0)), Vector3(-r - 0.001, 0.008 * s, 0.01 * s)), Vector3(0.07, 0.04, 0.01) * s, 4, Pal.CHARCOAL, Pal.GRAPHITE)
+	_round_vent(kit, Transform3D(Basis.from_euler(Vector3(0, 0, PI * 0.5)), Vector3(-r - 0.001, 0.008 * s, 0.01 * s)), 0.02 * s)
 	if tier >= 2:
 		# top carry handle and a braced side grip: this one needs two hands
 		kit.cast()
-		kit.pipe(PackedVector3Array([Vector3(0, r, 0.06 * s), Vector3(0, r + 0.045 * s, 0.04 * s), Vector3(0, r + 0.045 * s, -0.1 * s), Vector3(0, r, -0.13 * s)]), 0.0065 * s, Pal.GRAPHITE, 6)
+		kit.pipe(PackedVector3Array([Vector3(0, r, 0.06 * s), Vector3(0, r + 0.045 * s, 0.04 * s), Vector3(0, r + 0.045 * s, -0.1 * s), Vector3(0, r, -0.13 * s)]), 0.0065 * s, Pal.BRONZE, 6)
 		kit.rubber()
 		kit.tube(Vector3(0, r + 0.045 * s, 0.02 * s), Vector3(0, r + 0.045 * s, -0.08 * s), 0.0105 * s, 0.0105 * s, Pal.RUBBER, 8)
 		kit.bare()
@@ -397,7 +502,7 @@ static func _drill(out: Dictionary, tier: int, mods: Dictionary, mat: Material) 
 		for sx: float in [-1.0, 1.0]:
 			kit.pipe(PackedVector3Array([Vector3(r * 0.7 * sx, r * 0.6, -0.1 * s), Vector3(r * 1.1 * sx, r * 1.25, -0.08 * s), Vector3(r * 1.1 * sx, r * 1.3, 0.03 * s)]), 0.011 * s, Pal.STEEL_DARK, 7)
 		kit.surf(0.25).set_emission(1.5)
-		kit.turned(Vector3(0, 0, -0.118 * s), Vector3(0, 0, -0.132 * s), PackedVector2Array([Vector2(r + 0.003, 0.0), Vector2(r + 0.003, 0.014 * s)]), Pal.TEAL, 16)
+		kit.turned(Vector3(0, 0, -0.118 * s), Vector3(0, 0, -0.132 * s), PackedVector2Array([Vector2(r + 0.003, 0.0), Vector2(r + 0.003, 0.014 * s)]), Pal.ION, 16)
 		kit.set_emission(0.0)
 	# Turbo Motor (mod): intercooler blocks on the left flank, one per level
 	for i in turbo:
@@ -432,7 +537,7 @@ static func _drill(out: Dictionary, tier: int, mods: Dictionary, mat: Material) 
 			# planetary head: carrier plate with three diamond-tipped bits
 			tip_len = 0.25 * s
 			bit.cast()
-			bit.turned(Vector3(0, 0, -0.04 * s), Vector3(0, 0, -0.07 * s), PackedVector2Array([Vector2(r * 0.5, 0.0), Vector2(r * 0.98 * bore, 0.008 * s), Vector2(r * 0.98 * bore, 0.024 * s), Vector2(r * 0.6, 0.03 * s)]), Pal.GRAPHITE, 14)
+			bit.turned(Vector3(0, 0, -0.04 * s), Vector3(0, 0, -0.07 * s), PackedVector2Array([Vector2(r * 0.5, 0.0), Vector2(r * 0.98 * bore, 0.008 * s), Vector2(r * 0.98 * bore, 0.024 * s), Vector2(r * 0.6, 0.03 * s)]), Pal.BRONZE, 14)
 			for b in 3:
 				var ang := TAU * float(b) / 3.0
 				var off := Vector3(cos(ang), sin(ang), 0) * r * 0.55 * bore
@@ -453,9 +558,9 @@ static func _drill(out: Dictionary, tier: int, mods: Dictionary, mat: Material) 
 			var hr := r * 1.35 * bore
 			bit.cast()
 			bit.turned(Vector3(0, 0, -0.04 * s), Vector3(0, 0, -0.04 * s - tip_len), PackedVector2Array([Vector2(r * 0.55, 0.0), Vector2(hr, 0.02 * s), Vector2(hr, 0.05 * s), Vector2(hr * 0.72, 0.1 * s),
-				Vector2(hr * 0.72, 0.125 * s), Vector2(hr * 0.42, 0.19 * s), Vector2(hr * 0.42, 0.21 * s), Vector2(0.0, tip_len)]), Pal.GRAPHITE, 16)
+				Vector2(hr * 0.72, 0.125 * s), Vector2(hr * 0.42, 0.19 * s), Vector2(hr * 0.42, 0.21 * s), Vector2(0.0, tip_len)]), Pal.BRONZE, 16)
 			bit.paint()
-			bit.turned(Vector3(0, 0, -0.062 * s), Vector3(0, 0, -0.088 * s), PackedVector2Array([Vector2(hr + 0.0015, 0.0), Vector2(hr + 0.0015, 0.026 * s)]), Pal.AMBER, 16)
+			bit.turned(Vector3(0, 0, -0.062 * s), Vector3(0, 0, -0.088 * s), PackedVector2Array([Vector2(hr + 0.0015, 0.0), Vector2(hr + 0.0015, 0.026 * s)]), Pal.JADE, 16)
 			bit.bare()
 			var rows := [[hr, 0.075 * s, 8], [hr * 0.72, 0.15 * s, 6], [hr * 0.42, 0.235 * s, 4]]
 			for row: Array in rows:
@@ -491,21 +596,21 @@ static func _vacuum(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 	var s := 1.0 if tier == 1 else 1.18
 	# ---- motor body
 	kit.paint()
-	kit.block(Vector3(0, 0.0, 0.0), Vector3(0.12, 0.11, 0.2) * s, Pal.HULL, 0.024 * s)
-	kit.block(Vector3(0, 0.0, 0.105 * s), Vector3(0.11, 0.1, 0.025) * s, Pal.GRAPHITE, 0.012 * s)
-	kit.block(Vector3(0, 0.0, 0.03 * s), Vector3(0.1215, 0.1115, 0.02) * s, Pal.AMBER, 0.005)
+	kit.block(Vector3(0, 0.0, 0.0), Vector3(0.12, 0.11, 0.2) * s, Pal.ENAMEL, 0.024 * s)
+	kit.block(Vector3(0, 0.0, 0.105 * s), Vector3(0.11, 0.1, 0.025) * s, Pal.BRONZE, 0.012 * s)
+	kit.block(Vector3(0, 0.0, 0.03 * s), Vector3(0.1215, 0.1115, 0.02) * s, Pal.JADE, 0.005)
 	# rear exhaust grille
-	kit.louvre(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, 0.118 * s)), Vector3(0.08, 0.07, 0.012) * s, 5, Pal.CHARCOAL, Pal.GRAPHITE)
-	kit.louvre(Transform3D(Basis.from_euler(Vector3(0, -PI * 0.5, 0)), Vector3(-0.0605 * s, 0.0, -0.03 * s)), Vector3(0.09, 0.045, 0.01) * s, 4, Pal.CHARCOAL, Pal.GRAPHITE)
+	_round_vent(kit, Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, 0.0, 0.118 * s)), 0.032 * s)
+	_round_vent(kit, Transform3D(Basis.from_euler(Vector3(0, 0, PI * 0.5)), Vector3(-0.0605 * s, 0.0, -0.03 * s)), 0.02 * s)
 	_pistol_grip(kit, Vector3(0, -0.055 * s, 0.03 * s), 0.12 * s, s)
 	_trigger(kit, Vector3(0, -0.058 * s, -0.012 * s), s)
 	# ---- collection canister on top: clear cylinder between two caps, dust visible inside
 	var cy := 0.095 * s
 	kit.cast()
 	kit.paint()
-	kit.turned(Vector3(0, cy, 0.074 * s), Vector3(0, cy, 0.056 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.03 * s, 0.002), Vector2(0.04 * s, 0.01 * s), Vector2(0.04 * s, 0.018 * s)]), Pal.HULL_SHADE, 14, true)
+	kit.turned(Vector3(0, cy, 0.074 * s), Vector3(0, cy, 0.056 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.03 * s, 0.002), Vector2(0.04 * s, 0.01 * s), Vector2(0.04 * s, 0.018 * s)]), Pal.ENAMEL_SHADE, 14, true)
 	kit.cast()
-	kit.tube(Vector3(0, cy, -0.07 * s), Vector3(0, cy, -0.084 * s), 0.04 * s, 0.04 * s, Pal.GRAPHITE, 14)
+	kit.tube(Vector3(0, cy, -0.07 * s), Vector3(0, cy, -0.084 * s), 0.04 * s, 0.04 * s, Pal.BRONZE, 14)
 	kit.gloss()
 	if tier == 1:
 		kit.tube(Vector3(0, cy, 0.056 * s), Vector3(0, cy, -0.07 * s), 0.035 * s, 0.035 * s, Pal.GLASS, 14, false)
@@ -513,46 +618,46 @@ static func _vacuum(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 		# cyclone separator: the canister tapers and wears a spiral
 		kit.turned(Vector3(0, cy, 0.056 * s), Vector3(0, cy, -0.07 * s), PackedVector2Array([Vector2(0.037 * s, 0.0), Vector2(0.037 * s, 0.05 * s), Vector2(0.026 * s, 0.126 * s)]), Pal.GLASS, 14)
 		kit.paint()
-		kit.spiral(Vector3(0, cy, 0.05 * s), Vector3(0, cy, -0.066 * s), 0.0375 * s, 0.027 * s, 1.5, 0.008 * s, 0.003 * s, Pal.HULL, 30)
+		kit.spiral(Vector3(0, cy, 0.05 * s), Vector3(0, cy, -0.066 * s), 0.0375 * s, 0.027 * s, 1.5, 0.008 * s, 0.003 * s, Pal.ENAMEL, 30)
 	kit.matte()
 	kit.tube(Vector3(0, cy - 0.012 * s, 0.05 * s), Vector3(0, cy - 0.012 * s, -0.064 * s), 0.022 * s, 0.018 * s, Pal.ROCK_WARM.darkened(0.15), 8)
 	kit.bare()
 	kit.pipe(PackedVector3Array([Vector3(0, cy + 0.03 * s, -0.08 * s), Vector3(0, cy + 0.04 * s, -0.12 * s), Vector3(0, 0.03 * s, -0.15 * s)]), 0.009 * s, Pal.STEEL_DARK, 6)
-	_lamp(kit, Vector3(0.0, cy + 0.04 * s, 0.064 * s), Pal.TEAL, 0.006 * s)
+	_lamp(kit, Vector3(0.0, cy + 0.04 * s, 0.064 * s), Pal.ION, 0.006 * s)
 	# ---- corrugated hose coupling
 	kit.rubber()
 	for i in 5:
 		var z := (-0.105 - 0.013 * float(i)) * s
-		kit.tube(Vector3(0, 0, z), Vector3(0, 0, z - 0.008 * s), 0.036 * s, 0.036 * s, Pal.CHARCOAL if i % 2 == 0 else Pal.RUBBER, 12)
+		kit.tube(Vector3(0, 0, z), Vector3(0, 0, z - 0.008 * s), 0.036 * s, 0.036 * s, Pal.DEEP if i % 2 == 0 else Pal.RUBBER, 12)
 	kit.tube(Vector3(0, 0, -0.1 * s), Vector3(0, 0, -0.17 * s), 0.031 * s, 0.031 * s, Pal.RUBBER, 12)
 	# ---- nozzle: straight throat, then a flared mouth with an amber lip
 	var nz := -0.17 * s
 	var mr := 0.062 * s * mouth
 	kit.paint()
-	kit.turned(Vector3(0, 0, nz), Vector3(0, 0, nz - nozzle_len), PackedVector2Array([Vector2(0.034 * s, 0.0), Vector2(0.034 * s, nozzle_len * 0.45), Vector2(mr, nozzle_len * 0.96), Vector2(mr, nozzle_len)]), Pal.HULL, 16)
-	kit.turned(Vector3(0, 0, nz - nozzle_len * 0.92), Vector3(0, 0, nz - nozzle_len - 0.004), PackedVector2Array([Vector2(mr + 0.002, 0.0), Vector2(mr + 0.004, nozzle_len * 0.08), Vector2(mr - 0.004, nozzle_len * 0.08 + 0.004)]), Pal.AMBER, 16)
+	kit.turned(Vector3(0, 0, nz), Vector3(0, 0, nz - nozzle_len), PackedVector2Array([Vector2(0.034 * s, 0.0), Vector2(0.034 * s, nozzle_len * 0.45), Vector2(mr, nozzle_len * 0.96), Vector2(mr, nozzle_len)]), Pal.ENAMEL, 16)
+	kit.turned(Vector3(0, 0, nz - nozzle_len * 0.92), Vector3(0, 0, nz - nozzle_len - 0.004), PackedVector2Array([Vector2(mr + 0.002, 0.0), Vector2(mr + 0.004, nozzle_len * 0.08), Vector2(mr - 0.004, nozzle_len * 0.08 + 0.004)]), Pal.JADE, 16)
 	kit.rubber()
-	kit.turned(Vector3(0, 0, nz - nozzle_len), Vector3(0, 0, nz - nozzle_len * 0.5), PackedVector2Array([Vector2(mr - 0.004, 0.0), Vector2(0.03 * s, nozzle_len * 0.5)]), Pal.CHARCOAL, 16)
+	kit.turned(Vector3(0, 0, nz - nozzle_len), Vector3(0, 0, nz - nozzle_len * 0.5), PackedVector2Array([Vector2(mr - 0.004, 0.0), Vector2(0.03 * s, nozzle_len * 0.5)]), Pal.DEEP, 16)
 	kit.cast()
-	kit.tube(Vector3(0, 0, nz - 0.004), Vector3(0, 0, nz - 0.02 * s), 0.038 * s, 0.038 * s, Pal.GRAPHITE, 12)
+	kit.tube(Vector3(0, 0, nz - 0.004), Vector3(0, 0, nz - 0.02 * s), 0.038 * s, 0.038 * s, Pal.BRONZE, 12)
 	if int(mods.get("long_nozzle", 0)) > 0:
 		# extension collars
 		kit.cast()
 		for i in int(mods.get("long_nozzle", 0)):
 			var cz := nz - nozzle_len * (0.2 + 0.14 * float(i))
-			kit.tube(Vector3(0, 0, cz), Vector3(0, 0, cz - 0.01 * s), 0.0375 * s, 0.0375 * s, Pal.GRAPHITE, 12)
+			kit.tube(Vector3(0, 0, cz), Vector3(0, 0, cz - 0.01 * s), 0.0375 * s, 0.0375 * s, Pal.BRONZE, 12)
 	if tier >= 2:
 		# twin turbines on the flanks
 		for sx: float in [-1.0, 1.0]:
 			var tx := 0.088 * s * sx
 			kit.paint()
-			kit.turned(Vector3(tx, 0.005 * s, 0.09 * s), Vector3(tx, 0.005 * s, -0.09 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.02 * s, 0.004), Vector2(0.03 * s, 0.03 * s), Vector2(0.03 * s, 0.14 * s), Vector2(0.034 * s, 0.18 * s)]), Pal.HULL_SHADE, 12, true)
+			kit.turned(Vector3(tx, 0.005 * s, 0.09 * s), Vector3(tx, 0.005 * s, -0.09 * s), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.02 * s, 0.004), Vector2(0.03 * s, 0.03 * s), Vector2(0.03 * s, 0.14 * s), Vector2(0.034 * s, 0.18 * s)]), Pal.ENAMEL_SHADE, 12, true)
 			kit.cast()
-			kit.turned(Vector3(tx, 0.005 * s, -0.082 * s), Vector3(tx, 0.005 * s, -0.096 * s), PackedVector2Array([Vector2(0.036 * s, 0.0), Vector2(0.036 * s, 0.014 * s), Vector2(0.026 * s, 0.014 * s)]), Pal.GRAPHITE, 12)
+			kit.turned(Vector3(tx, 0.005 * s, -0.082 * s), Vector3(tx, 0.005 * s, -0.096 * s), PackedVector2Array([Vector2(0.036 * s, 0.0), Vector2(0.036 * s, 0.014 * s), Vector2(0.026 * s, 0.014 * s)]), Pal.BRONZE, 12)
 			kit.rubber()
-			kit.tube(Vector3(tx, 0.005 * s, -0.094 * s), Vector3(tx, 0.005 * s, -0.086 * s), 0.026 * s, 0.026 * s, Pal.CHARCOAL, 12)
+			kit.tube(Vector3(tx, 0.005 * s, -0.094 * s), Vector3(tx, 0.005 * s, -0.086 * s), 0.026 * s, 0.026 * s, Pal.DEEP, 12)
 			kit.surf(0.25).set_emission(1.2)
-			kit.block(Vector3(tx + 0.031 * s * sx, 0.005 * s, 0.0), Vector3(0.004, 0.012, 0.07) * s, Pal.TEAL, 0.002)
+			kit.block(Vector3(tx + 0.031 * s * sx, 0.005 * s, 0.0), Vector3(0.004, 0.012, 0.07) * s, Pal.ION, 0.002)
 			kit.set_emission(0.0)
 			kit.bare()
 			kit.tube(Vector3(0.06 * s * sx, 0.005 * s, 0.03 * s), Vector3(tx - 0.02 * s * sx, 0.005 * s, 0.03 * s), 0.01 * s, 0.01 * s, Pal.STEEL_DARK, 6)
@@ -563,7 +668,7 @@ static func _vacuum(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 	for i in 5:
 		var a := TAU * float(i) / 5.0
 		fan.hbox(Transform3D(Basis.from_euler(Vector3(0, 0, a)) * Basis.from_euler(Vector3(0, 0.55, 0)), Vector3(cos(a + PI * 0.5), sin(a + PI * 0.5), 0) * 0.019 * s), Vector3(0.012 * s, 0.03 * s, 0.003), Pal.STEEL_DARK, 0.001)
-	fan.tube(Vector3(0, 0, 0.008), Vector3(0, 0, -0.012), 0.008 * s, 0.006 * s, Pal.GRAPHITE, 8)
+	fan.tube(Vector3(0, 0, 0.008), Vector3(0, 0, -0.012), 0.008 * s, 0.006 * s, Pal.BRONZE, 8)
 	_part(spin, fan, mat, "Fan")
 	out["spin"] = spin
 	_muzzle(out, Vector3(0, 0, nz - nozzle_len))
@@ -582,9 +687,9 @@ static func _cannon(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 	var len := (0.36 if tier == 1 else 0.46) * s
 	# ---- receiver
 	kit.paint()
-	kit.block(Vector3(0, y, 0.06 * s), Vector3(0.115, 0.12, 0.2) * s, Pal.HULL, 0.024 * s)
-	kit.block(Vector3(0, y, 0.165 * s), Vector3(0.105, 0.11, 0.022) * s, Pal.GRAPHITE, 0.01 * s)
-	kit.block(Vector3(0, y, 0.0), Vector3(0.1165, 0.1215, 0.02) * s, Pal.AMBER, 0.005)
+	kit.block(Vector3(0, y, 0.06 * s), Vector3(0.115, 0.12, 0.2) * s, Pal.ENAMEL, 0.024 * s)
+	kit.block(Vector3(0, y, 0.165 * s), Vector3(0.105, 0.11, 0.022) * s, Pal.BRONZE, 0.01 * s)
+	kit.block(Vector3(0, y, 0.0), Vector3(0.1165, 0.1215, 0.02) * s, Pal.JADE, 0.005)
 	# breech lever on the left
 	kit.bare()
 	kit.tube(Vector3(-0.058 * s, y + 0.02 * s, 0.09 * s), Vector3(-0.075 * s, y + 0.02 * s, 0.09 * s), 0.008 * s, 0.008 * s, Pal.STEEL, 8)
@@ -595,25 +700,25 @@ static func _cannon(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 	kit.block(Vector3(0, y - 0.01 * s, 0.2 * s), Vector3(0.07, 0.1, 0.05) * s, Pal.RUBBER, 0.02 * s)
 	# charge cells on the left (lit = loaded); Quick Fuse adds an auto-loader rail with more cells
 	for i in 3:
-		_lamp(kit, Vector3(-0.0585 * s, y - 0.02 * s, (0.04 + 0.03 * float(i)) * s), Pal.AMBER, 0.006 * s, 1.5)
+		_lamp(kit, Vector3(-0.0585 * s, y - 0.02 * s, (0.04 + 0.03 * float(i)) * s), Pal.JADE, 0.006 * s, 1.5)
 	if fuse > 0:
 		kit.cast()
-		kit.block(Vector3(-0.07 * s, y + 0.055 * s, 0.07 * s), Vector3(0.03, 0.03, 0.15) * s, Pal.GRAPHITE, 0.008 * s)
+		kit.block(Vector3(-0.07 * s, y + 0.055 * s, 0.07 * s), Vector3(0.03, 0.03, 0.15) * s, Pal.BRONZE, 0.008 * s)
 		for i in 2 + 2 * fuse:
 			kit.paint()
 			kit.turned(Vector3(-0.07 * s, y + 0.07 * s, (0.13 - 0.022 * float(i)) * s), Vector3(-0.07 * s, y + 0.094 * s, (0.13 - 0.022 * float(i)) * s),
-				PackedVector2Array([Vector2(0.008 * s, 0.0), Vector2(0.008 * s, 0.018 * s), Vector2(0.0, 0.024 * s)]), Pal.AMBER, 8)
+				PackedVector2Array([Vector2(0.008 * s, 0.0), Vector2(0.008 * s, 0.018 * s), Vector2(0.0, 0.024 * s)]), Pal.JADE, 8)
 	_pistol_grip(kit, Vector3(0, y - 0.058 * s, 0.07 * s), 0.12 * s, s)
 	_trigger(kit, Vector3(0, y - 0.062 * s, 0.03 * s), s)
 	# foregrip
 	kit.cast()
-	kit.block(Vector3(0, y - 0.075 * s, -0.14 * s), Vector3(0.03, 0.03, 0.05) * s, Pal.GRAPHITE, 0.008 * s)
+	kit.block(Vector3(0, y - 0.075 * s, -0.14 * s), Vector3(0.03, 0.03, 0.05) * s, Pal.BRONZE, 0.008 * s)
 	kit.rubber()
 	kit.tube(Vector3(0, y - 0.085 * s, -0.14 * s), Vector3(0, y - 0.17 * s, -0.125 * s), 0.016 * s, 0.015 * s, Pal.RUBBER, 8)
 	# sight: a simple ring on a post
 	kit.cast()
-	kit.block(Vector3(0, y + 0.07 * s, 0.03 * s), Vector3(0.012, 0.025, 0.012) * s, Pal.GRAPHITE, 0.003)
-	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, y + 0.098 * s, 0.03 * s)), 0.013 * s, 0.0025 * s, Pal.GRAPHITE, 12, 5)
+	kit.block(Vector3(0, y + 0.07 * s, 0.03 * s), Vector3(0.012, 0.025, 0.012) * s, Pal.BRONZE, 0.003)
+	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3(0, y + 0.098 * s, 0.03 * s)), 0.013 * s, 0.0025 * s, Pal.BRONZE, 12, 5)
 	_part(root, kit, mat, "Body")
 
 	# ---- barrel assembly (recoils along Z)
@@ -621,19 +726,19 @@ static func _cannon(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 	var bk := MeshKit.new()
 	bk.cast()
 	bk.turned(Vector3.ZERO, Vector3(0, 0, -len), PackedVector2Array([Vector2(br + 0.016 * s, 0.0), Vector2(br + 0.016 * s, len * 0.3), Vector2(br + 0.008 * s, len * 0.34),
-		Vector2(br + 0.008 * s, len * 0.82), Vector2(br + 0.02 * s, len * 0.86), Vector2(br + 0.02 * s, len), Vector2(br, len)]), Pal.GRAPHITE, 18)
+		Vector2(br + 0.008 * s, len * 0.82), Vector2(br + 0.02 * s, len * 0.86), Vector2(br + 0.02 * s, len), Vector2(br, len)]), Pal.BRONZE, 18)
 	# bore
 	bk.rubber()
-	bk.turned(Vector3(0, 0, -len), Vector3(0, 0, -len * 0.6), PackedVector2Array([Vector2(br, 0.0), Vector2(br * 0.9, len * 0.4), Vector2(0.0, len * 0.4)]), Pal.CHARCOAL, 18)
+	bk.turned(Vector3(0, 0, -len), Vector3(0, 0, -len * 0.6), PackedVector2Array([Vector2(br, 0.0), Vector2(br * 0.9, len * 0.4), Vector2(0.0, len * 0.4)]), Pal.DEEP, 18)
 	# painted shroud over the rear half with a belt stripe
 	bk.paint()
-	bk.turned(Vector3(0, 0, -0.01 * s), Vector3(0, 0, -len * 0.3), PackedVector2Array([Vector2(br + 0.019 * s, 0.0), Vector2(br + 0.019 * s, len * 0.3 - 0.016 * s), Vector2(br + 0.016 * s, len * 0.3 - 0.01 * s)]), Pal.HULL, 18)
+	bk.turned(Vector3(0, 0, -0.01 * s), Vector3(0, 0, -len * 0.3), PackedVector2Array([Vector2(br + 0.019 * s, 0.0), Vector2(br + 0.019 * s, len * 0.3 - 0.016 * s), Vector2(br + 0.016 * s, len * 0.3 - 0.01 * s)]), Pal.ENAMEL, 18)
 	# muzzle brake slots
 	bk.rubber()
 	for i in 3:
 		var mz := -len * (0.88 + 0.035 * float(i))
 		for a: float in [0.0, PI * 0.5, PI, PI * 1.5]:
-			bk.hbox(Transform3D(Basis.from_euler(Vector3(0, 0, a)), Vector3(cos(a + PI * 0.5), sin(a + PI * 0.5), 0) * (br + 0.02 * s) + Vector3(0, 0, mz)), Vector3(0.022 * s, 0.003, 0.008 * s), Pal.CHARCOAL, 0.001)
+			bk.hbox(Transform3D(Basis.from_euler(Vector3(0, 0, a)), Vector3(cos(a + PI * 0.5), sin(a + PI * 0.5), 0) * (br + 0.02 * s) + Vector3(0, 0, mz)), Vector3(0.022 * s, 0.003, 0.008 * s), Pal.DEEP, 0.001)
 	if tier >= 2:
 		# Planet Cracker: heat-sink discs, three energy coils and stabiliser vanes
 		bk.cast()
@@ -643,18 +748,18 @@ static func _cannon(out: Dictionary, tier: int, mods: Dictionary, mat: Material)
 		bk.surf(0.25).set_emission(1.5)
 		for i in 3:
 			var ez := -len * (0.64 + 0.06 * float(i))
-			bk.turned(Vector3(0, 0, ez), Vector3(0, 0, ez - 0.01 * s), PackedVector2Array([Vector2(br + 0.0095 * s, 0.0), Vector2(br + 0.0095 * s, 0.01 * s)]), Pal.TEAL, 16)
+			bk.turned(Vector3(0, 0, ez), Vector3(0, 0, ez - 0.01 * s), PackedVector2Array([Vector2(br + 0.0095 * s, 0.0), Vector2(br + 0.0095 * s, 0.01 * s)]), Pal.ION, 16)
 		bk.set_emission(0.0)
 		bk.paint()
 		for i in 3:
 			var va := TAU * float(i) / 3.0 + PI * 0.5
 			var vb := Basis(Vector3(0, 0, -1), Vector3(cos(va), sin(va), 0), Vector3(-sin(va), cos(va), 0))
 			bk.prism(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.09 * s, 0.0), Vector2(0.07 * s, 0.03 * s), Vector2(0.015 * s, 0.03 * s)]), -0.004, 0.004,
-				Transform3D(vb, Vector3(cos(va), sin(va), 0) * (br + 0.018 * s) + Vector3(0, 0, -len * 0.84)), Pal.HULL_SHADE)
+				Transform3D(vb, Vector3(cos(va), sin(va), 0) * (br + 0.018 * s) + Vector3(0, 0, -len * 0.84)), Pal.ENAMEL_SHADE)
 		# capacitor tank under the receiver end of the barrel
 		bk.paint()
 		bk.turned(Vector3(0, -br - 0.04 * s, -0.01 * s), Vector3(0, -br - 0.04 * s, -len * 0.3), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.022 * s, 0.006), Vector2(0.026 * s, 0.02 * s),
-			Vector2(0.026 * s, len * 0.3 - 0.03 * s), Vector2(0.0, len * 0.3 - 0.01 * s)]), Pal.HULL_SHADE, 12, true)
+			Vector2(0.026 * s, len * 0.3 - 0.03 * s), Vector2(0.0, len * 0.3 - 0.01 * s)]), Pal.ENAMEL_SHADE, 12, true)
 	# Bigger Boom (mod): reinforcing bands around the chamber, one per level
 	for i in int(mods.get("bigger_boom", 0)):
 		var bz := -len * (0.31 + 0.05 * float(i))

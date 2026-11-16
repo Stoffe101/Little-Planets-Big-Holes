@@ -1,216 +1,230 @@
 # Art direction
 
-*Little Planets, Big Holes* is a **clean, stylised 3D simulation**: a small survey outpost on a
-small quiet world, and one person with increasingly serious excavation equipment. It should
-look deliberately designed, friendly and calm — never candy, never gritty.
+*Little Planets, Big Holes* is a **clean, stylised 3D simulation**: a field-survey outpost on a
+small, quiet world, and one person with increasingly serious excavation equipment. It should
+look deliberately designed, warm and calm — never candy, never gritty.
 
 This document is the rulebook. If a new model, colour or screen does not fit it, change the
 asset, not the rules (or change the rules here first, on purpose).
 
+**Since v0.3 the game has its own identity.** Earlier versions borrowed too much of one
+reference game's look (see §2). This version keeps the *principles* we admired and replaces
+every recognisable *design* with our own: enamelled field instruments instead of white
+machinery, round forms instead of panelled boxes, bronze rings instead of dark frames,
+perforated grilles instead of slatted vents, and jade instead of orange.
+
 ## 1. Design philosophy
 
-1. **Restraint first.** Most of the frame is neutral: muted ground, off-white machines, a calm
-   sky. That is what lets the few accents mean something.
-2. **Function explains form.** Every object should look like it does a job: vents where a motor
-   would get hot, a handle where a hand goes, legs where it stands.
+1. **Restraint first.** Most of the frame is the planet: muted ground, calm sky. That is what
+   lets the few accents mean something.
+2. **Function explains form.** Every object looks like it does a job: a grille where a motor
+   breathes, a dial where something is measured, a glove where a hand grips, legs where it stands.
 3. **Light does the work.** Plain physically based shading under one sun and a soft sky. No toon
    ramps, no outlines, no rim glow, no blanket bloom.
-4. **Simple is not empty.** Flat faces get bevels that catch the light; ground gets fine relief
-   and strata; silhouettes are composed of a few clear masses.
+4. **Simple is not empty.** Forms get bevels and rings that catch the light; ground gets fine
+   relief and strata; silhouettes are a few clear masses.
 5. **The dig is the star.** Nothing on screen may make a fresh hole harder to read.
 
-## 2. Reference
+## 2. Inspiration — and what we must not imitate
 
-The reference for *level of polish and restraint* is **Moon Sweepers** (DragDrop Games):
-<https://store.steampowered.com/app/5335510/Moon_Sweepers/>. The official store screenshots
-were studied in a browser; nothing was downloaded, copied or traced, and no asset, logo,
-character or layout of that game is reproduced here.
+### Admired principles (keep)
 
-What those screenshots do, and what we take from them:
+Studied in pass 2: *Moon Sweepers* (DragDrop Games), from its public store screenshots only.
+Nothing was ever downloaded, copied or traced. What it taught us, stated as general principles:
 
-| Observation in the reference | Principle we adopt |
+| Principle | How we apply it |
 |---|---|
-| The whole environment is one near-neutral family (grey regolith, dark sky). | Common terrain stays within one desaturated family per planet. |
-| Buildings and vehicles are off-white painted panels on dark bases, with louvred vents, panel seams and thin belt lines. | Our machines: off-white hull, graphite frames/vents, one belt line. |
-| One accent hue (orange) appears only on trim, bristles and markings; blue only as glazing. | One signal colour for "ours / interactive", one for energy and screens. |
-| Fine ground detail is relief (small craters, pebbles), not colour patches. | Surface detail is a procedural **normal**, plus sparse real props. |
-| A single hard sun gives long, crisp shadows; shaded sides stay readable. | Low mid-morning sun, sky-driven ambient, soft-edged shadows. |
-| Emission is reserved for screens and one holographic prop. | Emission only for status lights, screens, exotic minerals and the Heart. |
-| Machinery has believable proportions and visible mechanisms. | Tools and stations show their working parts. |
+| A frame dominated by one calm terrain family | One desaturated ground family per planet; saturation rises with value. |
+| Surface detail as relief, not colour noise | Procedural normal relief + sparse real props. |
+| One low sun with long, readable shadows | Mid-morning sun that follows the player. |
+| Emission reserved for screens and a hero object | Small status lights; the planet Heart is the one bright thing. |
+| Machines with believable proportions and visible mechanisms | Every tool tier shows its working parts. |
 
-What we deliberately do **differently**, so the game has its own identity: living, green and
-stone worlds instead of a dead moon; hexagonal pads and a lander instead of a hangar complex;
-amber + teal instead of orange + blue glass; first-person tools as the hero assets; real
-volumetric holes with visible geology as the main spectacle.
+### Designs we must not imitate (avoid)
 
-## 3. Shape language
+These are recognisable traits of that game's equipment and architecture. **Do not use them**,
+alone or in combination:
 
-* **Manufactured things** are boxes and turned (lathed) forms with small, consistent bevels —
-  `MeshKit.hbox`, `prism`, `lathe`, `tube`, `louvre`, `spiral`. Bevel size 1–2 cm on tools,
-  3–10 cm on buildings. No blobby "inflated" shapes on anything man-made.
-* **Natural things** are faceted and irregular — `MeshKit.rock` (jittered, flat shaded),
-  `crystal`, thin `leaf` blades. Foliage masses are low and wide, never spherical lollipops.
-* **Hexagons** are the outpost's ground motif (landing pad, station pads, bot dock, vault dais).
-* Silhouette before detail: each asset should read from 20 m as two or three masses.
+* Off-white / light-grey painted panels as the main machine colour.
+* Dark graphite or black frames, bases and plinths around light bodies.
+* Slatted louvre vents and rectangular panel-seam grids on boxes.
+* Thin orange (or amber) belt lines and accent strips; orange-on-white livery.
+* Boxy modular buildings, hangar complexes, rectangular kiosks with flat canopies.
+* A tall, slender white rocket as the base centrepiece.
+* Blue glazing as the only coloured element on a white machine.
+
+`tests/test_k_identity.gd` guards the measurable parts of this (no near-white enamel, no
+amber accent, warm frames, round station bodies, a squat lander). Whether the result *looks*
+original is for a human to judge — see "Human evaluation" in the final report.
+
+### Broader inspiration (ours)
+
+* **Field and laboratory instruments**: theodolites and transits (enamel bodies, brass rings,
+  levelling screws), pressure gauges, Geiger counters, sample canisters, bell jars.
+* **Kilns, enamelware and ceramics**: fired terracotta, glazed cream, ribbed drums.
+* **Mining heritage**: timber sets, narrow rails, storm lanterns (only in the Old Workings —
+  never on our own kit).
+* **Space-exploration hardware**: landing legs with dampers, gimbal rings, survey probes.
+* **Geology**: copper and its verdigris (our accent is literally oxidised copper), strata, geodes.
+
+## 3. Our shape language
+
+* **Round, turned and ringed.** Stations are **drums** on stepped round plinths, with raised
+  bronze **rib rings**, a glazed **label band** and a low **domed cap**. Lathed forms
+  (`MeshKit.lathe`, `turned`, `torus`, `disc`) come first; boxes (`hbox`) are for internal
+  structure, counters and blades.
+* **Instruments, not appliances.** Round **dials** (bronze bezel, cream face, one needle),
+  round **perforated grilles**, porthole read-outs, gimbal rings, tripod masts.
+* **Exposed copper.** Fuel lines, conduits and coils are visible pipes, not hidden in panels.
+* **Tripods and splayed legs** instead of plinths for anything that stands alone.
+* **Natural things** stay faceted and irregular — `rock`, `crystal`, thin `leaf` blades.
+* **Round** is the outpost's ground motif (pads, plinths, the landing ring, sell-pad arcs).
+* Silhouette before detail: each asset reads from 20 m as two or three masses.
 
 ## 4. Colour hierarchy
 
 All model colours live in **`src/core/palette.gd` (`Pal`)**; UI colours in `UiTheme`; terrain
 and sky colours in the planet JSON. No hex codes in model code.
 
-| Level | Share of a typical frame | Colours | Used for |
+| Level | Share of frame | Colours | Used for |
 |---|---|---|---|
-| Ground & sky | ~75 % | planet palette: muted greens / cool stone, soft blue to space | terrain, sky, rocks, vegetation |
-| Equipment neutrals | ~20 % | `HULL`, `HULL_SHADE`, `GRAPHITE`, `CHARCOAL`, `STEEL`, `RUBBER`, `CONCRETE` | tools, stations, lander, bots |
-| Signal | < 4 % | `AMBER` | belt lines, grips and triggers, pad markings, primary UI action |
-| Energy / information | < 1 % | `TEAL` | status lights, screens, scanner, energy parts on top tiers |
-| Value | rare | material colours (copper, gold, amethyst, starglass…) | ore in the rock, loot, crystals |
-| Alarm / confirm | rare | `RED`, `GREEN` | "too hard", loss / sell pad edge, gain |
+| Ground & sky | ~75 % | planet palette | terrain, sky, rocks, vegetation |
+| Equipment body | ~15 % | `ENAMEL` (kiln terracotta), `ENAMEL_SHADE` | drums, housings, the lander belly, bot shells |
+| Equipment structure | ~6 % | `BRONZE`, `DEEP`, `STEEL`, `RUBBER`, `CONCRETE` | rings, legs, bases, working metal, grips, pads |
+| Ceramic | ~2 % | `CREAM` | lander dome, dial faces, sign plates, label bands, insulators |
+| Hardware | ~1 % | `COPPER`, `BRASS` | pipes, coils, tier-3 trim |
+| Signal | < 1 % | `JADE` (verdigris) | handles, triggers, cuffs, hopper rim, pad markings, primary UI action |
+| Energy / information | < 1 % | `ION` | status lights, screens, scanner, energy parts |
+| Value | rare | material colours | ore in the rock, loot, crystals |
+| Alarm / confirm | rare | `RED`, `GREEN` | "too hard", gain |
 
 Rules:
 
 * Common materials are desaturated; **saturation rises with value**. A gold seam must be the
   most colourful thing in a tunnel.
-* Do not give an object its own accent colour. If it needs an accent it is `AMBER`.
-* **Emission budget:** bulk terrain ≤ 0.12, ore ≤ 0.05 (ore reads through metallic gloss and
-  flecks, not glow), crystals ≈ 0.2, exotics ≈ 0.5. Lights on machines are small. The planet
-  Heart is the one object allowed to be bright.
-* Glow post-processing is thresholded so that only the sun disc, status lights and exotic
-  minerals bloom.
+* Don't give an object its own accent colour. If it needs an accent it is `JADE`.
+* Terracotta and jade are complementary; keep jade small so it stays a signal.
+* **Emission budget:** bulk terrain ≤ 0.12, ore ≤ 0.05, crystals ≈ 0.2, exotics ≈ 0.5.
+  Lights on machines are small. The planet Heart is the one object allowed to be bright.
 
 ## 5. Materials
 
-`shaders/prop.gdshader` is plain PBR driven by per-vertex data written by `MeshKit`
-(colour, roughness, metallic, emission). Finishes, set before adding parts:
+`shaders/prop.gdshader` is plain PBR driven by per-vertex data written by `MeshKit`.
+Finishes, set before adding parts:
 
 | Call | Roughness / metal | Use |
 |---|---|---|
-| `paint()` | 0.48 / 0 | painted panels (satin) |
-| `matte()` | 0.86 / 0 | stone, wood, cloth, foliage |
-| `bare()` | 0.34 / 0.62 | machined steel |
-| `cast()` | 0.58 / 0.6 | cast or worn metal, dark housings |
-| `rubber()` | 0.93 / 0 | grips, hoses, tyres |
-| `gloss()` | 0.10 / 0 | glass, lenses, crystals |
+| `paint()` | 0.48 / 0 | fired enamel (satin) |
+| `matte()` | 0.86 / 0 | stone, wood, leather, canvas, foliage |
+| `bare()` | 0.34 / 0.62 | machined steel, copper pipe |
+| `cast()` | 0.58 / 0.6 | bronze rings, cast housings |
+| `rubber()` | 0.93 / 0 | grips, hoses, feet |
+| `gloss()` | 0.10 / 0 | glazed ceramic, glass, lenses, crystals |
 
 Terrain (`shaders/terrain.gdshader`) decides *what* a fragment is exactly as gameplay does,
-then renders it with: natural base colour, a fine procedural relief normal that fades with
-distance, sediment tone bands and thin bedding lines on cut walls only, a darker damp band
-under the turf, crisp-edged ore bodies with a dark contact line and brighter flecks, faceted
-normals for crystalline ore, and ambient occlusion that deepens with depth below the original
-surface so a hole always reads as a hole.
+then renders it: base colour, fine relief that fades with distance, strata bands on cut walls
+only, a damp band under the turf, crisp ore bodies with a dark contact line, faceted crystal
+ore, and depth-darkened occlusion so a hole always reads as a hole. Regions recolour the turf
+and thin it into patches where the region's `cover` is low.
 
 ## 6. Lighting
 
-* One sun at ~40° elevation (34° on Glimmerock) that follows the player around the planet;
-  four-split soft shadows. Long shadows give small props and holes their form.
-* Ambient comes from the sky shader itself (75 %) plus a little flat colour, so shaded faces
-  are cooler and never dead. The sky's below-horizon colour used for lighting is the ground
-  colour, not the sky behind the planet.
-* AgX tonemapping, exposure 1.0, slight contrast. Colours are authored in sRGB and converted
-  in the shader, so palette values mean what they say.
-* Underground the sky's contribution fades to ~30 %, a light fog adds depth, the headlamp
-  comes on (wide, soft) and each cavern has one key light placed high and off-centre so it has
-  a lit side and a shaded side. Ore gloss and crystal facets answer the headlamp — light helps
-  you find things.
+* One sun at ~40° (34° on Glimmerock) that follows the player; four-split soft shadows.
+* Ambient comes from the sky shader (75 %) plus a little flat colour.
+* AgX tonemapping, exposure 1.0, slight contrast. sRGB authoring, converted in the shader.
+* Underground the sky contribution fades, light fog adds depth, the headlamp comes on and
+  each cavern has one key light high and off-centre.
 
 ## 7. Sky and atmosphere
 
-A thin atmosphere over open space: horizon haze → clear mid blue → deep space with a few stars
-at the zenith. The gradient is measured from the planet's real limb (on a 48 m world the
-horizon sits well below eye level). Small sun disc with a tight halo. One neighbouring world
-and a small moon hang in the sky, shown at a pleasant phase and tinted by the air in front of
-them. Glimmerock is nearly airless: dark sky, full star field, a faint nebula band.
+A thin atmosphere over open space: horizon haze → clear blue → space with a few stars. On
+400 m worlds the horizon sits close to eye level again (it was far below it on the 48 m
+planets), so the sky reads like a sky. One neighbouring world hangs in the sky. Glimmerock is
+nearly airless: dark sky, full star field, a faint nebula band.
 
 ## 8. Environment
 
-* **Density follows meaning.** Ground-cover tufts thin out on open lawns and thicken in damp
-  zones; ferns gather in meadows; trees stand in a few groves; boulders are scattered sparsely.
-* **Landmarks are placed on purpose:** a ring of standing stones (basalt columns on
-  Glimmerock) on each mountain's shoulder, and a pair of cairns at every natural cave mouth so
-  entrances can be recognised and found again.
-* Vegetation stays in the ground's colour family. The only flower-like accent on Pipseed is a
-  small muted bud on one fern variant.
+* **Regions** give every part of a planet its own character: turf colour and coverage, which
+  props grow (Whisperwood has trees, Stonebrake bare boulders, the Spires crystals), how high
+  the strata are pushed up, which ore is rich. Region names appear on the map and as you enter.
+* **Landmarks are placed on purpose:** standing stones (basalt columns on Glimmerock) on each
+  tall dome's shoulder; a pair of cairns at every natural cave mouth; craters and ridges are
+  visible from far away because LOD terrain draws the whole planet.
+* **Density follows meaning.** Props are streamed per region at densities per 1000 m².
 * Never fill a surface just because it is empty. Open ground is where the player digs.
 
-## 9. Tools
+## 9. Our equipment (tools)
 
 Tools are the hero assets; the player looks at them for the whole game.
 
-* **Read from behind, above and the left** (that is the first-person view), so detail goes on
-  top and on the −X side. They are drawn with a fixed 62° field of view, independent of the
-  game FOV setting.
+* **Read from behind, above and the left**, drawn with a fixed 62° FOV.
+* **Hands are part of the tool.** A leather work glove (`LEATHER`) closes around each grip,
+  with a canvas cuff, a jade tab and the suit sleeve leading off-screen. Two-handed tools show
+  both hands (shovels: shaft and grip; power shovels: pistol grip and side grip). Shop
+  previews show the bare tool.
 * **Each tier adds construction, not paint.** Shovels: hand scoop → forged spade → pneumatic
-  breaker with a reciprocating head → hydraulic bucket with rams and an accumulator. Drills:
-  single twist bit → planetary three-bit head with a carry handle → shoulder-braced boring
-  head. Vacuums gain a cyclone separator and turbines. Cannons gain heat sinks, coils and vanes.
-* **Every attachment bolts something on:** teeth and a carbide strip, a trench keel,
-  counterweight collars or pressure canisters, intercooler blocks, a shaft collar, carbide
-  studs, nozzle collars, chamber bands, an auto-loader rail. A test asserts that each mod level
-  adds geometry.
-* Livery: off-white housing, graphite caps, one amber band, rubber where a hand goes, amber
-  trigger. Teal light = stored energy, used only from the powered tiers up.
-* The starter scoop is the exception: wood, cloth tape, rust, a chipped edge. It should look
-  cheap and still be appealing.
-* **Animation:** hand tools are carried across the body and swung; powered tools are shouldered
-  straight ahead and their *mechanism* moves (head, bit, barrel). Secondary motion (sway, bob,
-  landing dip) is smoothed and small. A new purchase is held up and turned over once.
+  breaker with a big blued-steel head on a reciprocating carrier → hydraulic **curved bucket**
+  (an arc of slats between side plates, open to the front, toothed lip) on twin rams. Drills,
+  vacuums and cannons follow the same rule.
+* **Every attachment bolts something on** (asserted by a test).
+* Livery: terracotta enamel housings held by bronze rib rings, round perforated vents, steel
+  where it works, rubber where a hand goes, a jade trigger. Ion light = stored energy.
+* The starter scoop is the exception: wood, cloth tape, rust, a chipped edge.
+* **Animation:** hand tools are swung across the body; powered tools are shouldered and their
+  *mechanism* moves. Secondary motion is small and smoothed.
 
-## 10. Industrial architecture
+## 10. Outpost architecture
 
-The base is a compact survey outpost: the lander on a hexagonal pad, the Workshop (service
-window, steel counter, flat canopy, lit turntable showing the next tool), the Outfitter (locker
-wall, display case), the Depot (hopper, status screen, chevron-marked sell pad) and the bot
-dock, each on its own pad. Shared rules: off-white module on a dark plinth, one amber belt
-line, graphite louvres, printed lettering without outlines, slim pole lamps with warm light.
-The outpost **grows with the player**: cargo crates per backpack level, a solar array with the
-first powered tool, a survey dish with the scanner, a lit dock with helper bots, a pennant when
-the Heart is found.
+The base is a field-survey camp on round stone plinths:
+
+* **The lander "Seedpod"** — a squat terracotta pod with a glazed cream dome, two bronze girth
+  rings, copper fuel lines, a porthole, an arched hatch with a ramp, two dials and a grille,
+  four splayed legs with copper dampers, and a survey mast with a gimbal ring.
+* **Workshop** — a tall drum with a curved steel counter wrapped around its front, a pegboard
+  in the opening, a half-disc canopy on bronze arms and a lit turntable with the next tool.
+* **Outfitter** — a drum flanked by two canister lockers, with a glass bell jar showing the pack.
+* **Depot** — a squat drum under a funnel hopper with a jade rim, a copper chimney, a round
+  porthole read-out and a round cream sign; the sell pad carries jade arcs pointing at it.
+* **Bot dock** — a round dish with an ion ring and a tripod beacon mast.
+* Lanterns hang from bronze crook posts; the site marker is a round cream plate on a tripod.
+* The outpost **grows with the player**: sample canisters per backpack level, a solar array,
+  a survey dish, a lit dock, a pennant when the Heart is found.
 
 ## 11. UI
 
-An instrument panel, not a toy box (`src/ui/ui_theme.gd`):
+A field notebook on an instrument panel (`src/ui/ui_theme.gd`):
 
-* Dark slate surfaces, hairline borders, 6–10 px radii, a short soft shadow. No thick outlines.
-* Typeface: a DIN-style grotesque from the system (Bahnschrift on Windows; Inter / Roboto /
-  Noto Sans / DejaVu elsewhere, engine default as last resort). Small letter-spaced capitals
-  for section labels, regular weight for body, bold only for names and numbers.
-* Colour: amber = the action / the selection; teal = information; green / red = gain / loss.
-* Flat buttons; one primary (amber) per view.
-* HUD: small chips in the corners, the world in the middle. Text over the world gets a thin
-  dark edge and a soft drop shadow instead of a heavy outline.
-* Layout is anchored and width-capped, so 16:9 at any resolution is identical and ultrawide
-  only adds space in the middle (checked at 3440×1440).
-* Feedback is short and quiet: fades and small slides, never bounces.
+* Warm dark bronze surfaces, hairline borders, 6–10 px radii. No thick outlines.
+* Cream text; jade = the action / the selection; ion blue = information; gold = credits only;
+  green / red = gain / loss.
+* DIN-style typeface (Bahnschrift on Windows; Inter / Roboto / Noto / DejaVu elsewhere).
+* HUD: small chips at the edges, a compass strip at the top, the world in the middle.
+* Layout is anchored and width-capped: 16:9 at any resolution is identical and ultrawide only
+  adds space in the middle (checked at 3440×1440).
 
 ## 12. Particles and VFX
 
-* Debris is small faceted chunks **in the colour of the material that was dug**, with a
-  low-alpha dust puff. Sparks are few, small and warm; ore adds a handful in its own colour.
-* Strong effects are reserved for strong events: a cannon blast, a shattered formation, the
-  Heart. Selling and purchases use a short flash and a number, not confetti.
-* Shock rings are thin lines. Scanner markers are small diamonds with a name and a distance.
+* Debris is small faceted chunks in the colour of what was dug, plus a low-alpha dust puff.
+* Strong effects only for strong events: a cannon blast, a shattered formation, the Heart.
 
 ## 13. Planet individuality
 
-| | Pipseed | Glimmerock |
+| | Pipseed (r = 400 m) | Glimmerock (r = 300 m) |
 |---|---|---|
-| Ground | sage and moss greens over warm soil and clay | cool lilac-grey dust over teal glass crust |
+| Ground | sage and moss over warm soil and clay; regional turf tints | lilac-grey dust over teal glass crust |
+| Regions | Homestead Meadow, Copperfold Vale, Stonebrake Ridge, Pockmark Flats, Whisperwood, the Old Workings, Low Hollow | Lander Flats, the Spires, Silver Mare, the Shattered Rim, Bell Country |
+| Landforms | Mount Pip, Stonebrake ridge, The Table, Pockmark craters, Low Hollow basin, Far Peak | the Needle spires, Shattered Rim crater, Silver Mare, Glass Spine, Bell Mesa |
 | Sky | soft daytime blue to space | near-black, stars, nebula band |
-| Light | warm sun, 40° | cool white sun, 34°, lower ambient |
-| Life | tufts, ferns, shrubs, flat-topped trees | pale frost-lichen rosettes only |
-| Landmarks | standing stones, cairns | basalt columns, cairns |
+| Life | tufts, ferns, shrubs, flat-topped trees (a grove in Whisperwood) | pale frost-lichen only |
 | Value colours | copper, iron red, gold, amethyst | moonsilver, aquamarine, rose quartz, void opal |
 | Heart | a glowing seed in a ribbed husk | a burst of long crystal prisms |
 
-Both share the same outpost, tools, UI and lighting model, so they are clearly one game.
-
 ## 14. Consistency checklist
 
-Before adding or changing a visual:
-
 - [ ] Colours come from `Pal` / the planet palette / `UiTheme`.
-- [ ] Manufactured → hard-surface primitives with a finish set; natural → faceted.
-- [ ] Any accent is `AMBER`; any light is small; emission is within the budget above.
+- [ ] Nothing from the "must not imitate" list in §2.
+- [ ] Manufactured → turned and ringed forms with a finish set; natural → faceted.
+- [ ] Any accent is `JADE`; any light is small; emission is within the budget.
 - [ ] It reads as a few clear masses from 20 m and has a believable function.
 - [ ] A purchase changes the model, not only a number.
 - [ ] You rendered it (`tools/shots.sh`) and **looked at the image** before describing it.

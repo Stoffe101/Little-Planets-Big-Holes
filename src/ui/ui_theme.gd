@@ -2,31 +2,34 @@ class_name UiTheme
 extends RefCounted
 ## Central look & feel for every menu and HUD element (docs/ART_DIRECTION.md, "UI").
 ##
-## An instrument-panel interface: dark slate surfaces with hairline borders, one amber accent
-## for "this is the action", teal for information, green/red only for gain/loss. Flat buttons,
-## small corner radii, a DIN-style typeface, generous spacing. No outlines, lips or gradients.
+## A field-notebook instrument panel: warm dark bronze surfaces with hairline borders, cream
+## type, one jade accent for "this is the action" (the same verdigris as on our equipment),
+## ion blue for information and scanning, green/red only for gain/loss, gold only for money.
+## Flat buttons, small corner radii, a DIN-style typeface, generous spacing. No outlines,
+## lips or gradients.
 
 # ---- surfaces
-const INK := Color("#0c0f13")           ## darkest: text on amber, deep shadows
-const PANEL := Color("#151a20")         ## standard panel
-const PANEL_LIGHT := Color("#1e252d")   ## raised card / hover
-const PANEL_DARK := Color("#0f1318")    ## recessed well
-const LINE := Color(1, 1, 1, 0.09)      ## hairline borders and dividers
+const INK := Color("#120e0c")           ## darkest: text on jade, deep shadows
+const PANEL := Color("#1e1915")         ## standard panel
+const PANEL_LIGHT := Color("#29221d")   ## raised card / hover
+const PANEL_DARK := Color("#161210")    ## recessed well
+const LINE := Color(1, 0.95, 0.85, 0.1) ## hairline borders and dividers
 # ---- text
-const TEXT := Color("#e8ebee")
-const DIM := Color("#8c96a3")
-const FAINT := Color("#5d6672")
+const TEXT := Color("#efe6d6")
+const DIM := Color("#a5998a")
+const FAINT := Color("#6f6559")
 # ---- signal colours (shared with the 3D palette)
-const ACCENT := Color("#f0a22e")        ## amber: primary action, selection, "yours"
-const INFO := Color("#4cc9bb")          ## teal: information, scanner, energy
-const GOOD := Color("#6fcf8e")          ## gain, affordable
+const ACCENT := Color("#55c09a")        ## jade: primary action, selection, "yours"
+const INFO := Color("#5cb7ea")          ## ion: information, scanner, energy
+const GOOD := Color("#7fd18e")          ## gain, affordable
 const BAD := Color("#e0685a")           ## loss, blocked, full
+const GOLD := Color("#e2bd5a")          ## credits
 # ---- legacy names kept so gameplay code keeps compiling; all map onto the palette above
 const CREAM := TEXT
 const MUTED := DIM
-const YELLOW := ACCENT
-const ORANGE := Color("#e88a3c")
-const PINK := Color("#c9cfd6")
+const YELLOW := GOLD
+const ORANGE := Color("#e08a4c")
+const PINK := Color("#d6c9c4")
 const TEAL := INFO
 const SKY := Color("#7fb6d9")
 const GREEN := GOOD
@@ -128,7 +131,7 @@ static func chip_box(alpha := 0.72, pad := 10) -> StyleBoxFlat:
 
 # ------------------------------------------------------------------ widgets
 
-## Filled button in `color`. Amber (ACCENT) is the primary action; pass PANEL_LIGHT for a
+## Filled button in `color`. Jade (ACCENT) is the primary action; pass PANEL_LIGHT for a
 ## neutral secondary button.
 static func style_button(b: Button, color: Color, font_size := 20, text_color := INK) -> void:
 	var light := color.get_luminance() > 0.35

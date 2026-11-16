@@ -80,13 +80,13 @@ func try_scan() -> bool:
 			if d > max_range * (1.6 if level >= 3 else 1.0):
 				continue
 			var label := "?" if t["kind"] == "artifact" else ("Cavern" if t["kind"] == "place" else "Heart")
-			_add_marker(p2, Pal.TEAL, label, d / PULSE_SPEED, 1.4)
+			_add_marker(p2, Pal.ION, label, d / PULSE_SPEED, 1.4)
 			secrets_found += 1
 	elif level == 1 and world.secrets != null:
 		# The basic pinger cannot pinpoint secrets but it does chirp when one is close.
 		for t: Dictionary in world.secrets.call("scan_targets"):
 			if t["kind"] == "artifact" and (t["pos"] as Vector3).distance_to(origin) < max_range:
-				_add_marker(t["pos"], Pal.TEAL, "?", (t["pos"] as Vector3).distance_to(origin) / PULSE_SPEED, 1.3)
+				_add_marker(t["pos"], Pal.ION, "?", (t["pos"] as Vector3).distance_to(origin) / PULSE_SPEED, 1.3)
 				secrets_found += 1
 				break
 	if shown == 0 and secrets_found == 0:

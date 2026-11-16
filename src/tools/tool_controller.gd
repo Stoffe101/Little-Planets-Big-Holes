@@ -361,11 +361,11 @@ func _make_shot() -> Node3D:
 	var kit := MeshKit.new()
 	# a seismic charge: graphite canister with an amber band and a lit fuse cap
 	kit.cast()
-	kit.turned(Vector3(0, 0, 0.16), Vector3(0, 0, -0.16), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.02), Vector2(0.12, 0.06), Vector2(0.12, 0.26), Vector2(0.08, 0.32), Vector2(0.0, 0.32)]), Pal.GRAPHITE, 12, true)
+	kit.turned(Vector3(0, 0, 0.16), Vector3(0, 0, -0.16), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.02), Vector2(0.12, 0.06), Vector2(0.12, 0.26), Vector2(0.08, 0.32), Vector2(0.0, 0.32)]), Pal.BRONZE, 12, true)
 	kit.paint()
-	kit.turned(Vector3(0, 0, 0.04), Vector3(0, 0, -0.04), PackedVector2Array([Vector2(0.123, 0.0), Vector2(0.123, 0.08)]), Pal.AMBER, 12)
+	kit.turned(Vector3(0, 0, 0.04), Vector3(0, 0, -0.04), PackedVector2Array([Vector2(0.123, 0.0), Vector2(0.123, 0.08)]), Pal.JADE, 12)
 	kit.surf(0.3).set_emission(2.2)
-	kit.sphere(Vector3(0, 0, -0.16), 0.05, Pal.AMBER, Vector3.ONE, 8, 5)
+	kit.sphere(Vector3(0, 0, -0.16), 0.05, Pal.JADE, Vector3.ONE, 8, 5)
 	kit.emission = 0.0
 	var mi := kit.instance(MeshKit.material(), false)
 	var light := OmniLight3D.new()
@@ -477,7 +477,7 @@ func _blocked_hint(mat: int) -> void:
 
 
 func _on_protected(pos: Vector3, normal: Vector3) -> void:
-	world.fx.sparks(pos, normal, Pal.TEAL, 6)
+	world.fx.sparks(pos, normal, Pal.ION, 6)
 	Audio.play("clang", -10.0, 1.4, 0.05, 0.15)
 	_kick = 0.5
 	if _hint_cooldown <= 0.0:

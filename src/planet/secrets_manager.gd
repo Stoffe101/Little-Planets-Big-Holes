@@ -108,7 +108,7 @@ func collect(id: String) -> void:
 			var pos := node.global_position
 			var up := planet.up_at(pos)
 			world.fx.sparks(pos + up * 0.5, up, Pal.LAMP_WARM, 10)
-			world.fx.shock_ring(pos + up * 0.2, up, 2.4, Pal.TEAL, 0.6)
+			world.fx.shock_ring(pos + up * 0.2, up, 2.4, Pal.ION, 0.6)
 			node.queue_free()
 			artifacts.remove_at(i)
 			world.discover(id)
@@ -126,7 +126,7 @@ func _artifact_setting(kind: String, seed_value: int) -> Node3D:
 			kit.bare()
 			kit.tube(Vector3(0.62, -0.1, -0.3), Vector3(0.66, 0.7, -0.32), 0.014, 0.012, Pal.STEEL_DARK, 6)
 			kit.paint()
-			kit.hbox(Transform3D(Basis.from_euler(Vector3(0, 0.5, 0.05)), Vector3(0.72, 0.6, -0.33)), Vector3(0.16, 0.1, 0.008), Pal.AMBER, 0.002)
+			kit.hbox(Transform3D(Basis.from_euler(Vector3(0, 0.5, 0.05)), Vector3(0.72, 0.6, -0.33)), Vector3(0.16, 0.1, 0.008), Pal.JADE, 0.002)
 		"drillbit", "idol", "chart":
 			# old work: two cut stone blocks, one toppled
 			kit.matte()
@@ -145,12 +145,12 @@ func _artifact_model(kind: String) -> Node3D:
 			# a dormant helper bot, dusty, canted over, one eye faintly alive
 			var tilt := Basis.from_euler(Vector3(0.25, 0.4, 0.35))
 			kit.paint()
-			kit.hbox(Transform3D(tilt, Vector3(0, 0.42, 0)), Vector3(0.62, 0.4, 0.54), Pal.HULL_SHADE.darkened(0.1), 0.12)
-			kit.hbox(Transform3D(tilt, Vector3(0, 0.42, 0)), Vector3(0.63, 0.06, 0.55), Pal.AMBER_DARK, 0.02)
+			kit.hbox(Transform3D(tilt, Vector3(0, 0.42, 0)), Vector3(0.62, 0.4, 0.54), Pal.ENAMEL_SHADE.darkened(0.1), 0.12)
+			kit.hbox(Transform3D(tilt, Vector3(0, 0.42, 0)), Vector3(0.63, 0.06, 0.55), Pal.JADE_DARK, 0.02)
 			kit.cast()
-			kit.hbox(Transform3D(tilt, tilt * Vector3(0, -0.2, 0) + Vector3(0, 0.42, 0)), Vector3(0.44, 0.1, 0.4), Pal.GRAPHITE, 0.04)
+			kit.hbox(Transform3D(tilt, tilt * Vector3(0, -0.2, 0) + Vector3(0, 0.42, 0)), Vector3(0.44, 0.1, 0.4), Pal.BRONZE, 0.04)
 			kit.surf(0.25).set_emission(0.9)
-			kit.hbox(Transform3D(tilt, tilt * Vector3(0.0, 0.05, 0.275) + Vector3(0, 0.42, 0)), Vector3(0.3, 0.07, 0.02), Pal.TEAL, 0.008)
+			kit.hbox(Transform3D(tilt, tilt * Vector3(0.0, 0.05, 0.275) + Vector3(0, 0.42, 0)), Vector3(0.3, 0.07, 0.02), Pal.ION, 0.008)
 			kit.set_emission(0.0)
 		"capsule":
 			kit.bare()
@@ -159,7 +159,7 @@ func _artifact_model(kind: String) -> Node3D:
 			for z: float in [0.12, 0.3, 0.48]:
 				kit.turned(Vector3(-0.3 + z, 0.3, 0), Vector3(-0.3 + z + 0.03, 0.3, 0), PackedVector2Array([Vector2(0.205, 0.0), Vector2(0.205, 0.03)]), Pal.BRASS, 14)
 			kit.paint()
-			kit.block(Vector3(0.0, 0.5, 0.0), Vector3(0.08, 0.04, 0.1), Pal.AMBER, 0.01)
+			kit.block(Vector3(0.0, 0.5, 0.0), Vector3(0.08, 0.04, 0.1), Pal.JADE, 0.01)
 		"chart":
 			# half of a star chart: a dark slate tablet with inlaid points of light
 			var cb := Basis.from_euler(Vector3(-0.9, 0.3, 0.0))
@@ -169,9 +169,9 @@ func _artifact_model(kind: String) -> Node3D:
 			kit.surf(0.3).set_emission(1.6)
 			for i in 9:
 				var p := Vector3(-0.26 + 0.065 * i, -0.14 + 0.25 * absf(sin(i * 1.9)), 0.022)
-				kit.hbox(Transform3D(cb, cb * p + Vector3(0, 0.5, 0)), Vector3(0.016, 0.016, 0.004) * (1.0 + 0.5 * float(i % 3)), Pal.TEAL if i % 3 != 0 else Pal.LAMP_WARM, 0.002)
+				kit.hbox(Transform3D(cb, cb * p + Vector3(0, 0.5, 0)), Vector3(0.016, 0.016, 0.004) * (1.0 + 0.5 * float(i % 3)), Pal.ION if i % 3 != 0 else Pal.LAMP_WARM, 0.002)
 			kit.set_emission(0.5)
-			kit.hbox(Transform3D(cb, cb * Vector3(-0.04, 0.0, 0.022) + Vector3(0, 0.5, 0)), Vector3(0.5, 0.004, 0.003), Pal.TEAL_DARK, 0.001)
+			kit.hbox(Transform3D(cb, cb * Vector3(-0.04, 0.0, 0.022) + Vector3(0, 0.5, 0)), Vector3(0.5, 0.004, 0.003), Pal.ION_DARK, 0.001)
 			kit.set_emission(0.0)
 			kit.surf(0.4, 0.7)
 			kit.tube(Vector3(-0.2, 0.0, -0.12), Vector3(-0.12, 0.42, -0.2), 0.016, 0.016, Pal.BRASS, 6)
@@ -196,11 +196,11 @@ func _artifact_model(kind: String) -> Node3D:
 			kit.set_emission(0.0)
 		"helmet":
 			kit.paint()
-			kit.lathe(PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.36, 0.1), Vector2(0.36, 0.34), Vector2(0.26, 0.58), Vector2(0.0, 0.68)]), Transform3D(Basis.from_euler(Vector3(0.0, 0.0, 0.3)), Vector3(0, 0.04, 0)), Pal.HULL, 16, true)
+			kit.lathe(PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.36, 0.1), Vector2(0.36, 0.34), Vector2(0.26, 0.58), Vector2(0.0, 0.68)]), Transform3D(Basis.from_euler(Vector3(0.0, 0.0, 0.3)), Vector3(0, 0.04, 0)), Pal.ENAMEL, 16, true)
 			kit.cast()
-			kit.lathe(PackedVector2Array([Vector2(0.31, 0.0), Vector2(0.38, 0.0), Vector2(0.38, 0.07), Vector2(0.31, 0.07)]), Transform3D(Basis.from_euler(Vector3(0.0, 0.0, 0.3)), Vector3(0, 0.02, 0)), Pal.GRAPHITE, 16)
+			kit.lathe(PackedVector2Array([Vector2(0.31, 0.0), Vector2(0.38, 0.0), Vector2(0.38, 0.07), Vector2(0.31, 0.07)]), Transform3D(Basis.from_euler(Vector3(0.0, 0.0, 0.3)), Vector3(0, 0.02, 0)), Pal.BRONZE, 16)
 			kit.gloss().set_emission(0.2)
-			kit.sphere(Basis.from_euler(Vector3(0.0, 0.0, 0.3)) * Vector3(0, 0.34, 0.2) + Vector3(0, 0.04, 0), 0.25, Pal.AMBER_DARK, Vector3(1, 0.8, 0.7), 12, 7)
+			kit.sphere(Basis.from_euler(Vector3(0.0, 0.0, 0.3)) * Vector3(0, 0.34, 0.2) + Vector3(0, 0.04, 0), 0.25, Pal.JADE_DARK, Vector3(1, 0.8, 0.7), 12, 7)
 			kit.set_emission(0.0)
 		"idol":
 			kit.matte()
@@ -208,7 +208,7 @@ func _artifact_model(kind: String) -> Node3D:
 			kit.surf(0.34, 0.75).set_emission(0.12)
 			kit.lathe(PackedVector2Array([Vector2(0.17, 0.16), Vector2(0.2, 0.3), Vector2(0.12, 0.56), Vector2(0.15, 0.62), Vector2(0.17, 0.78), Vector2(0.1, 0.94), Vector2(0.0, 0.98)]), Transform3D.IDENTITY, Pal.BRASS, 8, false, true)
 			kit.surf(0.25).set_emission(1.2)
-			kit.block(Vector3(0, 0.76, 0.16), Vector3(0.12, 0.025, 0.02), Pal.TEAL, 0.004)
+			kit.block(Vector3(0, 0.76, 0.16), Vector3(0.12, 0.025, 0.02), Pal.ION, 0.004)
 			kit.set_emission(0.0)
 		"bell":
 			kit.gloss().set_emission(0.25)
@@ -248,7 +248,7 @@ func _artifact_model(kind: String) -> Node3D:
 			kit.gloss()
 			kit.tube(tilt * Vector3(0.1, 0.25, 0.04), tilt * Vector3(0.1, 0.62, 0.04), 0.032, 0.032, Pal.ROCK_WARM.darkened(0.15), 8)
 			kit.surf(0.3).set_emission(0.9)
-			kit.block(tilt * Vector3(0.0, 0.7, 0.105), Vector3(0.05, 0.05, 0.01), Pal.TEAL, 0.003, tilt)
+			kit.block(tilt * Vector3(0.0, 0.7, 0.105), Vector3(0.05, 0.05, 0.01), Pal.ION, 0.003, tilt)
 			kit.set_emission(0.0)
 		_:
 			kit.surf(0.34, 0.75)
@@ -368,7 +368,7 @@ func _cavity_glowcaps(c: Dictionary, rng: RandomNumberGenerator, count: int) -> 
 			sub.tube(off, off + lean * s + Vector3(0, 0.4, 0) * s, 0.022 * s, 0.014 * s, Color("#d8d4c8"), 6)
 			sub.surf(0.5).set_emission(0.75)
 			sub.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.15, 0.0), Vector2(0.13, 0.045), Vector2(0.05, 0.08), Vector2(0.0, 0.085)]),
-				Transform3D(Basis.from_scale(Vector3.ONE * s), off + lean * s + Vector3(0, 0.39, 0) * s), cap.lerp(Pal.TEAL, rng.randf() * 0.25), 9, true)
+				Transform3D(Basis.from_scale(Vector3.ONE * s), off + lean * s + Vector3(0, 0.39, 0) * s), cap.lerp(Pal.ION, rng.randf() * 0.25), 9, true)
 		kit.merge(sub, xf)
 		placed += 1
 	var mi := kit.instance(MeshKit.material(), false)
