@@ -38,7 +38,7 @@ def pipseed():
         "generation": 2,
         "terrain": {
             "hill_amp": 7.0, "hill_freq": 3.0,
-            "detail_amp": 1.6, "detail_freq": 14.0, "rough_freq": 46.0,
+            "detail_amp": 1.6, "detail_freq": 14.0, "rough_freq": 16.0,
             "features": [
                 {"type": "dome", "name": "Mount Pip", "dir": A(230, 20), "height": 52.0, "width": W(95)},
                 {"type": "dome", "name": "Pip's Shoulder", "dir": A(300, 5), "height": 26.0, "width": W(70)},
@@ -128,7 +128,7 @@ def glimmerock():
         "generation": 2,
         "terrain": {
             "hill_amp": 5.0, "hill_freq": 3.6,
-            "detail_amp": 2.2, "detail_freq": 18.0, "rough_freq": 52.0,
+            "detail_amp": 2.2, "detail_freq": 18.0, "rough_freq": 18.0,
             "features": [
                 {"type": "dome", "name": "The Needle", "dir": A(160, 40), "height": 46.0, "width": W(40)},
                 {"type": "dome", "name": "Needle's Sister", "dir": A(190, 62), "height": 30.0, "width": W(32)},

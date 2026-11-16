@@ -15,7 +15,7 @@
     "hill_freq": 3.0,
     "detail_amp": 1.6,
     "detail_freq": 14.0,
-    "rough_freq": 46.0,
+    "rough_freq": 16.0,
     "features": [
       {
         "type": "dome",

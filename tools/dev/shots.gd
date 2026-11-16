@@ -510,3 +510,63 @@ func scenario_borer() -> void:
 	world.player.pitch -= 0.12
 	await physics(20)
 	await shot("borer")
+
+
+## Big-world views: the horizon from high ground, an ordinary walk, a distant landmark, two
+## regions side by side and a natural cave mouth with its cairns.
+func scenario_vistas() -> void:
+	var geo := world.planet.geology
+	world.tools.visible = false
+	# 1. horizon from the shoulder of the tallest dome, looking back towards the outpost
+	var top := Vector3.ZERO
+	var best := -1.0
+	for f in geo.features:
+		if str(f["type"]) == "dome" and float(f["height"]) > best:
+			best = float(f["height"])
+			top = f["dir"]
+	var shoulder := (top + (geo.landing_dir - top) * 0.3).normalized()
+	await place(shoulder, geo.landing_dir - shoulder)
+	look_pitch(-6)
+	await physics(10)
+	await shot("horizon")
+	# 2. an ordinary walk across the meadow, mid-stride
+	var walk := (geo.landing_dir + Vector3(0.12, 0, 0.1)).normalized()
+	await place(walk, Vector3(1, 0, 0.2))
+	world.tools.visible = true
+	world.player.forced_move = Vector2(0, 1)
+	await physics(50)
+	look_pitch(-3)
+	await shot("traverse")
+	world.player.forced_move = Vector2.INF
+	world.tools.visible = false
+	# 3. a distant landmark: the tallest dome seen from 180 m away
+	var from := (top + (geo.landing_dir - top).normalized() * (180.0 / geo.radius)).normalized()
+	await place(from, top - from)
+	look_at_point(top * (geo.radius + best * 0.6))
+	await physics(10)
+	await shot("landmark")
+	# 4-5. two regions
+	for rid: String in ["whisperwood", "stonebrake", "pockmark"]:
+		for r in geo.regions:
+			if r["id"] == rid:
+				var d: Vector3 = r["dir"]
+				var side := d.cross(Vector3(0.2, 1, 0.1)).normalized()
+				await place((d + side * (25.0 / geo.radius)).normalized(), -side)
+				look_pitch(-5)
+				await physics(10)
+				await shot("region_" + rid)
+	# 6. a cave mouth (with its cairns)
+	for c in geo.cavities:
+		var mouth: Vector3 = c["entrance"]
+		if mouth == Vector3.ZERO:
+			continue
+		var md := mouth.normalized()
+		var side2 := md.cross((c["dir"] as Vector3)).normalized()
+		var stand := (md + (md.cross(side2)) * (7.0 / geo.radius)).normalized()
+		await place(stand, mouth - stand * geo.radius)
+		look_at_point(mouth - md * 1.5)
+		await physics(10)
+		await shot("cave_mouth")
+		break
+	world.tools.visible = true
+

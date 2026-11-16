@@ -154,3 +154,29 @@ func test_rotation_rate_comparison_old_and_new_planets() -> void:
 	for pair: Array in [["v0.2 Pipseed (48 m)", 48.0], ["Glimmerock (300 m)", 300.0], ["Pipseed (400 m)", 400.0]]:
 		log_lines.append("%s: walking %.2f deg/s, top speed %.2f deg/s" % [pair[0], rad_to_deg(walk / float(pair[1])), rad_to_deg(top / float(pair[1]))])
 	assert_lt(rad_to_deg(walk / geo.radius), 1.0, "under one degree per second when walking")
+
+
+func test_walking_the_roughest_region_never_sinks_into_the_ground() -> void:
+	# Regression: regional roughness with a ~9 m wavelength made egg-crate terrain steep enough to
+	# embed the player (up to 7.6 m below the surface while walking in Stonebrake).
+	for pid_region: String in ["stonebrake", "pockmark"]:
+		var reg := {}
+		for r in geo.regions:
+			if r["id"] == pid_region:
+				reg = r
+		var d: Vector3 = reg["dir"]
+		var side := d.cross(Vector3(0.2, 1, 0.1)).normalized()
+		await place_player(w, (d + side * (25.0 / geo.radius)).normalized(), -side)
+		var p := w.player
+		var worst := 0.0
+		for leg in 6:
+			p.look(Vector2(1.0, 0))
+			p.forced_move = Vector2(0, 1)
+			p.forced_sprint = leg % 2 == 0
+			for i in 90:
+				await get_tree().physics_frame
+				worst = maxf(worst, geo.surface_radius_exact(p.global_position.normalized()) - p.global_position.length())
+		p.forced_move = Vector2.INF
+		p.forced_sprint = false
+		log_lines.append("%s: deepest below the surface while walking %.2f m" % [pid_region, worst])
+		assert_lt(worst, 1.0, "never sinks into the ground in %s" % pid_region)
