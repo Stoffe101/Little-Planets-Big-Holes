@@ -47,7 +47,7 @@ func setup(mat: int, total_units: int, size: float, colors: Array, seed_value: i
 	if with_light:
 		light = OmniLight3D.new()
 		light.light_color = main_col
-		light.light_energy = 1.1
+		light.light_energy = 0.35
 		light.omni_range = 3.5 + size * 2.0
 		light.omni_attenuation = 1.4
 		light.shadow_enabled = false

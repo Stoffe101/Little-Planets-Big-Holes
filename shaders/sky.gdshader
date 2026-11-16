@@ -57,6 +57,10 @@ void sky() {
 	float twinkle = 0.7 + 0.3 * sin(TIME * (1.0 + rnd * 3.0) + rnd * 40.0);
 	col += vec3(1.0, 0.97, 0.9) * star * twinkle * star_amount * smoothstep(-0.1, 0.5, h);
 
+	// Keep the gradient itself below the glow threshold so only the sun blooms; otherwise the
+	// bright horizon bleeds a haze over everything in front of it.
+	col = min(col, vec3(0.98));
+
 	// sun: disc + two soft halos
 	float sdot = dot(dir, normalize(sun_dir));
 	col += sun_color * smoothstep(0.9965, 0.9975, sdot) * 2.5;

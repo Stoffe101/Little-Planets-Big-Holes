@@ -24,6 +24,7 @@ func _ready() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("#b9b4ff")
 	env.ambient_light_energy = 0.34
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED   # sky reflections wash out the palette
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.glow_enabled = true
 	env.glow_intensity = 0.45

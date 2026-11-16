@@ -377,7 +377,7 @@ func _update_camera(delta: float) -> void:
 	camera.fov = float(Settings.get_value("fov")) + _fov_kick
 
 	# headlamp fades in underground
-	var lamp_target := clampf((depth - 1.5) / 4.0, 0.0, 1.0) * 2.6
+	var lamp_target := clampf((depth - 1.5) / 4.0, 0.0, 1.0) * 1.7
 	headlamp.light_energy = lerpf(headlamp.light_energy, lamp_target, clampf(delta * 3.0, 0.0, 1.0))
 	headlamp.visible = headlamp.light_energy > 0.02
 

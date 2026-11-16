@@ -9,6 +9,19 @@ until you reach the planet's heart and fly on to the next world.
 > 10 gear lines, 18 discoveries, helper bots, saving, a full menu/HUD/shop UI and 63 automated
 > tests. See [What exists today](#what-exists-today) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Screenshots
+
+Rendered from the actual game by the scripted screenshot harness (`tools/shots.sh`) on a
+software rasteriser — a real GPU will look the same but run at a playable frame rate.
+
+| | |
+|---|---|
+| ![Digging](docs/screenshots/01_digging.jpg) | ![Home base](docs/screenshots/02_base.jpg) |
+| ![Ore veins in a tunnel](docs/screenshots/03_ore_tunnel.jpg) | ![Crystal grotto](docs/screenshots/04_crystal_grotto.jpg) |
+| ![Tool shop](docs/screenshots/05_tool_shop.jpg) | ![Glimmerock](docs/screenshots/07_glimmerock.jpg) |
+
+Every tool tier has its own model: ![Tool tiers](docs/screenshots/06_tool_tiers.jpg)
+
 ## Requirements
 
 | | |

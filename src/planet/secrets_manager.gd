@@ -181,7 +181,7 @@ func _decorate_cavity(c: Dictionary) -> void:
 	var light := OmniLight3D.new()
 	light.omni_range = radius * 2.4
 	light.omni_attenuation = 1.2
-	light.light_energy = 0.9
+	light.light_energy = 0.5
 	add_child(light)
 	light.global_position = center + up * radius * 0.2
 	match decor:
