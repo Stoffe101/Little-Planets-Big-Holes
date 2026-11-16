@@ -20,7 +20,7 @@ const WALK := 5.6 * 1.25           ## average ground speed (walk/sprint mix), m/
 ## Purchase order for the "balanced" player. Entries: ["tier", family] | ["mod", family, id] | ["gear", id]
 const BALANCED := [
 	["tier", "shovel"], ["gear", "backpack"], ["gear", "magnet"], ["mod", "shovel", "wide_scoop"], ["mod", "shovel", "quick_hands"],
-	["gear", "backpack"], ["gear", "scanner"], ["gear", "boots"], ["mod", "shovel", "wide_scoop"], ["tier", "shovel"],
+	["gear", "backpack"], ["gear", "scanner"], ["gear", "lucky"], ["gear", "boots"], ["mod", "shovel", "wide_scoop"], ["tier", "shovel"],
 	["gear", "backpack"], ["tier", "vacuum"], ["mod", "shovel", "quick_hands"], ["mod", "shovel", "ore_tooth"], ["gear", "jets"],
 	["mod", "shovel", "trench_blade"], ["gear", "magnet"], ["tier", "drill"], ["gear", "backpack"], ["gear", "lucky"],
 	["gear", "refinery"], ["mod", "drill", "turbo"], ["mod", "drill", "wide_bore"], ["gear", "robot"], ["tier", "cannon"],
@@ -48,6 +48,7 @@ var _digs := 0
 var _wasted := 0
 var _blocked_total := 0
 var _rng := RandomNumberGenerator.new()
+var _lucky_value := 0.0
 
 
 func _ready() -> void:
@@ -125,6 +126,12 @@ func _run(end_time: float) -> void:
 					_new_site()
 		else:
 			_thin = 0
+		# Lucky Charm, with the game's own roll (World.on_dig is not running here)
+		if _rng.randf() < World.luck_roll_chance(float(res["volume"])):
+			var gem := str(world.planet.config.get("lucky_gem", world.planet.config.get("bonus_gem", "amethyst")))
+			var n := 1 + _rng.randi() % 2
+			_lucky_value += float(n) * float(GameData.material(gem)["value"])
+			GameState.add_to_inventory(gem, n)
 		for m: int in res["yields"]:
 			var units := int(round(float(res["yields"][m]) * COLLECT_FRACTION))
 			var id := GameData.mat_id(m)
@@ -263,6 +270,8 @@ func _report(minutes: float) -> void:
 	var first_sale := _sales[0] if not _sales.is_empty() else -1.0
 	print("-- first sale at %.1f min; digs %d (%d empty, %d blocked); objectives done %d; money %d; total earned %d" % [
 		first_sale / 60.0, _digs, _wasted, _blocked_total, GameState.objective_index, GameState.money, int(GameState.stats.get("total_earned", 0))])
+	print("-- lucky charm: level %d, gems worth %d cr (%.1f%% of everything earned)" % [GameState.gear_level("lucky"), int(_lucky_value),
+		100.0 * _lucky_value / maxf(float(GameState.stats.get("total_earned", 1)), 1.0)])
 	var sold: Dictionary = {}
 	for k: String in GameState.stats:
 		if k.begins_with("collected_"):

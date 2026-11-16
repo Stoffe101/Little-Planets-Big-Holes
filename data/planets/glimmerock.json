@@ -56,6 +56,7 @@
   "core": {"chamber_radius": 5.0, "discovery": "glimmer_heart", "style": "crystal", "color": "#9fe0d8", "color2": "#b99be0"},
   "surface_crystal": "aquamarine",
   "bonus_gem": "aquamarine",
+  "lucky_gem": "moonsilver",
   "look": {"wind": 0.15, "atmosphere": 0.15, "stars": 1.0, "nebula": 0.8, "sun_energy": 1.5, "sun_elevation": 34.0, "ambient_energy": 0.8,
            "exposure": 1.0, "turf_depth": 0.3, "cover_relief": 0.9, "cover_roughness": 0.88},
   "palette": {

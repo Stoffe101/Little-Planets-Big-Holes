@@ -353,3 +353,76 @@ func scenario_purchase() -> void:
 	GameState.buy_next_tier("shovel")
 	await physics(42)
 	await shot("purchase")
+
+
+## Waits until `seconds` of game time have passed (independent of the frame rate).
+func game_time(seconds: float) -> void:
+	var t := 0.0
+	while t < seconds:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+
+## Captures `n` frames spread over `seconds` of game time: a film strip of one action.
+func strip(label: String, seconds: float, n: int) -> void:
+	for i in n:
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("%s_motion_%s_%02d.png" % [out, label, i])
+		await game_time(seconds / float(n))
+	print("saved strip ", label)
+
+
+## Film strips of the first-person animations (time is slowed so frames land where intended):
+## hand swing, power-shovel punch, drill spin-up into rock, cannon shot, tool switch and the
+## new-purchase presentation. Tile each strip with sheet.tscn to review motion without playing.
+func scenario_motion() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	await place(Vector3(0.3, 1, 0.25))
+	look_pitch(-32)
+	world.pickups.magnet_enabled = false
+	GameState.money = 9999999
+	for d in GameData.discoveries:
+		GameState.discoveries[d["id"]] = true
+	world.tools.forced_use_enabled = true
+	await physics(60)
+	Engine.time_scale = 0.2
+	# 1. hand swing (one full swing of the starter scoop is 0.46 s)
+	world.tools.forced_use = true
+	await strip("swing", 0.5, 8)
+	world.tools.forced_use = false
+	await game_time(0.5)
+	# 2. power shovel: two punches
+	GameState.buy_next_tier("shovel")
+	GameState.buy_next_tier("shovel")
+	world.tools._pending_inspect = ""
+	await game_time(0.3)
+	world.tools.forced_use = true
+	await strip("thumper", 0.5, 8)
+	world.tools.forced_use = false
+	await game_time(0.4)
+	# 3. tool switch: shovel down, drill up
+	GameState.buy_next_tier("drill")
+	world.tools._pending_inspect = ""
+	await strip("switch", 0.55, 8)
+	await game_time(0.4)
+	# 4. drill: spin-up and contact, on fresh ground
+	world.player.look(Vector2(1.1, 0.0))
+	await game_time(0.3)
+	world.tools.forced_use = true
+	await strip("drill", 1.0, 8)
+	world.tools.forced_use = false
+	await game_time(0.4)
+	# 5. cannon: shot and recoil
+	GameState.buy_next_tier("cannon")
+	world.tools._pending_inspect = ""
+	await game_time(0.8)
+	look_pitch(-12)
+	world.tools.forced_use = true
+	await strip("cannon", 0.45, 8)
+	world.tools.forced_use = false
+	await game_time(0.6)
+	# 6. the new-purchase presentation (1.5 s)
+	GameState.buy_next_tier("cannon")
+	await strip("inspect", 1.5, 8)
+	Engine.time_scale = 1.0

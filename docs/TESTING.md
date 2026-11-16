@@ -16,7 +16,7 @@ The runner prints `[PASS]/[FAIL]` per test and exits with code 1 on any failure 
 see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 `user://test_sandbox/`, so they never touch a real save.
 
-### What is covered (70 tests, 1,401 assertions)
+### What is covered (72 tests, 1,437 assertions)
 
 | Suite | Checks |
 |---|---|
@@ -28,7 +28,7 @@ see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 | `test_f_persistence` | dig a tunnel + chamber, save, unload, reload: same SDF values, player can stand in it, progress restored; control slot proves the tunnel is not there by default |
 | `test_g_planets` | Glimmerock loads from data, lower gravity, own materials and hardness |
 | `test_h_main` | real `main.tscn`: menu → new game → play → shop → menu → continue with the purchase intact |
-| `test_i_overhaul` | every tool tier and every attachment level builds a model and adds geometry; moving parts exist; MeshKit primitives (size, outward normals, per-vertex finish, deterministic rocks); palette / look data complete and within the emission budget; balance-table invariants; a first-build save with obsolete flags still loads; arrival point (outside the pad, on the ground, facing the outpost); **digging never moves or renumbers a crystal**; the outpost gains installations with purchases; the shop builds every view |
+| `test_i_overhaul` | every tool tier and every attachment level builds a model and adds geometry; moving parts exist; MeshKit primitives (size, outward normals, per-vertex finish, deterministic rocks); palette / look data complete and within the emission budget; balance-table invariants; a first-build save with obsolete flags still loads; arrival point (outside the pad, on the ground, facing the outpost); **digging never moves or renumbers a crystal**; the outpost gains installations with purchases and everything it builds stands on shielded ground; landmarks are uprooted when dug under; nothing grows through the pads; the new-tool presentation fires for purchases of the held tool only (not for discoveries) and waits for menus to close; the Lucky Charm stays a perk; the shop builds every view |
 
 ### What automated tests cannot tell you
 
@@ -45,7 +45,8 @@ tools/shots.sh base C:/tmp/fp pipseed 1920x1080 --rendering-method forward_plus
 Scenarios (`tools/dev/shots.gd`): `spawn`, `dig`, `base`, `ui` (HUD, shop, purchase, gear,
 journal, planets, pause, discovery card), `tools` (every tier in first person), `lineup` (every
 tier bare and fully fitted, studio view), `purchase`, `tour` (quarry, tunnel, cavern, heart),
-`surface`, `menu`, `action` (dig + scan with HUD).
+`surface`, `menu`, `action` (dig + scan with HUD), `motion` (eight-frame film strips of the
+first-person animations with game time slowed; tile them with `sheet.tscn`).
 
 * **Windows:** `tools/offscreen.py` creates a separate desktop object and starts Godot on it.
   The window is rendered by the real GPU but can never take focus, appear on screen or receive
@@ -104,13 +105,16 @@ stone tunnel with ore under the headlamp; crystal cavern; both planet Hearts; Gl
 surface, quarry, tunnel and outpost; all 11 tool tiers in first person at rest and in a studio
 line-up bare and fully fitted; HUD; Workshop screen (three families), after a purchase;
 Outfitter; journal; destinations; pause/settings; discovery card; new-tool presentation; main
-menu; HUD and shop at 3440×1440; Mobile vs Forward+ on three scenes.
+menu; HUD and shop at 3440×1440; Mobile vs Forward+ on three scenes; and **film strips**
+(`docs/screenshots/motion/`) of the hand swing, power-shovel punch, tool switch, drill on fresh
+ground, cannon shot with blast, and the new-purchase presentation. The strips led to three
+fixes (a barely visible power punch, a presentation that filled the screen, a thick blast ring).
 
 **Measured, not seen or heard:** frame times; dig, load and save timings; audio levels and
 spectra; pacing (simulation).
 
-**Not verified by anyone:** anything in motion (swing, drill, recoil, purchase inspect, sway,
-particles in flight, bots flying, the menu planet turning); how any sound or the mix actually
+**Not verified by anyone:** how motion *feels* at full speed (timing, weight, smoothness —
+strips show poses, not rhythm); look sway and walk bob; bots flying; the menu planet turning; how any sound or the mix actually
 sounds, including the new ambience and cave reverb; input feel; real play pacing; 4K (the UI
 layout is resolution-independent for 16:9 and was checked at 1080p); gamepad; the Linux build.
 

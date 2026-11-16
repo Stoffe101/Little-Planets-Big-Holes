@@ -251,13 +251,14 @@ func shock_ring(pos: Vector3, normal: Vector3, radius: float, color: Color, dura
 		return
 	if _ring_mesh == null:
 		var kit := MeshKit.new()
-		kit.emission = 1.2
-		kit.torus(Transform3D.IDENTITY, 1.0, 0.018, Color.WHITE, 36, 5)
+		kit.emission = 0.9
+		kit.torus(Transform3D.IDENTITY, 1.0, 0.006, Color.WHITE, 40, 4)
 		_ring_mesh = kit.commit()
 	var mi := MeshInstance3D.new()
 	mi.mesh = _ring_mesh
 	var mat := MeshKit.new_material(1.0, 0.0)
 	mat.set_shader_parameter("tint", color)
+	mat.set_shader_parameter("fade", 1.0)
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -267,6 +268,7 @@ func shock_ring(pos: Vector3, normal: Vector3, radius: float, color: Color, dura
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(mi, "scale", Vector3.ONE * radius, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	tw.tween_property(mat, "shader_parameter/emission_scale", 0.0, duration)
+	tw.tween_property(mat, "shader_parameter/fade", 0.0, duration).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(mi.queue_free)
 
 

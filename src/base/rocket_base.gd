@@ -65,7 +65,7 @@ func setup(w: World) -> void:
 ## Where a newly arrived player stands, and what they look at: a few steps in front of the
 ## outpost with the lander, Workshop and Depot all in view. Returns [position, look direction].
 func arrival() -> Array:
-	var stand := _spot(Vector2(2.6, 11.5))
+	var stand := _spot(Vector2(2.8, 12.6))
 	var centre := origin + geo.landing_dir * 1.6
 	return [stand.origin + stand.basis.y * 0.15, centre - stand.origin]
 
@@ -626,7 +626,7 @@ func _refresh_progress() -> void:
 	if crates > 0:
 		var node := Node3D.new()
 		_progress.add_child(node)
-		node.global_transform = _spot(Vector2(-7.4, -4.6), 0.4)
+		node.global_transform = _spot(Vector2(-6.4, -5.0), 0.4)
 		var kit := MeshKit.new()
 		var slots := [Vector3(0, 0.3, 0), Vector3(0.72, 0.3, 0.1), Vector3(0.3, 0.9, 0.05), Vector3(-0.2, 0.3, 0.75), Vector3(1.42, 0.3, -0.1), Vector3(0.9, 0.9, 0.0)]
 		for i in crates:
@@ -640,7 +640,7 @@ func _refresh_progress() -> void:
 	if powered:
 		var node2 := Node3D.new()
 		_progress.add_child(node2)
-		node2.global_transform = _spot(Vector2(7.8, -4.6), -0.6)
+		node2.global_transform = _spot(Vector2(6.9, -4.6), -0.6)
 		var kit2 := MeshKit.new()
 		_hex_pad(kit2, 1.5, 0.05, 0.4, Pal.CONCRETE_DARK)
 		for i in 2:

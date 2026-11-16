@@ -7,7 +7,7 @@ until you reach the planet's heart and fly on to the next world.
 
 > **Status: v0.2.0 — visual identity and game-feel pass.** Two planets, four tool families
 > (11 tiers, 12 attachments), 10 gear lines, 18 discoveries, helper bots, saving, a full
-> menu/HUD/shop UI and 70 automated tests. The whole look was rebuilt in this pass: see
+> menu/HUD/shop UI and 72 automated tests. The whole look was rebuilt in this pass: see
 > [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md) and the before/after sheets in
 > [docs/screenshots/compare](docs/screenshots/compare). No human has playtested it yet —
 > [docs/ROADMAP.md](docs/ROADMAP.md) lists exactly what was and was not verified.

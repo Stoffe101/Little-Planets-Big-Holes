@@ -60,6 +60,7 @@
   "core": {"chamber_radius": 5.5, "discovery": "pip_heart", "style": "seed", "color": "#f3cf7a", "color2": "#e8a23c"},
   "surface_crystal": "pipquartz",
   "bonus_gem": "amethyst",
+  "lucky_gem": "pipquartz",
   "look": {"wind": 1.0, "atmosphere": 1.0, "stars": 0.5, "nebula": 0.0, "sun_energy": 1.5, "sun_elevation": 40.0, "ambient_energy": 1.0,
            "exposure": 1.0, "turf_depth": 0.34, "cover_relief": 0.85, "cover_roughness": 0.92},
   "palette": {

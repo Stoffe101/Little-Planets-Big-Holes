@@ -50,6 +50,9 @@ var _debug_timer := 0.0
 var _last_hint := ""
 var _last_hint_time := -10.0
 var _banner_tween: Tween
+var _dim_tween: Tween
+var _dimmed := false
+var _queued_banner: Array = []   ## banner raised while a menu hid the HUD
 
 
 func setup(w: World) -> void:
@@ -324,8 +327,15 @@ func _build() -> void:
 func set_dimmed(on: bool) -> void:
 	if root == null:
 		return
-	var tw := create_tween()
-	tw.tween_property(root, "modulate:a", 0.0 if on else 1.0, 0.12)
+	_dimmed = on
+	if _dim_tween != null and _dim_tween.is_valid():
+		_dim_tween.kill()
+	_dim_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_dim_tween.tween_property(root, "modulate:a", 0.0 if on else 1.0, 0.12)
+	if not on and not _queued_banner.is_empty():
+		var b := _queued_banner
+		_queued_banner = []
+		show_banner(b[0], b[1], b[2], b[3])
 
 
 # ------------------------------------------------------------------ refreshers
@@ -407,6 +417,9 @@ func _on_purchase(kind: String, id: String) -> void:
 
 
 func show_banner(text: String, color: Color, hold := 1.8, sub := "") -> void:
+	if _dimmed:
+		_queued_banner = [text, color, hold, sub]     # shown when the menu closes
+		return
 	_banner.text = text.to_upper()
 	_banner.add_theme_color_override("font_color", color)
 	_banner_sub.text = sub

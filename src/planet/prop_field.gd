@@ -14,6 +14,7 @@ extends Node3D
 ## digging under a prop uproots it.
 
 const CELL := 4.0
+const OUTPOST_CLEARANCE := 10.5      ## metres around the lander kept clear (matches World.PROTECT_RADIUS)
 
 var world: World
 var planet: Planet
@@ -25,6 +26,7 @@ var _pending: Dictionary = {}       ## mm key -> {mesh, sway, shadow, xforms: Ar
 var prop_count := 0
 var formation_count := 0
 var landmark_count := 0
+var _landmarks: Array[Dictionary] = []   ## {node, pos, radius}: uprooted like any other prop
 var _cfg: Dictionary = {}
 var _foliage: Array[Color] = []
 var _rocks: Array[Color] = []
@@ -182,7 +184,7 @@ func _scatter_tufts(count: int) -> void:
 		# open lawns where tint.x is high, thicker cover in the damp low-tint zones
 		if keep < smoothstep(0.42, 0.7, tint.x) * 0.85:
 			continue
-		var site: Variant = _site(dir, 2.5, 0.75, spin)
+		var site: Variant = _site(dir, OUTPOST_CLEARANCE, 0.75, spin)
 		if site == null:
 			continue
 		_add("tuft_%d" % (i % 3), meshes[i % 3], site, scale, true, false)
@@ -221,7 +223,7 @@ func _scatter_ferns(count: int) -> void:
 		var v := _rng.randi() % meshes.size()
 		if geo.tint_at(dir).y < 0.54:
 			continue
-		var site: Variant = _site(dir, 3.5, 0.6, spin)
+		var site: Variant = _site(dir, OUTPOST_CLEARANCE, 0.6, spin)
 		if site == null:
 			continue
 		_add("fern_%d" % v, meshes[v], site, scale, true, false)
@@ -249,7 +251,7 @@ func _scatter_shrubs(count: int) -> void:
 		var v := _rng.randi() % meshes.size()
 		if geo.tint_at(dir).x > 0.6:
 			continue
-		var site: Variant = _site(dir, 7.0, 0.6, spin)
+		var site: Variant = _site(dir, OUTPOST_CLEARANCE + 1.0, 0.6, spin)
 		if site == null:
 			continue
 		_add("shrub_%d" % v, meshes[v], site, scale, false, true)
@@ -322,7 +324,7 @@ func _scatter_boulders(count: int) -> void:
 		var scale := _rng.randf_range(0.6, 2.0)
 		var spin := _rng.randf() * TAU
 		var v := _rng.randi() % meshes.size()
-		var site: Variant = _site(dir, 9.0, 0.9, spin)
+		var site: Variant = _site(dir, OUTPOST_CLEARANCE + 1.5, 0.9, spin)
 		if site == null:
 			continue
 		var xf: Transform3D = site
@@ -346,7 +348,7 @@ func _scatter_pebbles(count: int) -> void:
 		var dir := _random_dir()
 		var scale := _rng.randf_range(0.7, 1.8)
 		var spin := _rng.randf() * TAU
-		var site: Variant = _site(dir, 2.0, 1.2, spin)
+		var site: Variant = _site(dir, OUTPOST_CLEARANCE, 1.2, spin)
 		if site == null:
 			continue
 		_add("pebble_%d" % (i % 2), meshes[i % 2], site, scale, false, false)
@@ -424,6 +426,7 @@ func _landmark_cluster(center_dir: Vector3, style: String, index: int) -> void:
 		cs.position = Vector3(0, tall * 0.5, 0)
 		body.add_child(cs)
 		mi.add_child(body)
+		_landmarks.append({"node": mi, "pos": (site as Transform3D).origin, "radius": girth})
 		landmark_count += 1
 
 
@@ -443,6 +446,7 @@ func _cairn(dir: Vector3, index: int) -> void:
 	var mi := kit.instance(MeshKit.material(), true)
 	add_child(mi)
 	mi.global_transform = _upright(site, spin, 0.05)
+	_landmarks.append({"node": mi, "pos": (site as Transform3D).origin, "radius": 0.4})
 	landmark_count += 1
 
 
@@ -496,6 +500,17 @@ func on_dig(pos: Vector3, radius: float) -> void:
 						list.remove_at(i)
 						removed += 1
 					i -= 1
+	var li := _landmarks.size() - 1
+	while li >= 0:
+		var lm := _landmarks[li]
+		if (lm["pos"] as Vector3).distance_to(pos) < reach + float(lm["radius"]) * 0.5:
+			if is_instance_valid(lm["node"]):
+				world.fx.dig_burst(lm["pos"], planet.up_at(lm["pos"]), Pal.ROCK, 1.2, true)
+				(lm["node"] as Node).queue_free()
+			_landmarks.remove_at(li)
+			landmark_count -= 1
+			removed += 1
+		li -= 1
 	if removed > 0 and not _foliage.is_empty():
 		world.fx.dig_burst(pos, planet.up_at(pos), _foliage[0].darkened(0.1), 0.4, false)
 	for child in get_children():

@@ -67,6 +67,9 @@ func _smoke_test() -> void:
 	var problems: Array[String] = []
 	if GameData.materials.is_empty() or GameData.tool_families.is_empty() or GameData.planet_order.is_empty():
 		problems.append("data tables did not load")
+	for sound: String in ["dig_soft", "drill_loop", "ui_buy", "music_pipseed", "music_glimmerock"]:
+		if not Audio.has_sound(sound):
+			problems.append("sound missing from the build: " + sound)
 	start_game(true)
 	var waited := 0.0
 	while mode != Mode.PLAYING and waited < 90.0:

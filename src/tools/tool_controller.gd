@@ -56,7 +56,7 @@ var _recoil_rest := 0.0
 var _pos_spring := Vector3.ZERO  ## smoothed positional offset (sway, bob)
 var _rot_spring := Vector3.ZERO
 var _reload_click := false
-var _pending_inspect := false
+var _pending_inspect := ""       ## family whose new purchase is waiting to be shown off
 ## Test hooks: set to drive the tool without real input.
 var forced_use := false
 var forced_use_enabled := false
@@ -70,6 +70,7 @@ func setup(w: Node3D, p: Player) -> void:
 	add_child(holder)
 	GameState.tools_changed.connect(_on_tools_changed)
 	GameState.equipped_changed.connect(_on_equipped_changed)
+	GameState.purchase_made.connect(_on_purchase)
 	_equip_now(GameState.equipped)
 
 
@@ -78,9 +79,22 @@ func _on_tools_changed() -> void:
 		return
 	stats = GameState.tool_stats(family_id)
 	_rebuild_model()
-	# hold the new kit up for a moment: an upgrade is an event. If a menu is open (the usual
-	# case - you are standing in the shop) the showing-off waits until you can see it.
-	_pending_inspect = true
+
+
+## A new tier or attachment for a tool: hold it up for a moment once the player can see it
+## (purchases normally happen inside the shop, and a brand-new family is equipped right after).
+## Driven by purchases only - discoveries also emit tools_changed and must not trigger it.
+func _on_purchase(kind: String, id: String) -> void:
+	var fam := ""
+	if kind == "tier":
+		for f in GameData.tool_families:
+			for t: Dictionary in f["tiers"]:
+				if str(t["id"]) == id:
+					fam = str(f["id"])
+	elif kind == "mod":
+		fam = id.split("/")[0]
+	if fam != "":
+		_pending_inspect = fam
 
 
 func _on_equipped_changed(fam: String) -> void:
@@ -503,11 +517,12 @@ func _process(delta: float) -> void:
 	_piston = lerpf(_piston, 0.0, clampf(delta * 18.0, 0.0, 1.0))
 	_recoil_slide = lerpf(_recoil_slide, 0.0, clampf(delta * 5.0, 0.0, 1.0))
 	_land = lerpf(_land, 0.0, clampf(delta * 8.0, 0.0, 1.0))
-	if _pending_inspect and not player.controls_locked:
-		_pending_inspect = false
-		_flash = 1.0
-		_inspect = 1.0
-		Audio.play("equip", -6.0, 0.9, 0.03)
+	if _pending_inspect != "" and not player.controls_locked and _equip_t >= 1.0 and _pending_family in ["", family_id]:
+		if _pending_inspect == family_id:
+			_flash = 1.0
+			_inspect = 1.0
+			Audio.play("equip", -6.0, 0.9, 0.03)
+		_pending_inspect = ""
 	_flash = maxf(0.0, _flash - delta * 2.2)
 	_inspect = maxf(0.0, _inspect - delta / 1.5)
 
@@ -540,8 +555,9 @@ func _process(delta: float) -> void:
 		if powered:
 			# powered shovel: the housing stays shouldered, the head does the hitting
 			var punch := sin(clampf(_swing_t / IMPACT_T, 0.0, 1.0) * PI * 0.5) if _swing_t < IMPACT_T else 1.0 - (_swing_t - IMPACT_T) / (1.0 - IMPACT_T)
-			pos.z -= punch * 0.035
-			rot.x -= punch * 0.03
+			pos.z -= punch * 0.06
+			pos.y -= punch * 0.012
+			rot.x -= punch * 0.055
 		else:
 			var sw := _swing_pose(_swing_t)
 			pos += sw[0]
@@ -567,9 +583,10 @@ func _process(delta: float) -> void:
 	if _inspect > 0.0:
 		var k := sin(clampf(_inspect, 0.0, 1.0) * PI)
 		k = k * k * (3.0 - 2.0 * k)
-		pos = pos.lerp(Vector3(0.07, -0.13, -0.42), k * 0.85)
-		rot.x += k * 0.25
-		rot.y += k * 0.9 + sin((1.0 - _inspect) * TAU) * 0.35 * k
+		# held up at arm's length: clearly presented, but the view ahead stays open
+		pos = pos.lerp(Vector3(0.13, -0.15, -0.66), k * 0.85)
+		rot.x += k * 0.2
+		rot.y += k * 0.7 + sin((1.0 - _inspect) * TAU) * 0.3 * k
 	# lowered while switching
 	pos.y -= hidden * 0.42
 	rot.x -= hidden * 0.8
@@ -583,7 +600,7 @@ func _process(delta: float) -> void:
 		(model["spin"] as Node3D).rotate_object_local(Vector3.FORWARD, _spin_speed * delta)
 	if model.get("piston") != null:
 		var piston: Node3D = model["piston"]
-		piston.position.z = lerpf(piston.position.z, _piston_rest - _piston * 0.085, clampf(delta * 45.0, 0.0, 1.0))
+		piston.position.z = lerpf(piston.position.z, _piston_rest - _piston * 0.13, clampf(delta * 45.0, 0.0, 1.0))
 	if model.get("recoil") != null:
 		(model["recoil"] as Node3D).position.z = _recoil_rest + _recoil_slide * 0.07
 	if model.has("material"):

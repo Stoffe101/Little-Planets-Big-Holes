@@ -169,7 +169,8 @@ and by the planet's `look.wind`.
 
 `export_presets.cfg` has Windows and Linux presets. Non-resource files are not packaged by
 default, so the presets include `data/*.json, data/planets/*.json` explicitly and exclude
-`tests/`, `tools/`, `docs/`. `Main` implements `-- --smoke-test` (see docs/TESTING.md); the
+`tests/`, `tools/`, `docs/`. `World.PROTECT_RADIUS` (10.5 m) shields the ground under the whole
+outpost. `Main` implements `-- --smoke-test` (see docs/TESTING.md); the
 exported Windows build passes it headless and on the Vulkan renderer.
 
 ## Saving (`src/autoload/save_system.gd`)

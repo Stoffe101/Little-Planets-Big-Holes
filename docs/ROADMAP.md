@@ -6,16 +6,16 @@ A new visual identity (docs/ART_DIRECTION.md) applied to terrain, sky, lighting,
 outpost, all tools, discoveries, effects and the whole interface; smoother, class-specific
 tool animation and purchase presentation; a simulated and rebalanced economy
 (docs/BALANCE.md); a level-normalised audio mix with cave acoustics and ambience; Windows
-export presets and a verified build; GPU benchmarks; an off-desktop render harness; seven new
+export presets and a verified build; GPU benchmarks; an off-desktop render harness; nine new
 regression tests. Details and evidence: docs/TESTING.md, docs/TECHNICAL.md.
 
 ## Known limitations
 
 **Not verified by a person**
 
-* **Nobody has played or listened to this build.** Stills were rendered on a real GPU and
-  reviewed; motion, timing, input feel and all audio (including the new ambience beds and
-  cave reverb) are unreviewed. Expect to adjust animation amounts and the mix.
+* **Nobody has played or listened to this build.** Stills and slowed film strips of the tool
+  animations were rendered on a real GPU and reviewed; real-time feel, input and all audio
+  (including the new ambience beds and cave reverb) are unreviewed. Expect to adjust animation amounts and the mix.
 * **Pacing is modelled, not playtested**, and only on Pipseed. Glimmerock's economy and the
   late game are scaled by rule, not measured.
 * 4K was not rendered (the UI is resolution-independent at 16:9; 3440×1440 was checked).

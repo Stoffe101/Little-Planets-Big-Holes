@@ -11,7 +11,7 @@ signal scan_done(found: int)
 
 const SKY_SHADER := preload("res://shaders/sky.gdshader")
 const AUTOSAVE_INTERVAL := 75.0
-const PROTECT_RADIUS := 7.5
+const PROTECT_RADIUS := 10.5         ## shielded ground under the whole outpost (pads, crates, solar array)
 
 var planet_id := "pipseed"
 var planet: Planet
@@ -296,19 +296,24 @@ func is_protected(pos: Vector3) -> bool:
 ## Called by tools after every successful dig.
 func on_dig(result: Dictionary, pos: Vector3) -> void:
 	# Lucky Charm: an occasional bonus gem pops out with fanfare.
-	var chance := GameState.luck_chance()
-	if chance > 0.0 and randf() < chance * clampf(float(result.get("volume", 1.0)) / 4.0, 0.4, 2.0):
-		var gem := GameData.mat_index(str(planet.config.get("bonus_gem", "amethyst")))
+	if randf() < luck_roll_chance(float(result.get("volume", 1.0))):
+		var gem := GameData.mat_index(str(planet.config.get("lucky_gem", planet.config.get("bonus_gem", "amethyst"))))
 		var up := planet.up_at(pos)
 		pickups.spawn(gem, 1 + randi() % 2, pos + up * 0.4, up * 6.0 + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)))
 		fx.sparks(pos + up * 0.4, up, GameData.materials[gem]["color2_c"], 10)
-		fx.floating_text(pos + up * 0.8, "LUCKY!", UiTheme.YELLOW, 0.9)
+		fx.floating_text(pos + up * 0.8, "Lucky find", UiTheme.YELLOW, 0.8)
 		Audio.play("rare", -2.0)
 		GameState.add_stat("bonus_gems")
 	if props != null and props.has_method("on_dig"):
 		props.call("on_dig", pos, float(result.get("radius", 1.0)))
 	if secrets != null and secrets.has_method("on_dig"):
 		secrets.call("on_dig", pos, float(result.get("radius", 1.0)))
+
+
+## Chance that one dig of `volume` cubic metres pops a lucky gem. Small bites count less; big
+## bites do not count more, so a fast power tool cannot turn the charm into the main income.
+static func luck_roll_chance(volume: float) -> float:
+	return GameState.luck_chance() * clampf(volume / 4.0, 0.4, 1.0)
 
 
 var _combo := 0

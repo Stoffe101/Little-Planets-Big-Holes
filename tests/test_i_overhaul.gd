@@ -212,6 +212,29 @@ func test_world_arrival_props_and_base() -> void:
 	assert_eq(moved, 0, "digging elsewhere never moves a crystal (per-item seeding)")
 	assert_eq(missing, 0, "and never creates one under a new index")
 	again.queue_free()
+	# landmarks are uprooted like any other prop when the ground under them is dug away
+	assert_gt(float(props._landmarks.size()), 4.0, "landmarks are registered for removal")
+	var lm: Dictionary = props._landmarks[0]
+	var lm_node: Node = lm["node"]
+	var lm_pos: Vector3 = lm["pos"]
+	var lm_count := props.landmark_count
+	props.on_dig(lm_pos, 2.0)
+	await frames(2)
+	assert_false(is_instance_valid(lm_node), "a landmark dug out from under is removed")
+	assert_eq(props.landmark_count, lm_count - 1, "and no longer counted")
+	# nothing grows through the outpost's pads
+	var too_close := 0
+	for cell: Vector3i in props._grid:
+		for e: Array in props._grid[cell]:
+			var q: Vector3 = e[2]
+			if (q - geo.landing_dir * q.dot(geo.landing_dir)).length() < 9.5 and q.dot(geo.landing_dir) > 0.0:
+				too_close += 1
+	assert_eq(too_close, 0, "no ground cover or pebbles inside the outpost")
+	# everything the base builds stands on shielded ground
+	for child in w.base.get_children():
+		if child is Node3D and (child as Node3D).global_position.length() > 1.0:
+			assert_true(w.is_protected((child as Node3D).global_position - w.player.up * 0.5) or child.name == "Progress",
+				"%s stands on shielded ground" % child.name)
 	# the outpost grows with progress
 	var base: RocketBase = w.base
 	var progress := base.get_node("Progress")
@@ -221,8 +244,66 @@ func test_world_arrival_props_and_base() -> void:
 	GameState.buy_gear("scanner")
 	await physics(3)
 	assert_gt(float(progress.get_child_count()), float(n0), "buying gear adds installations to the base")
+	for inst in progress.get_children():
+		if inst is Node3D and not inst.is_queued_for_deletion():
+			assert_true(w.is_protected((inst as Node3D).global_position - geo.landing_dir * 0.5), "progress installation %s is on shielded ground" % inst.name)
 	assert_true(base.sell_pad_center.length() > 1.0 and base.dock_position.length() > 1.0, "depot pad and bot dock exist")
 	await free_world(w)
+
+
+func test_new_tool_is_shown_off_for_purchases_only() -> void:
+	GameState.reset()
+	var w := await make_world("pipseed")
+	var tools: ToolController = w.tools
+	await frames(4)
+	assert_eq(tools._inspect, 0.0, "nothing to show at the start")
+	# a discovery also emits tools_changed (it can unlock shop items) but is not a purchase
+	GameState.discover("time_capsule")
+	await frames(4)
+	assert_eq(tools._inspect, 0.0, "a discovery does not trigger the new-tool presentation")
+	assert_eq(tools._pending_inspect, "", "and queues nothing")
+	# buying inside a menu: the presentation waits until the player can see it
+	GameState.money = 100000
+	w.player.controls_locked = true
+	assert_true(GameState.buy_next_tier("shovel"), "buy the spade in the shop")
+	await frames(4)
+	assert_eq(tools._inspect, 0.0, "not shown while the menu is open")
+	assert_eq(tools._pending_inspect, "shovel", "queued for the held tool")
+	w.player.controls_locked = false
+	await frames(3)
+	assert_gt(tools._inspect, 0.0, "shown as soon as the menu closes")
+	# an attachment for a tool that is not in hand is not shown off on the wrong model
+	tools._inspect = 0.0
+	assert_true(GameState.buy_next_tier("vacuum"), "buy a second family (it becomes equipped)")
+	for i in 120:
+		await get_tree().process_frame
+		if tools.family_id == "vacuum" and tools._equip_t >= 1.0 and tools._pending_inspect == "":
+			break
+	assert_eq(tools.family_id, "vacuum", "new family equipped")
+	tools._inspect = 0.0
+	assert_true(GameState.buy_mod("shovel", "wide_scoop"), "buy a shovel attachment while holding the vacuum")
+	await frames(4)
+	assert_eq(tools._inspect, 0.0, "no presentation for a tool that is not in hand")
+	await free_world(w)
+
+
+func test_lucky_charm_is_a_perk_not_an_income() -> void:
+	GameState.reset()
+	assert_eq(World.luck_roll_chance(10.0), 0.0, "no charm, no luck")
+	GameState.money = 1000000
+	GameState.buy_gear("lucky")
+	var small := World.luck_roll_chance(1.0)
+	var big := World.luck_roll_chance(60.0)
+	assert_gt(small, 0.0, "a small bite can be lucky")
+	assert_near(big, GameState.luck_chance(), 0.0001, "a huge bite is no luckier than the listed chance")
+	for pid in GameData.planet_order:
+		var cfg := GameData.planet(pid)
+		var gem := GameData.material(str(cfg.get("lucky_gem", cfg.get("bonus_gem", ""))))
+		assert_false(gem.is_empty(), "%s has a lucky gem" % pid)
+		# two gems per proc at the top charm level, four digs a second: still well under the
+		# price of a mid-game tool per minute
+		var per_minute := 1.5 * float(gem["value"]) * 0.14 * 4.0 * 60.0
+		assert_lt(per_minute, 4000.0, "%s: lucky income stays modest (%.0f cr/min worst case)" % [pid, per_minute])
 
 
 func test_shop_screen_builds_every_view() -> void:

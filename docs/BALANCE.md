@@ -23,6 +23,7 @@ Assumptions (constants at the top of the script):
 | Trip to sell | walk there and back at 7 m/s × boots, plus climbing out (2 m of path per m of depth, 1.2 with jump jets), plus 6 s at the shops |
 | Selling | whole backpack, every time it is full |
 | Tool choice | the drill as soon as it is owned, otherwise the shovel; vacuum, cannon and bots are not modelled |
+| Lucky Charm | rolled per dig with the game's own formula (`World.luck_roll_chance`) |
 | Discoveries | none found (so no artifact rewards and nothing they unlock) |
 | `balanced` policy | tools, backpack and a spread of gear/attachments in a sensible order; small purchases while saving |
 | `rush` policy | tool tiers and backpack only |
@@ -61,12 +62,12 @@ barely mattered, and each tier was in use for one to two minutes.
 |---|---|---|
 | Sturdy Spade | 1.3 min | 1.3 min |
 | Backpack 1 | 1.9 min | 1.9 min |
-| Thumper 3000 | 10.8 min | 8.2 min |
-| Slurp-o-Vac | 12.0 min | – |
-| Burrow Drill | 18.6 min | 17.8 min |
-| Boomer | 35.5 min | – |
-| Diamond Drill | 59 min | 53.5 min |
-| Mega Scooper | 74 min | – |
+| Thumper 3000 | 11.0 min | 8.2 min |
+| Slurp-o-Vac | 13.2 min | – |
+| Burrow Drill | 18.4 min | 17.8 min |
+| Boomer | 35.9 min | – |
+| Diamond Drill | 58 min | 53.5 min |
+| Mega Scooper | 73 min | – |
 
 Income per minute (balanced): 90 → 220 → 800 in the first fifteen minutes, then roughly
 600–1,400 during the Burrow Drill, 1,100–3,000 with the Diamond Drill. A sale every 50–75 s in
@@ -85,6 +86,11 @@ the first twenty minutes, every 150–300 s later. Ore and crystals are ~55 % of
   first-trip fuel 8,000). Early prices stay low.
 * **Tutorial rewards** are a little larger so the first sale plus the first three objectives
   buy the spade; late objective and discovery rewards scale with late prices.
+* **Lucky Charm.** With the old rule (chance scaling up to ×2 with bite volume, paying 1–2
+  *amethyst*) a 260-credit charm would have out-earned the Thumper once gems were worth 60.
+  The chance no longer grows beyond the listed percentage for big bites, and each planet names
+  a modest `lucky_gem` (Pip Quartz, Moonsilver). Modelled share: ~10 % of all income with the
+  charm bought at 7 min and upgraded at 27 min.
 * Tool **stats were not changed**: the feel of each tool is exactly what it was.
 
 `tests/test_i_overhaul.gd::test_balance_tables_are_sane` guards the invariants (rising costs,
@@ -95,7 +101,7 @@ every tier a real step in ground moved or in power, ore worth more than dirt, ba
 * Any of this with a human at the controls.
 * **Glimmerock.** Its values and its tools' late prices were scaled by the same rules but the
   simulator was only run on Pipseed, starting from a new game.
-* The contribution of the vacuum, cannon, helper bots, lucky charm and discoveries.
+* The contribution of the vacuum, cannon, helper bots and discoveries.
 * The very late game (Mole Engine, Planet Cracker, both Hearts).
 
 When a playtest disagrees with the model, change the JSON, re-run the simulator to see what
