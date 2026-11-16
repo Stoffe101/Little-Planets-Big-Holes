@@ -16,7 +16,7 @@ The runner prints `[PASS]/[FAIL]` per test and exits with code 1 on any failure 
 see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 `user://test_sandbox/`, so they never touch a real save.
 
-### What is covered (105 tests, 2,199 assertions)
+### What is covered (113 tests, 2,422 assertions)
 
 | Suite | Checks |
 |---|---|
@@ -149,6 +149,27 @@ build/windows/LittlePlanetsBigHoles.exe --headless -- --smoke-test
 
 `--smoke-test` starts a new game in `user://smoke_test`, waits for the planet, digs once
 through `DigSystem`, saves, prints `SMOKE OK` / `SMOKE FAIL: …` and sets the exit code.
+
+## What was actually verified in the v0.3.1 pass
+
+**Measured:** Godot profiler traces (scripts, physics, render passes) for eight scenarios;
+frame-by-frame streaming after 300 m jumps and during 15-20 s jetpack runs; A/B attribution of
+sky, shadows, glow, MSAA, props, HUD, world updates, 3D drawing; before/after at three
+resolutions with identical benchmark code (3 alternating runs each); dig cost split into survey
+and edit; editable/collidable radius; memory over repeated planet loads; economy on both
+planets. **All GPU numbers were taken with another application using 80-96 % of the GPU.**
+
+**Looked at (renders, `docs/screenshots/v0.3.1/README.md`):** transit card, relay arrival,
+Auto-Borer, Whisperwood trees, horizon/regions/quarry/tunnel with 32-voxel blocks (no seams
+seen). Looking found the relay arrival inside the mast and the spoil heap inside the legs.
+
+**Checked by tests:** everything in the table above; a v0.3.0 save with holes loaded in v0.3.1
+(`savecompat`, not in the suite: it needs the old checkout); CI on Linux; the exported Windows
+build's smoke test headless and on Vulkan (RTX 5070).
+
+**Not verified by anyone:** how the transit card and traversal *feel*, frame rate on an idle
+GPU, other hardware (CI shows a 4-core machine holds the player while jetting on Glimmerock
+up to ~13 % of the time), audio, real pacing.
 
 ## What was actually verified in the v0.3 pass
 

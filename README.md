@@ -21,7 +21,8 @@ planet's heart and fly on to the next world.
 
 Rendered from the running game on an RTX 5070 by the scripted screenshot harness
 (`tools/shots.sh`, Mobile renderer, 1920×1080). Full set and before/after sheets:
-[docs/screenshots/v0.3](docs/screenshots/v0.3/README.md).
+[docs/screenshots/v0.3](docs/screenshots/v0.3/README.md). v0.3.1 additions (relay transit and arrival, Auto-Borer, trees):
+[docs/screenshots/v0.3.1](docs/screenshots/v0.3.1/README.md).
 
 | | |
 |---|---|

@@ -202,7 +202,56 @@ the card).
 three each** (`python tools/perf_compare.py --before <v0.3.0 checkout> --res <WxH> --reps 3`).
 Columns: avg FPS · p99 ms · max ms · renderer CPU ms · draw calls.
 
-PERF_TABLES
+*1920×1080* (GPU 80–95 % busy with another application before the runs)
+
+| Scenario | avg FPS | p99 ms | max ms | renderer CPU ms | draws |
+|---|---|---|---|---|---|
+| vista from a mountain | 124 → **134** | 13.0 → **12.8** | 13.7 → **13.3** | 1.24 → **0.98** | 1333 → **1026** |
+| outpost in view | 116 → **102** | 13.3 → **14.3** | 16.1 → **14.9** | 2.25 → **1.38** | 2512 → **1419** |
+| power shovel, held down | 105 → **103** | 13.7 → **14.6** | 14.2 → **16.3** | 2.62 → **1.20** | 2839 → **1245** |
+| 8 x 6.5 m blasts + debris | 110 → **112** | 17.0 → **15.0** | 33.2 → **15.5** | 2.70 → **1.53** | 2767 → **1548** |
+| crystal cavern | 106 → **104** | 14.6 → **14.4** | 14.9 → **15.0** | 2.48 → **1.26** | 2399 → **1273** |
+| 3 bots hauling 150 chunks | 108 → **107** | 15.2 → **15.9** | 18.0 → **16.6** | 2.62 → **1.56** | 2691 → **1611** |
+| sprint+jets traversal | 111 → **116** | 20.7 → **15.6** | 32.6 → **17.4** | 2.59 → **1.58** | 2493 → **1432** |
+| 300 m relay jump (240 f) | 74 → **98** | 63.0 → **21.9** | 101.4 → **50.4** | 3.13 → **1.71** | 1814 → **1166** |
+| travel, visible (240 f) | – → 112 | – → 15.6 | – → 18.6 | – → 1.36 | – → 1263 |
+
+*2560×1421* (GPU 67–92 % busy with another application before the runs)
+
+| Scenario | avg FPS | p99 ms | max ms | renderer CPU ms | draws |
+|---|---|---|---|---|---|
+| vista from a mountain | 127 → **123** | 15.0 → **13.7** | 15.6 → **14.0** | 1.29 → **1.02** | 1338 → **1030** |
+| outpost in view | 104 → **113** | 15.9 → **13.4** | 17.3 → **14.7** | 2.59 → **1.20** | 2522 → **1430** |
+| power shovel, held down | 89 → **155** | 15.9 → **13.4** | 18.1 → **14.5** | 2.77 → **1.12** | 2847 → **1249** |
+| 8 x 6.5 m blasts + debris | 95 → **98** | 16.2 → **16.9** | 31.3 → **18.9** | 2.64 → **1.52** | 2795 → **1563** |
+| crystal cavern | 93 → **89** | 16.2 → **16.2** | 17.2 → **19.0** | 2.52 → **1.40** | 2408 → **1279** |
+| 3 bots hauling 150 chunks | 96 → **101** | 16.4 → **16.3** | 18.2 → **18.9** | 2.90 → **1.75** | 2709 → **1612** |
+| sprint+jets traversal | 100 → **106** | 27.6 → **15.9** | 32.7 → **17.6** | 2.91 → **1.62** | 2496 → **1444** |
+| 300 m relay jump (240 f) | 72 → **83** | 64.8 → **22.1** | 100.0 → **51.5** | 3.15 → **1.87** | 1796 → **1228** |
+| travel, visible (240 f) | – → 104 | – → 16.0 | – → 18.1 | – → 1.43 | – → 1266 |
+
+*3440×1421* (GPU 77–98 % busy with another application before the runs)
+
+| Scenario | avg FPS | p99 ms | max ms | renderer CPU ms | draws |
+|---|---|---|---|---|---|
+| vista from a mountain | 104 → **107** | 15.7 → **15.8** | 19.5 → **16.0** | 1.46 → **1.13** | 1379 → **1066** |
+| outpost in view | 93 → **85** | 16.3 → **17.4** | 17.2 → **17.6** | 2.70 → **1.65** | 2696 → **1573** |
+| power shovel, held down | 81 → **89** | 18.2 → **17.5** | 20.0 → **19.8** | 3.23 → **1.49** | 3132 → **1410** |
+| 8 x 6.5 m blasts + debris | 85 → **84** | 18.2 → **17.8** | 22.9 → **20.9** | 3.19 → **1.72** | 3162 → **1819** |
+| crystal cavern | 82 → **83** | 18.2 → **18.1** | 19.2 → **19.1** | 2.78 → **1.43** | 2656 → **1454** |
+| 3 bots hauling 150 chunks | 87 → **84** | 17.8 → **18.5** | 20.5 → **19.6** | 2.98 → **2.01** | 3234 → **2044** |
+| sprint+jets traversal | 85 → **95** | 28.9 → **18.1** | 46.6 → **25.6** | 3.55 → **1.75** | 2690 → **1601** |
+| 300 m relay jump (240 f) | 66 → **80** | 72.2 → **21.3** | 107.8 → **52.7** | 3.76 → **1.93** | 2013 → **1300** |
+| travel, visible (240 f) | – → 93 | – → 17.7 | – → 20.1 | – → 1.71 | – → 1387 |
+
+The avg FPS column moves with the other application's GPU load, not with these changes (single
+1440p runs ranged from 95 to 309 FPS when its load dipped, hence "power shovel 89 → 155"); read
+renderer CPU, draws and the p99/max spikes instead. "300 m relay jump" is the raw teleport, measured from the jump frame (what v0.3.0 showed the
+player, behind a 0.5 s flash); since v0.3.1 those frames are behind the transit card, which
+held for 1.1–1.2 s here (longest hidden frame 49–54 ms), and "travel, visible" is what the
+player sees after it fades. GPU timestamps are shared-GPU times: the outpost and blasts views
+spend 0.4–0.9 ms more GPU per frame than before at 1440p/ultrawide (larger full-resolution
+area with 32-voxel blocks), while renderer CPU fell 35–60 % everywhere.
 
 **Loading and memory (1920×1080):** terrain ready with colliders at the spawn 2.2–2.4 s (same as
 before), world ready 3.7–3.9 s. Static memory at the end of the run 405–415 MB (was 380: the
