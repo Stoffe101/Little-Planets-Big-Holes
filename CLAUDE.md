@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for AI agents
 
-**Little Planets, Big Holes** — first-person incremental excavation on tiny spherical voxel
-planets. Godot **4.7.2**, GDScript only, terrain by **Voxel Tools 1.7** (GDExtension, vendored
+**Little Planets, Big Holes** — first-person incremental excavation on small (300–400 m radius)
+spherical voxel planets streamed with `VoxelLodTerrain`. Godot **4.7.2**, GDScript only, terrain by **Voxel Tools 1.7** (GDExtension, vendored
 in `addons/zylann.voxel/`). Read `README.md`, then `docs/ART_DIRECTION.md` (before touching
 anything visible) and `docs/TECHNICAL.md`.
 
@@ -23,6 +23,9 @@ python tools/audio_report.py [--gains]                            # objective au
 python3 tools/gen_audio.py                                        # regenerate assets/audio (numpy; ffmpeg for music)
 ```
 
+`python tools/planet_layout.py` writes each planet's geography (radius, landforms, regions,
+caverns, relays, prop densities) into `data/planets/*.json` from metres + bearings.
+
 `godot -s some_script.gd` cannot see autoloads at compile time — make dev tools scenes
 (`tools/dev/*.tscn`) instead.
 
@@ -36,12 +39,16 @@ real app flow must redirect `SaveSystem.save_dir` first (`start_game(true)` dele
 * `data/*.json` — **all** balance and content. Change numbers here, not in code; then run the
   economy simulator and update `docs/BALANCE.md`.
 * `src/autoload/` — `Settings`, `GameData`, `GameState` (rules, no scene access), `SaveSystem`, `Audio`.
-* `src/planet/geology.gd` — planet shape + materials; mirrored by `shaders/terrain.gdshader`.
+* `src/planet/geology.gd` — planet shape (landforms, regions) + materials; mirrored by
+  `shaders/terrain.gdshader` and by its own voxel generator graph.
+* `src/planet/planet.gd` — the streamed `VoxelLodTerrain`, readiness (`is_area_ready`), queries.
 * `src/game/dig_system.gd` — the only place voxels are edited.
 * `src/game/world.gd` — assembles a planet session (also sky, sun, ambient); `src/game/main.gd` — app flow.
+* `src/game/navigation.gd` — regions, survey relays + travel, waypoint, compass/map markers;
+  `contracts.gd`, `auto_borer.gd`; `src/ui/map_ui.gd`, `compass_strip.gd`.
 * `src/core/mesh_kit.gd` — procedural modelling kit; `src/core/palette.gd` (`Pal`) — every model colour.
 * `src/tools/tool_models.gd` — all tool tiers and attachments; `tool_controller.gd` — behaviour and viewmodel animation.
-* `src/base/rocket_base.gd` — the outpost; `src/planet/prop_field.gd` — surface dressing.
+* `src/base/rocket_base.gd` — the outpost; `src/planet/prop_field.gd` — streamed surface dressing.
 * `src/ui/ui_theme.gd` — the UI design system; `shop_ui.gd` + `tool_preview.gd` — the shop.
 * `tests/` — `TestSuite` subclasses, auto-discovered `test_*` methods.
 
@@ -71,15 +78,35 @@ real app flow must redirect `SaveSystem.save_dir` first (`start_game(true)` dele
    plainly when audio was measured but not heard.
 10. Saves: bump `GameState.SAVE_VERSION` and add a step to `SaveSystem.migrate` when the
     layout changes; `from_dict` must keep tolerating missing/unknown fields. Never change
-    material ids/order or a planet's terrain shape, caves, cavities or seed — saved terrain
-    blocks would no longer match regenerated ground. Palettes, props and prices are safe.
-11. **Props are seeded per item** (`PropField._item(kind, index)`): draw all of an item's random
-    numbers right after that call. Do not share one advancing RNG across items, or digging in
-    one place reshuffles props (and crystal flags) elsewhere.
+    material ids/order, and never change a planet's terrain shape, caves, cavities or seed
+    without bumping its `generation` (rule 13) — saved terrain blocks would no longer match
+    regenerated ground. Palettes, props and prices are safe.
+11. **Props are seeded per item** (`PropField._item(kind, cell, index)`): draw all of an item's
+    random numbers right after that call. Do not share one advancing RNG across items, or
+    digging in one place reshuffles props (and crystal flags) elsewhere.
+12. **The terrain is streamed.** Only ~70 m around the player is editable and collidable. Before
+    teleporting, editing or measuring far away, wait for `planet.is_area_ready(pos, r)` (tests:
+    `stream_to()` / `place_player()`; tools: `stream()` / `place()` in `shots.gd`).
+    `sdf_at` falls back to the analytic original surface where data is not loaded; DigSystem
+    refuses unloaded edits (`result.unloaded`).
+13. **Changing a planet's shape, size or caves = bump its `generation`** (layout script). Each
+    generation gets its own terrain database; never reuse one across generations.
+14. **Never imitate the reference game's designs** listed in `docs/ART_DIRECTION.md` §2 (white
+    panels, dark frames, slatted vents, orange stripes, boxy kiosks, a white rocket).
 
 ## Gotchas already paid for
 
 * Voxel Tools mesh blocks are separate instances → terrain shader uses `MODEL_MATRIX * VERTEX`.
+* `VoxelLodTerrain` + Clipbox: a LOD0 block's collider only switches on after every coarser
+  block above it has meshed (~2 s at start) — "meshed" is not "collidable". `is_area_ready`
+  checks colliders via `debug_get_mesh_block_info` (present in release builds).
+* Clipbox with `full_load_mode` breaks; Octree streaming is 5–50× slower to become ready.
+* Transvoxel `CUSTOM0` (decoded empirically): bits 0–5 cell border, 8–13 vertex border, 16+
+  transition side; the engine sets `u_transition_mask`.
+* `VoxelStreamSQLite.set_key_cache_enabled(true)` makes block loads ~6× faster.
+* Noise with `period = 1` sampled at `dir * f` has a wavelength of `radius / f` metres: high `f`
+  with metres of amplitude makes egg-crate terrain that embeds the player.
+* Prop density in planet JSON is **per 1000 m²** now (it was a planet-wide count).
 * `NODE_DISTANCE_3D` ignores constant inputs in 1.7 → use translated `SdfSphere`.
 * `SdfSphere` radius is input port 3, not a parameter.
 * Terrain meshing/collision is asynchronous: in tests use `wait_until(...)`, never a fixed sleep.

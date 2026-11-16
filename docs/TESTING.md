@@ -7,7 +7,7 @@ scripts from Git Bash). Everything falls back to `godot` on PATH.
 
 ```bash
 "$GODOT" --headless --path . --import                              # after cloning / adding class_names
-"$GODOT" --headless --path . res://tests/run_tests.tscn            # everything (~1 minute)
+"$GODOT" --headless --path . res://tests/run_tests.tscn            # everything (~5 minutes)
 "$GODOT" --headless --path . res://tests/run_tests.tscn -- world   # only suites whose filename contains "world"
 tools/check.sh                                                     # compile every script; fails if Godot did not run
 ```
@@ -16,19 +16,24 @@ The runner prints `[PASS]/[FAIL]` per test and exits with code 1 on any failure 
 see `.github/workflows/tests.yml`, on Linux). Tests redirect all saves to
 `user://test_sandbox/`, so they never touch a real save.
 
-### What is covered (72 tests, 1,437 assertions)
+### What is covered (104 tests, 2,194 assertions)
 
 | Suite | Checks |
 |---|---|
 | `test_a_data` | JSON databases load; every material/discovery/planet/gear reference resolves; every material can be dug by some purchasable tool |
-| `test_b_state` | capacity, exact sell value, multipliers, tool tiers, mods, gear, lock reasons, objectives, discoveries, planet unlock + fare, serialisation, garbage-tolerant loading (numbers are read from the data tables) |
-| `test_c_save` | round trip, backup rotation, recovery from a corrupted main file, truncated/tampered saves rejected, v1 migration, delete |
-| `test_d_geology` | same seed → same planet, different seed → different, flat landing pad, harder with depth, starter shovel can dig the surface, ore abundance matches config, octahedral mapping, generator graph agrees with the CPU shape |
-| `test_e_world` | spawn on ground; gravity/orientation at six points around the planet; walking follows curvature; jump; zero-g core; dig removes voxels **and collision follows**; yields; blocked by hard layers; selective dig; **walkable tunnel into a hillside**; pickups, full backpack; shovel through the real tool controller; pad protection; selling on the pad; crystal formation; scanner; cannon crater; helper bot hauling and selling; artifact, cavern and heart discoveries; 400-dig stress + task-queue drain |
-| `test_f_persistence` | dig a tunnel + chamber, save, unload, reload: same SDF values, player can stand in it, progress restored; control slot proves the tunnel is not there by default |
-| `test_g_planets` | Glimmerock loads from data, lower gravity, own materials and hardness |
-| `test_h_main` | real `main.tscn`: menu → new game → play → shop → menu → continue with the purchase intact |
-| `test_i_overhaul` | every tool tier and every attachment level builds a model and adds geometry; moving parts exist; MeshKit primitives (size, outward normals, per-vertex finish, deterministic rocks); palette / look data complete and within the emission budget; balance-table invariants; a first-build save with obsolete flags still loads; arrival point (outside the pad, on the ground, facing the outpost); **digging never moves or renumbers a crystal**; the outpost gains installations with purchases and everything it builds stands on shielded ground; landmarks are uprooted when dug under; nothing grows through the pads; the new-tool presentation fires for purchases of the held tool only (not for discoveries) and waits for menus to close; the Lucky Charm stays a perk; the shop builds every view |
+| `test_b_state` | capacity, sell value, multipliers, tiers, mods, gear, lock reasons, objectives, discoveries, planet unlock, serialisation, garbage-tolerant loading |
+| `test_c_save` | round trip, backup rotation, corrupted/truncated/tampered saves, v1 migration, **v2 → v3 migration keeps every kind of progress, writes a byte-identical `progress.v2.json`, never touches the old terrain file, falls back to a v2 backup**, terrain generations round trip, delete |
+| `test_d_geology` | determinism, seeds, pad flat out to 12 m, strata, starter shovel, ore abundance, octahedral mapping, generator graph = CPU shape |
+| `test_e_world` | spawn; gravity/orientation around the planet; walking the curve; jump; zero-g core; dig + **collision follows**; yields; hardness; selective dig; walkable hillside tunnel; **digs in unloaded terrain are refused**; pickups; tool controller; pad protection; selling; formations; scanner; cannon; helper bot; artifacts, cavern and heart discoveries; 400-dig stress in a streamed area + queue drain |
+| `test_f_persistence` | dig a tunnel, **walk 260 m away (it unloads) and back: still there**; save, quit, reload in a new session: same SDF, standable, progress restored; control slot; **resurveyed planet: new generation database, old file byte-identical, notice once** |
+| `test_g_planets` | Glimmerock loads and plays by its own rules |
+| `test_h_main` | real `main.tscn` flow: menu → new game → play → shop → menu → continue |
+| `test_i_overhaul` | every tier/mod builds and adds geometry; MeshKit; palette/look data; balance invariants; old flags load; arrival; props deterministic per cell and item; landmarks uprooted; nothing grows through the pads; outpost grows; purchase presentation; Lucky Charm; shop views |
+| `test_j_traversal` | world rotation rate, largest per-frame change of up, roll while walking, sprinting + jumping, jetpack flight, strafing with turning on a hillside, in a tunnel; horizon smoothing eases a sudden change and 0 = rigid; **walking the roughest regions never sinks into the ground** |
+| `test_k_identity` | palette rules (no near-white enamel, verdigris accent, warm frames); every viewmodel has gloved hands, previews do not; stations collide as drums; the lander is squat |
+| `test_l_navigation` | relays on the surface, shielded, in named regions on every planet; region entry announced and remembered; relay activation and the travel rules (no jump from the field, recall from anywhere, outpost ↔ online relay); compass bearings and heading; map projection round trip and true distances; waypoint survives save/load; map relief image |
+| `test_m_activities` | contracts deterministic per slot and paid through ordinary sales (player and bots); relay and depth contracts complete from world state; **the Auto-Borer digs a real shaft, lifts spoil, saves progress, pauses when its area streams out, resumes, stalls on hard rock**; bots work a marked zone and unload at the nearest relay |
+| `test_n_terrain` | LOD pyramid covers the planet (LOD0 colliders near, far side visible at coarse LOD, transition masks at LOD seams); caves exist at depth and never under the pad; regions are measurably richer in their ore; **memory stays bounded while jumping around the planet**; loading three planets in turn grows static memory < 250 MB |
 
 ### What automated tests cannot tell you
 
@@ -46,7 +51,10 @@ Scenarios (`tools/dev/shots.gd`): `spawn`, `dig`, `base`, `ui` (HUD, shop, purch
 journal, planets, pause, discovery card), `tools` (every tier in first person), `lineup` (every
 tier bare and fully fitted, studio view), `purchase`, `tour` (quarry, tunnel, cavern, heart),
 `surface`, `menu`, `action` (dig + scan with HUD), `motion` (eight-frame film strips of the
-first-person animations with game time slowed; tile them with `sheet.tscn`).
+first-person animations with game time slowed; tile them with `sheet.tscn`), `vistas`
+(horizon, traversal, distant landmark, three regions, a cave mouth), `nav` (relay, compass,
+survey map), `borer` (the Auto-Borer at work). Every scenario streams the terrain in and waits
+for the voxel engine to settle before each shot.
 
 * **Windows:** `tools/offscreen.py` creates a separate desktop object and starts Godot on it.
   The window is rendered by the real GPU but can never take focus, appear on screen or receive
@@ -63,16 +71,19 @@ tools/perf.sh [WxH] [mobile|forward_plus] [planet]            # GPU frame times,
 "$GODOT" --headless --path . res://tools/dev/bench.tscn      # CPU: load time, dig timings, save time
 ```
 
-`perf` runs six scenarios (surface, outpost, power shovel held down, eight 6.5 m blasts,
-crystal cavern, three bots hauling 150 chunks) and prints average FPS, p95/p99/max frame time
-and the renderer's CPU/GPU time for the main viewport. Results: `docs/TECHNICAL.md`.
+`perf` prints load time, memory and video memory, then runs eight scenarios (mountain vista,
+outpost, power shovel held down, eight 6.5 m blasts, crystal cavern, three bots hauling 150
+chunks, a sprint + jetpack traversal while terrain streams, the first 240 frames after a 300 m
+jump) with average FPS, p95/p99/max frame time and the renderer's CPU/GPU time, and finally the
+time to save all terrain edits. Results: `docs/TECHNICAL.md`.
 Caveats: the window is on a desktop that is not being composited, so presentation is
 unthrottled; a decorated 1440-high window is clamped to 1421 pixels (the tool prints the size).
 
 ## Economy simulation
 
 ```bash
-"$GODOT" --headless --path . res://tools/dev/econ.tscn -- 100 balanced
+"$GODOT" --headless --path . res://tools/dev/econ.tscn -- 60 balanced
+"$GODOT" --headless --path . res://tools/dev/econ.tscn -- 60 explorer   # works rich regions via relays
 ```
 
 See `docs/BALANCE.md` for assumptions and results.
@@ -97,30 +108,33 @@ build/windows/LittlePlanetsBigHoles.exe --headless -- --smoke-test
 `--smoke-test` starts a new game in `user://smoke_test`, waits for the planet, digs once
 through `DigSystem`, saves, prints `SMOKE OK` / `SMOKE FAIL: …` and sets the exit code.
 
-## What was actually verified in the v0.2 pass
+## What was actually verified in the v0.3 pass
 
-**Looked at (GPU renders, 1920×1080 unless noted, Mobile renderer, RTX 5070):** arrival view;
-outpost from 12 m, Workshop, Depot; open surface in three places; fresh holes and a quarry;
-stone tunnel with ore under the headlamp; crystal cavern; both planet Hearts; Glimmerock
-surface, quarry, tunnel and outpost; all 11 tool tiers in first person at rest and in a studio
-line-up bare and fully fitted; HUD; Workshop screen (three families), after a purchase;
-Outfitter; journal; destinations; pause/settings; discovery card; new-tool presentation; main
-menu; HUD and shop at 3440×1440; Mobile vs Forward+ on three scenes; and **film strips**
-(`docs/screenshots/motion/`) of the hand swing, power-shovel punch, tool switch, drill on fresh
-ground, cannon shot with blast, and the new-purchase presentation. The strips led to three
-fixes (a barely visible power punch, a presentation that filled the screen, a thick blast ring).
+**Looked at (GPU renders, see `docs/screenshots/v0.3/README.md` for the list and notes):** all
+18 requested subjects including horizon, outpost, traversal, landmarks, three regions, surface
+and deep excavation, a cave mouth, tunnel, grotto, the Heart, every tool tier in first person and
+in a studio line-up, mining effects, scanner, map, compass, a relay, the Auto-Borer, Glimmerock,
+the main menu, the workshop and shop screens, HUD, 3440×1421; eight v0.2-vs-v0.3 comparisons;
+six motion strips. Looking found and led to fixing: egg-crate terrain in Stonebrake that the
+player sank into, an inverted ground-cover mask, buried workshop geometry, an unreadable map.
 
-**Measured, not seen or heard:** frame times; dig, load and save timings; audio levels and
-spectra; pacing (simulation).
+**Measured, not seen or felt:** camera rotation and roll while moving (tests), frame times, load
+times, memory, save times (perf), pacing (simulation), streaming readiness times.
 
-**Not verified by anyone:** how motion *feels* at full speed (timing, weight, smoothness —
-strips show poses, not rhythm); look sway and walk bob; bots flying; the menu planet turning; how any sound or the mix actually
-sounds, including the new ambience and cave reverb; input feel; real play pacing; 4K (the UI
-layout is resolution-independent for 16:9 and was checked at 1080p); gamepad; the Linux build.
+**Not verified by anyone:** how traversal *feels* (the main goal; see `docs/PLAYTEST.md`), any
+audio, whether the new identity reads as original and appealing, real pacing, Glimmerock
+pacing, other hardware, the Linux build, gamepad.
+
+## What was verified in the v0.2 pass
+
+The v0.2 renders, strips and benchmarks are in `docs/screenshots/` (top level) and the v0.2
+version of this file in git history.
 
 ## Writing a test
 
 Add `tests/test_<letter>_<topic>.gd` extending `TestSuite`; every `test_*` method is discovered
-and may `await`. Use `make_world()` / `free_world()` for a headless planet, `place_player()`,
-`wait_until()` for anything that depends on asynchronous meshing, and the `forced_move`,
-`forced_jump`, `forced_use` hooks on `Player` / `ToolController` to drive input.
+and may `await`. Use `make_world()` / `free_world()` for a headless planet; **`stream_to()` before
+touching anything far from the player** (the terrain is streamed; `place_player()` does it for
+you); `wait_until()` for anything that depends on asynchronous meshing; and the `forced_move`,
+`forced_sprint`, `forced_jump`, `forced_hold_jump`, `forced_use` hooks on `Player` /
+`ToolController` to drive input.

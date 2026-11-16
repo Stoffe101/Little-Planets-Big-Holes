@@ -1,33 +1,31 @@
 # Little Planets, Big Holes
 
-A first-person incremental excavation sim for Godot 4. You land on a tiny, genuinely spherical
-planet with a rusty hand scoop, dig real holes into fully deformable voxel terrain, sell what
-you find at your outpost, and turn the credits into increasingly serious excavation equipment —
-until you reach the planet's heart and fly on to the next world.
+A first-person incremental excavation sim for Godot 4. You land on a small but genuinely
+spherical planet with a rusty hand scoop, dig real holes into fully deformable voxel terrain,
+sell what you find at your outpost, and turn the credits into increasingly serious excavation
+equipment — exploring its regions and mining what each one is rich in — until you reach the
+planet's heart and fly on to the next world.
 
-> **Status: v0.2.0 — visual identity and game-feel pass.** Two planets, four tool families
-> (11 tiers, 12 attachments), 10 gear lines, 18 discoveries, helper bots, saving, a full
-> menu/HUD/shop UI and 72 automated tests. The whole look was rebuilt in this pass: see
-> [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md) and the before/after sheets in
-> [docs/screenshots/compare](docs/screenshots/compare). No human has playtested it yet —
-> [docs/ROADMAP.md](docs/ROADMAP.md) lists exactly what was and was not verified.
+> **Status: v0.3.0 — "bigger worlds, original identity".** Planets are now 400 m and 300 m in
+> radius on streamed LOD voxel terrain (previously 48 m / 42 m), with named regions, landforms,
+> a survey map, relays, contracts and an Auto-Borer; the look was redesigned into its own
+> identity ([docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)). Saves from v0.2 keep all progress.
+> No human has playtested this build yet — [docs/PLAYTEST.md](docs/PLAYTEST.md) says what to
+> check, [docs/ROADMAP.md](docs/ROADMAP.md) lists what was and was not verified.
 
 ## Screenshots
 
 Rendered from the running game on an RTX 5070 by the scripted screenshot harness
-(`tools/shots.sh`, Mobile renderer, 1920×1080).
+(`tools/shots.sh`, Mobile renderer, 1920×1080). Full set and before/after sheets:
+[docs/screenshots/v0.3](docs/screenshots/v0.3/README.md).
 
 | | |
 |---|---|
-| ![Arrival](docs/screenshots/01_arrival.jpg) | ![Digging](docs/screenshots/05_digging.jpg) |
-| ![Ore tunnel](docs/screenshots/08_ore_tunnel.jpg) | ![Planet heart](docs/screenshots/10_planet_heart.jpg) |
-| ![Workshop screen](docs/screenshots/15_workshop_screen.jpg) | ![New tool](docs/screenshots/17_new_tool_in_hand.jpg) |
-| ![Glimmerock](docs/screenshots/11_glimmerock_surface.jpg) | ![Main menu](docs/screenshots/20_main_menu.jpg) |
+| ![Outpost](docs/screenshots/v0.3/02_outpost.jpg) | ![Horizon](docs/screenshots/v0.3/01_horizon.jpg) |
+| ![Whisperwood](docs/screenshots/v0.3/05_region_whisperwood.jpg) | ![Map](docs/screenshots/v0.3/14_map.jpg) |
+| ![Auto-Borer](docs/screenshots/v0.3/15_auto_borer.jpg) | ![Glimmerock](docs/screenshots/v0.3/16_glimmerock.jpg) |
 
-Every tool tier has its own model, and every attachment adds parts to it:
-![Tools](docs/screenshots/24_tools_first_person.jpg)
-
-Before and after this pass: ![Before / after](docs/screenshots/compare/digging.jpg)
+Before (v0.2) and after (v0.3): ![Before / after](docs/screenshots/v0.3/compare_outpost.jpg)
 
 ## Requirements
 
@@ -82,6 +80,9 @@ together. `build/` is not committed.
 | Switch tool | `1`–`4` or mouse wheel |
 | Interact (Workshop, Outfitter, lander, artifacts) | `E` |
 | Scanner pulse | `Q` (needs the Pocket Pinger) |
+| Survey map (click: waypoint; travel from relays and the outpost) | `M` |
+| Set up / pack up the Auto-Borer | `G` |
+| Mark the helper bots' work zone (press at the outpost to reset) | `B` |
 | Field journal | `Tab` |
 | Pause / settings | `Esc` |
 | Performance overlay / quick save / screenshot | `F3` / `F5` / `F12` |
@@ -100,31 +101,42 @@ together. `build/` is not committed.
 * **Go deeper.** Layers get harder with depth. A tool that is too weak bounces off; if only
   *part* of a bite is too hard, the soft ground is removed and the tough ore is left standing
   proud for you to come back to.
-* **Explore.** Cairns mark cave mouths; standing stones ring the mountains. Artifacts are
-  sealed in pockets underground — the scanner finds them. Some discoveries unlock new shop
-  items; two of them chart the course to the second planet. At the very centre of every planet
-  hangs its Heart.
+* **Explore.** Each planet has named regions with their own ground, vegetation and rich ore
+  (Copperfold for copper and iron, Stonebrake for gold, Pockmark for amethyst...). Follow the
+  compass, open the map, bring **survey relays** online to travel between regions, and recall
+  to the outpost from anywhere. Cairns mark cave mouths; standing stones ring the mountains.
+  Artifacts are sealed in pockets underground — the scanner finds them, and some unlock new
+  equipment (the Auto-Borer) or knowledge (which region is rich in what). At the very centre of
+  every planet hangs its Heart.
+* **Contracts** always give you a concrete goal: bring a relay online, deliver an ore, dig down
+  to a depth in a region.
 
 ## What exists today
 
-* Spherical voxel planets (Voxel Tools `VoxelTerrain` + Transvoxel), seeded and deterministic,
-  with hills, mountains, basins, worm caves, hand-placed caverns with entrances, sealed
-  artifact pockets and a hollow core chamber.
+* Spherical voxel planets of 400 m and 300 m radius on **streamed LOD terrain** (Voxel Tools
+  `VoxelLodTerrain`, Clipbox streaming, Transvoxel): full resolution around the player, the
+  whole planet visible; seeded and deterministic, with landforms (mountains, ridges, plateaus,
+  craters, basins), regions, worm caves, caverns with entrances, sealed artifact pockets and a
+  hollow core chamber.
 * Real excavation with material hardness, selective digging, sphere and capsule edits,
-  immediate collision updates and persistent terrain (SQLite voxel stream per planet).
-* First-person controller with planet-centred gravity, sprint, coyote time, double jump,
-  jetpack, zero-g drifting inside the core and an "un-stick" safety net.
+  collision that follows every edit, and terrain that stays dug when you walk away and when you
+  quit (SQLite voxel stream per planet and terrain generation).
+* First-person controller with planet-centred gravity, a smoothed camera horizon and comfort
+  settings, sprint, coyote time, double jump, jetpack and zero-g drifting inside the core.
+* Navigation: compass strip, survey map, waypoint, survey relays with fast travel, recall.
+* Machines and activities: the Auto-Borer, helper bots with work zones, survey contracts.
 * Tools: Shovel (4 tiers), Drill (3), Vacuum (2), Boom Cannon (2); 12 attachments that change
   numbers, behaviour and the model.
 * Gear: backpack, chunk magnet, boots, jump jets, scanner, lucky charm, refinery, helper bots,
-  bot cargo, bot thrusters.
+  bot cargo, bot thrusters, Auto-Borer.
 * An outpost that grows with your progress, a simulated and documented economy
   ([docs/BALANCE.md](docs/BALANCE.md)), 19 materials.
 * Two planets: **Pipseed** (green starter world) and **Glimmerock** (airless low-gravity
   crystal moon), travel by lander.
-* 18 discoveries, harvestable crystal formations, scanner, field journal, guided objectives.
+* 21 discoveries, harvestable crystal formations, scanner, field journal, guided objectives.
 * Main menu, HUD, shop with 3D previews, planet select, journal, pause, settings, loading.
-* Versioned saves with checksum, atomic write, rolling backup and corrupted-save recovery.
+* Versioned saves (v3) with checksum, atomic write, rolling backup, corrupted-save recovery and
+  a tested migration from v0.2 saves that keeps all progress.
 * Original synthesised audio (49 effects + 2 music loops) with a level-normalised mix,
   depth-driven cave reverb and synthesised ambience.
 
@@ -158,6 +170,7 @@ tools/                 screenshot / benchmark / economy / audio tools (see docs/
 * [docs/TESTING.md](docs/TESTING.md) — tests, screenshot harness, benchmarks, what was verified
 * [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) — Voxel Tools install/update, versions, licences
 * [docs/ROADMAP.md](docs/ROADMAP.md) — known limitations and what comes next
+* [docs/PLAYTEST.md](docs/PLAYTEST.md) — what a human tester should check
 * [CLAUDE.md](CLAUDE.md) — orientation for AI coding agents working in this repo
 
 ## Licence & credits

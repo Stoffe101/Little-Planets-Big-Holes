@@ -1,69 +1,65 @@
 # Roadmap
 
-## What the v0.2 pass delivered
+## What the v0.3 pass delivered ("Bigger worlds, original identity")
 
-A new visual identity (docs/ART_DIRECTION.md) applied to terrain, sky, lighting, props, the
-outpost, all tools, discoveries, effects and the whole interface; smoother, class-specific
-tool animation and purchase presentation; a simulated and rebalanced economy
-(docs/BALANCE.md); a level-normalised audio mix with cave acoustics and ambience; Windows
-export presets and a verified build; GPU benchmarks; an off-desktop render harness; nine new
-regression tests. Details and evidence: docs/TESTING.md, docs/TECHNICAL.md.
+* **Planets 8× larger** (Pipseed 400 m, Glimmerock 300 m) on streamed LOD terrain with
+  editable/collidable full resolution near the player, persistence for streamed blocks, and a
+  safe v2 → v3 save migration (docs/TECHNICAL.md).
+* **Comfortable traversal**: the world turns under 1 °/s while walking (was 6.7 °/s), a smoothed
+  camera horizon and comfort settings, measured by tests.
+* **Planet design**: landforms (mountains, ridges, plateaus, craters, basins), 7 + 5 named
+  regions with their own look, props and rich ore, new caverns (the Old Workings, the Low
+  Geode), a survey probe artifact.
+* **An original visual identity** (docs/ART_DIRECTION.md): enamelled field instruments, round
+  architecture, a Seedpod lander, gloved hands, a real Mega Scooper bucket, a new UI palette.
+* **Big-world play**: compass, survey map with waypoints, survey relays with travel and recall,
+  contracts, the Auto-Borer, bot work zones that unload at relays.
+* Streaming-aware economy simulator and GPU benchmark, 100+ automated tests.
 
 ## Known limitations
 
 **Not verified by a person**
 
-* **Nobody has played or listened to this build.** Stills and slowed film strips of the tool
-  animations were rendered on a real GPU and reviewed; real-time feel, input and all audio
-  (including the new ambience beds and cave reverb) are unreviewed. Expect to adjust animation amounts and the mix.
-* **Pacing is modelled, not playtested**, and only on Pipseed. Glimmerock's economy and the
-  late game are scaled by rule, not measured.
-* 4K was not rendered (the UI is resolution-independent at 16:9; 3440×1440 was checked).
-* The Linux export preset is untested; CI covers headless tests on Linux only.
+* **Nobody has played this build.** Traversal comfort is *measured* (rotation rates, no snaps or
+  roll) but not *felt*; docs/PLAYTEST.md lists what a human should check. No audio was heard.
+* **Pacing is modelled** (docs/BALANCE.md), not playtested; Glimmerock is not modelled.
+* Whether the new look reads as original and appealing is a human judgement; the identity
+  tests only guard measurable rules.
+* The Linux export preset is untested.
 
-**Visual**
+**Performance and streaming**
 
-* The **Mega Scooper** bucket is the weakest tool model: its proportions read as a wedge.
-  The power-shovel heads are small in first person; their bite is better communicated by the
-  hole than by the tool.
-* Tool models show no hands or arms.
-* Open lawns are deliberately plain; at close range the grass is a shaded surface plus sparse
-  blades, not dense geometry.
-* Crystal formations are simple prisms; the cavern composition is seeded, not hand-placed.
-* The typeface comes from the system (Bahnschrift on Windows). Other systems get their own
-  sans-serif, so text metrics differ slightly. Shipping a bundled DIN-style font (for example
-  Barlow or Inter, both OFL) would fix that.
-* Label3D lettering on curved hulls can clip.
+* Frame rate is ~80–120 FPS on the development PC and **CPU-bound** (was GPU-bound at 500+ FPS
+  on the tiny planets). Not yet profiled per system.
+* Streaming hitches: 99th-percentile frame ~27 ms while sprinting; 90–120 ms spikes right after
+  a 300 m relay jump (behind the travel flash).
+* The terrain readiness check relies on `VoxelLodTerrain.debug_get_mesh_block_info`; if a future
+  Voxel Tools version changes it, `Planet.is_area_ready` must be revisited.
+* Edits are only possible within ~70 m of the player (Voxel Tools LOD0 range); the Auto-Borer
+  and bots pause or fall back to the analytic surface beyond that.
 
 **Design / implementation gaps**
 
-* Loose chunks on the ground and bot cargo in flight are not saved; you arrive at the outpost.
-* One save slot. No key-rebinding UI (actions are registered in `Settings.ACTIONS`).
-* No gamepad support. No localisation.
-* Helper bots hover and cannot reach chunks inside sealed tunnels (they give up after ~14 s).
-* Dug-up props are re-derived from "is the ground still there" on reload.
-* Surface crystals moved in v0.2 (they are now seeded per item); crystals harvested in an
-  older save reappear once.
-* Terrain materials are a function of position, so material cannot be *added* (no building).
-* Ambience is two synthesised noise beds; there are no positional environment sounds.
-* The music tracks were not regenerated (no ffmpeg on the development machine).
+* **v0.1/v0.2 dig sites do not carry over** to the new planets (progress does; the old terrain
+  files are kept on disk). Crystal and prop flags from old saves no longer correspond to items.
+* No vehicle. Relay travel and recall cover long distances; a hover vehicle was not built
+  because it could not be made polished in this pass.
+* Contracts are three generated kinds; there is no contract board UI beyond the HUD line.
+* The map's relief is rendered once per session on a worker thread (~1 s); it shows regions
+  and named landforms but not your own excavations.
+* Region and relay names exist only in English. No localisation, no gamepad, one save slot.
+* The Auto-Borer only digs straight down; bots never dig.
+* Music and sounds are unchanged from v0.2 (nothing new was recorded or synthesised).
 
-## Recommended next pass: "hands on"
+## Recommended next pass: "play it"
 
-The game now looks the part; the next pass should be driven by a person playing it.
-
-1. **Play the first 30 minutes several times** with the F3 overlay, fix what motion and sound
-   reveal: swing weight, drill push, recoil, purchase inspect length, particle timing, the mix.
-   Replace any sound that grates; add positional ambience (wind in grass, cave drips).
-2. **Check the pacing against the model** (docs/BALANCE.md) and tune the JSON; then model and
-   tune Glimmerock.
-3. **First-person hands** and a second modelling pass on the Mega Scooper and power-shovel
-   heads; denser grass near the camera.
-4. **Mid-game variety on Pipseed**: deposits that need a specific attachment, a second vault,
-   discoveries with more mechanical value, a reason to use the cannon and vacuum together.
-5. **Quality of life**: key rebinding, multiple save slots, gamepad, a bundled font,
-   photo mode.
-6. **Machines** (the fantasy's end-game): a rideable digger using `dig_capsule`, a placeable
-   auto-drill, a conveyor from pit to Depot; robots that dig.
-7. **More planets** once the two existing ones are fun for an hour each.
-8. **Co-op**, following the notes in docs/TECHNICAL.md.
+1. **Human playtest** using docs/PLAYTEST.md: comfort, the first 30 minutes, getting lost (or
+   not), relay travel, the borer, contracts. Tune JSON from what is found.
+2. **Profile the CPU frame** (Godot profiler + Voxel Tools stats) and cut the cost of prop
+   streaming and static prop bodies; spread mesh/collider activation after long jumps.
+3. **Glimmerock pacing** in the simulator; regional contracts there.
+4. A **hover vehicle** for the far side once traversal feels right on foot; then conveyors or a
+   rail from a borer shaft to a relay.
+5. Map overlay of your own excavations and found deposits; contract board at the Depot.
+6. Quality of life: key rebinding, more save slots, gamepad, a bundled font.
+7. Co-op, following docs/TECHNICAL.md.

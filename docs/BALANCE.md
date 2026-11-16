@@ -106,3 +106,44 @@ every tier a real step in ground moved or in power, ore worth more than dirt, ba
 
 When a playtest disagrees with the model, change the JSON, re-run the simulator to see what
 moved, and update the tables above.
+
+## Pass 3: big planets (model estimates, not playtests)
+
+What changed for pacing: the planets are 8× larger; ores are **richer in their regions**
+(Copperfold: copper ×3.5, iron ×2.5; Stonebrake: gold ×3; Pockmark: amethyst ×3); survey
+relays make far regions reachable; contracts pay credits on top of sales; the Auto-Borer
+(5,000 / 18,000 / 60,000 cr, unlocked by the Fossilised Drill Bit) digs on its own; prices and
+tool stats are **unchanged**.
+
+The simulator now moves the scripted player (the terrain viewer) to every dig site and waits
+for the ground to load, and has a third policy:
+
+| Policy | What it does |
+|---|---|
+| `balanced` | v0.2 behaviour: digs in a ring 20–60 m around the outpost |
+| `explorer` | same purchases, but digs in the region whose boosted ore is worth most among those its current tool can break; walks there once (counted), brings the relay online, then sells by walking to the relay, jumping to the outpost (4 s per jump) and walking to the Depot, and back |
+
+Pipseed, 60 simulated minutes (`econ.tscn -- 60 balanced|explorer pipseed`):
+
+| | balanced | explorer |
+|---|---|---|
+| Thumper 3000 bought at | 10.2 min | 6.9 min |
+| Burrow Drill | 16.7 min | 12.6 min |
+| Boomer (cannon) | 35.0 min | 25.2 min |
+| Diamond Drill | 56.6 min | 38.0 min |
+| Mega Scooper | – | 48.6 min |
+| Total earned in 60 min | 56,600 cr | 102,200 cr |
+| Time spent travelling to sell | 4.2 min (7 %) | 7.3 min (12 %) |
+| Regions worked | outpost ring | Copperfold from 0.3 min, Stonebrake from 7.5 min |
+| Contracts completed | 0 | 2 (deliveries that happened along the way) |
+
+Reading it:
+
+* Exploring roughly **doubles** income over an hour in the model, mostly through gold in
+  Stonebrake (40 % of the explorer's value). That is the intended pull outwards; whether it is
+  *too* strong needs a person playing (the model never gets lost, never wastes a relay jump and
+  walks straight to the richest region it can work).
+* Travel costs ~12 % of the session with relays. Without relays the same trips would be
+  ~250 m walks each way; relays are what make regional mining viable.
+* Not modelled: the Auto-Borer, helper bots, contract bonuses beyond deliveries, artifacts,
+  depth contracts, Glimmerock. Treat all times as the fast end of plausible.

@@ -91,7 +91,7 @@ func _build_terrain(db_path: String) -> void:
 	viewer.requires_collisions = true
 	viewer.requires_visuals = true
 	add_child(viewer)
-	viewer.global_position = geology.spawn_position()
+	viewer.position = geology.spawn_position()      # the planet sits at the origin, unrotated
 
 	voxel_tool = terrain.get_voxel_tool()
 	voxel_tool.channel = VoxelBuffer.CHANNEL_SDF
