@@ -10,6 +10,10 @@ planet's heart and fly on to the next world.
 > radius on streamed LOD voxel terrain (previously 48 m / 42 m), with named regions, landforms,
 > a survey map, relays, contracts and an Auto-Borer; the look was redesigned into its own
 > identity ([docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)). Saves from v0.2 keep all progress.
+> **v0.3.1** profiled the big worlds and fixed what was found: cached voxel generation (digs
+> 1.6–12 ms → 0.5–0.7 ms), 32-voxel mesh blocks (render CPU −40 %, relay-jump stall
+> 100–140 ms → 35–40 ms), a relay transit card that holds you until the ground is solid, a
+> stability test suite, and accurate ground queries ([docs/TECHNICAL.md](docs/TECHNICAL.md#measured-performance)).
 > No human has playtested this build yet — [docs/PLAYTEST.md](docs/PLAYTEST.md) says what to
 > check, [docs/ROADMAP.md](docs/ROADMAP.md) lists what was and was not verified.
 
@@ -123,7 +127,8 @@ together. `build/` is not committed.
   quit (SQLite voxel stream per planet and terrain generation).
 * First-person controller with planet-centred gravity, a smoothed camera horizon and comfort
   settings, sprint, coyote time, double jump, jetpack and zero-g drifting inside the core.
-* Navigation: compass strip, survey map, waypoint, survey relays with fast travel, recall.
+* Navigation: compass strip, survey map, waypoint, survey relays with fast travel and recall
+  behind a transit card (you are held until the destination's ground is collidable).
 * Machines and activities: the Auto-Borer, helper bots with work zones, survey contracts.
 * Tools: Shovel (4 tiers), Drill (3), Vacuum (2), Boom Cannon (2); 12 attachments that change
   numbers, behaviour and the model.

@@ -132,19 +132,34 @@ func test_streaming_memory_stays_bounded_while_travelling() -> void:
 
 
 func test_planets_load_and_unload_cleanly() -> void:
+	# Voxel Tools keeps freed voxel blocks in a pool for reuse (~75-95 MB after a planet), so the
+	# first load raises static memory; a leak shows as growth that continues load after load.
 	var mem0 := OS.get_static_memory_usage()
-	for pid: String in ["glimmerock", "pipseed", "glimmerock"]:
+	var after: Array[float] = []
+	for pid: String in ["glimmerock", "pipseed", "glimmerock", "pipseed"]:
 		GameState.current_planet = pid
 		var w2 := await make_world(pid, false)
 		assert_true(w2.is_ready, "%s loads" % pid)
 		assert_true(w2.player.is_on_floor() or await wait_until(func() -> bool: return w2.player.is_on_floor(), 120), "player stands on %s" % pid)
 		assert_eq(w2.planet.geology.id, pid, "the right planet")
 		await free_world(w2)
-	await frames(10)
-	var grown := float(OS.get_static_memory_usage() - mem0) / 1048576.0
-	print("         static memory change after loading 3 planets in turn: %+.0f MB" % grown)
-	assert_lt(grown, 250.0, "loading and unloading planets does not leak large amounts of memory")
+		await _voxel_engine_idle()
+		after.append(float(OS.get_static_memory_usage() - mem0) / 1048576.0)
+	print("         static memory change after each planet: %s MB" % str(after.map(func(v: float) -> String: return "%+.0f" % v)))
+	assert_lt(after[-1], 250.0, "four planet loads leave less than 250 MB behind (voxel pool included)")
+	assert_lt(after[3] - after[1], 30.0, "no growth once the pool is warm: loads 3-4 add %.0f MB" % (after[3] - after[1]))
 	GameState.current_planet = "pipseed"
+
+
+## Waits until the voxel engine has no queued work (freed terrains finish their in-flight tasks).
+func _voxel_engine_idle() -> void:
+	var quiet := 0
+	for i in 1200:
+		await get_tree().process_frame
+		var tk: Dictionary = VoxelEngine.get_stats()["tasks"]
+		quiet = quiet + 1 if int(tk["generation"]) + int(tk["meshing"]) + int(tk["streaming"]) + int(tk["main_thread"]) == 0 else 0
+		if quiet >= 30:
+			return
 
 
 ## `is_area_ready` has a fallback that does not need Voxel Tools' debug query (physics rays).

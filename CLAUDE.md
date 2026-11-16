@@ -87,7 +87,8 @@ real app flow must redirect `SaveSystem.save_dir` first (`start_game(true)` dele
 11. **Props are seeded per item** (`PropField._item(kind, cell, index)`): draw all of an item's
     random numbers right after that call. Do not share one advancing RNG across items, or
     digging in one place reshuffles props (and crystal flags) elsewhere.
-12. **The terrain is streamed.** Only ~70 m around the player is editable and collidable. Before
+12. **The terrain is streamed.** Only ~60 m around the player is reliably editable and collidable
+   (58–114 m depending on direction; `bench.tscn` measures it). Before
     teleporting, editing or measuring far away, wait for `planet.is_area_ready(pos, r)` (tests:
     `stream_to()` / `place_player()`; tools: `stream()` / `place()` in `shots.gd`).
     `sdf_at` falls back to the analytic original surface where data is not loaded; DigSystem

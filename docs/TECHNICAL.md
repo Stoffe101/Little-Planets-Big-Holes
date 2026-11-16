@@ -81,22 +81,41 @@ and a bearing from the landing site).
 
 ### `Planet` (`src/planet/planet.gd`) — streamed LOD terrain
 
-* `VoxelLodTerrain` + `VoxelMesherTransvoxel`, 16³ mesh blocks, node scaled by `voxel_size`
-  (0.5 m). Octree sized to contain the planet (Pipseed: 8 LODs over 2048 voxels).
-* **Clipbox streaming** with `lod_distance` 96 voxels: full-resolution, *editable, collidable*
-  voxels within ~70 m of the viewer, coarser LODs out to the far side (the whole planet is
-  always drawn). Octree streaming was 5–50× slower to become ready; `full_load_mode` with
-  Clipbox failed. The `VoxelViewer` is a child of the player.
+* `VoxelLodTerrain` + `VoxelMesherTransvoxel`, **32³ mesh blocks** (16³ data blocks), node
+  scaled by `voxel_size` (0.5 m). Octree sized to contain the planet (Pipseed: 8 LODs over 2048
+  voxels). 32 rather than 16 (pass 3.1): ~740 instead of ~3,100 mesh blocks for the same
+  terrain, render CPU −40 %, and a 300 m jump unloads ~600 blocks in one 35–40 ms frame instead
+  of ~3,000 in 100–140 ms; load time and edit-to-collision latency did not get worse.
+* **Generated blocks are cached** (`cache_generated_blocks`). Without it every edit and every
+  voxel read in a block nobody had edited regenerated that block from the generator graph on
+  the main thread: 4–12 ms per first edit, `sdf_at` stalls up to 40 ms while streaming. Costs
+  ~50–85 MB, bounded by the streaming area (tested).
+* **Clipbox streaming** with `lod_distance` 96 voxels: full-resolution, *editable* voxels
+  58–114 m from the viewer depending on direction and block alignment (collidable 50–102 m;
+  `bench.tscn` measures it), coarser LODs out to the far side (the whole planet is always
+  drawn). Octree streaming was 5–50× slower to become ready; `full_load_mode` with Clipbox
+  failed. The `VoxelViewer` is a child of the player. Voxel Tools' main-thread budget is 4 ms
+  per frame (`project.godot`, was the default 8): smoother traversal, colliders after a long
+  jump ~0.3 s later.
 * **Readiness.** `is_area_ready(center, r)` = voxels editable + LOD0 meshing finished + every
   existing LOD0 mesh block in the box has an *active collider*. Voxel Tools activates LODs from
   the top of the octree down, so a block can be meshed seconds before its collider exists; the
   loading screen, the player's "hold while ground streams in", relay travel, tests and tools
-  all wait on this. (Uses `debug_get_mesh_block_info`, which exists in release builds too.)
+  all wait on this. (Uses `debug_get_mesh_block_info`, which exists in release builds too. If
+  that query is missing or stops reporting `collision_active`, `readiness_mode` switches to a
+  physics-ray probe; a test checks the probe never reports ready before the block query does.)
 * **LOD transitions.** Transvoxel transition meshes and secondary vertex positions are decoded
   in `terrain.gdshader` (`transvoxel_position`: CUSTOM0 bits 0–5 cell border, 8–13 vertex border,
   16+ transition side; the engine sets `u_transition_mask`).
-* **Queries outside the loaded area** fall back to the analytic original surface (`sdf_at`), so
-  bots, props and placement can reason about far ground without forcing it to load.
+* **Queries.** `sdf_at` samples the loaded voxels trilinearly - the surface the mesh and its
+  collider follow (it used the lower-corner voxel before, up to ~0.5 m off). `sdf_at_voxel` is
+  that old stored-voxel read, kept only for the dig survey, whose yields the economy was tuned
+  on. Outside the loaded area both fall back to the analytic original surface, so bots, props
+  and placement can reason about far ground without forcing it to load.
+* **Long jumps** (relay travel, recall) go through `TransitOverlay`: the view cuts to a transit
+  card in the jump frame, the player is held until the destination's ground is collidable and
+  most meshing is done (measured 1.2–2.5 s), then snapped onto the real ground and the card
+  fades. The unload/remesh frames (35–55 ms) are never shown.
 * **Persistence.** `VoxelStreamSQLite` with the key cache on (6× faster block loads); only
   modified blocks are stored, and blocks that stream out are written to it, so edits survive
   walking away (tested) as well as quitting.
@@ -142,51 +161,63 @@ blocked / selective), edit with `VoxelTool`, yield units by material. **New:** a
 area is not editable at full resolution (outside the streamed range) is refused and reported as
 `unloaded` — nothing is dug and nothing counts.
 
-Measured (`tools/dev/bench.tscn`, digs 16–45 m from the outpost): `dig_sphere` takes
-**1.6–5.2 ms** depending on radius (r = 0.85 / 1.5 / 2.4 / 3.4 / 6.5 m: 5.2 / 2.2 / 2.1 / 1.6 /
-3.6 ms; the first digs into fresh blocks are the slowest), selective digs 1.1 ms; the 400-dig
-stress test averages 1.7 ms. v0.2 on `VoxelTerrain` took 0.25–0.9 ms. The likely reason is that
-each edit also updates the coarser LOD copies of the edited blocks; this was not profiled.
-Collision follows an edit after 9 physics ticks. A blocking save after ~200 large digs took
-93 ms (3.6 MB database). World setup 0.84 s, terrain playable after 1.8 s, 2.8 s in total.
+Measured (`tools/dev/bench.tscn`, one dig per frame, 16–45 m from the outpost, pass 3.1):
+`dig_sphere` takes **0.5–0.7 ms** (r = 0.85 / 1.5 / 2.4 / 3.4 / 6.5 m: 0.63 / 0.58 / 0.54 / 0.52 /
+0.71 ms), of which the voxel edit is 0.02–0.21 ms and the 56-point material survey 0.43–0.57 ms;
+selective digs 1.1 ms. v0.3.0 took 1.6–5.2 ms (and 11–12 ms for a 6.5 m blast into untouched
+ground): the cost was **regenerating never-edited blocks on the main thread**, not the LOD
+copies as guessed in pass 3 - with `cache_generated_blocks` on it is gone. v0.2 on
+`VoxelTerrain` took 0.25–0.9 ms. Collision follows an edit after 6–7 physics ticks. A blocking
+save after ~200 large digs takes 78 ms (3.6 MB database). World setup 0.83 s, terrain playable
+after 2.1–2.3 s (headless).
 
 ## Measured performance
 
 All numbers from this machine: Windows 11, Ryzen 7 5800X3D, RTX 5070, Godot 4.7.2, Mobile
-renderer, v-sync off, window on an off-screen desktop (`tools/perf.sh`). A 1440-row request
-yields a 1421-row window there. Run-to-run variation between repeats was about ±10 %.
+renderer, v-sync off, window on an off-screen desktop. A 1440-row request yields a 1421-row
+window there.
 
-**Loading and memory (Pipseed, 1920×1080):** terrain ready with colliders at the spawn 2.2–2.4 s
-after start (incl. 0.45 s geology bake from cache); world ready (props, outpost, caverns) 3.5–3.8 s.
-Static memory 300 MB after arrival, 373–387 MB after the whole benchmark; video memory
-329 / 431 / 507 MB at the three resolutions (+~25 MB by the end). ~12,400 voxel data blocks and
-3,000–3,800 mesh blocks loaded at any time. Saving progress + all terrain edits after the run:
-14–15 ms; database ~970 KB.
+**Read this first: the GPU was shared.** During pass 3.1 another application (a game on the
+visible desktop) kept the GPU at **80–96 % utilisation** for every benchmark (`nvidia-smi`, logged
+per run by `tools/perf_compare.py`). Under that load *any* build tops out around 100–140 FPS:
+v0.2, which pass 2 measured at 500–880 FPS, ran at 123–145 FPS here, the same as v0.3. With 3D
+drawing switched off the whole game (scripts, physics, voxel engine, UI) takes ~0.9 ms per frame,
+and even with every object hidden (9 draw calls) the frame took ~6 ms. So most of the "5–8×
+regression" reported in pass 3 was this contention, not the game; pass 3's "CPU-bound, periodic
+per-tick cost" reading was wrong. **No uncontended v0.3.x frame rate has been measured yet.** What
+the game itself costs is visible in the columns that contention barely touches: the renderer's
+CPU time, draw calls, Godot's profiler (script and physics time) and the streaming spike frames.
 
-| Scenario (avg FPS / p99 ms / max ms; GPU ms) | 1920×1080 | 2560×1421 | 3440×1421 |
-|---|---|---|---|
-| Vista from a mountain | 117 / 15.8 / 16.0; 0.7 | 119 / 15.2 / 15.8; 1.0 | 105 / 15.6 / 16.3; 1.3 |
-| Outpost in view | 105 / 16.1 / 16.8; 1.4 | 96 / 16.2 / 16.5; 1.8 | 86 / 17.5 / 24.0; 2.6 |
-| Power shovel held down | 95 / 17.0 / 17.9; 2.0 | 86 / 17.7 / 18.4; 3.1 | 78 / 18.5 / 20.5; 3.6 |
-| Eight 6.5 m blasts + debris | 99 / 18.5 / 25.3; 1.8 | 93 / 16.9 / 21.4; 2.5 | 99 / 15.8 / 29.3; 3.3 |
-| Crystal cavern | 93 / 17.2 / 18.4; 2.1 | 91 / 16.4 / 19.2; 3.1 | 104 / 14.1 / 14.5; 4.0 |
-| Three bots, 150 chunks | 99 / 18.0 / 19.1; 1.7 | 96 / 17.1 / 20.7; 2.1 | 96 / 15.0 / 16.4; 2.4 |
-| Sprint + jetpack traversal (streaming) | 94 / 27.4 / 34.8; 1.4 | 94 / 26.2 / 41.4; 1.9 | 93 / 27.8 / 44.6; 2.2 |
-| First 240 frames after a 300 m jump | 69 / 66.5 / 118; 1.1 | 73 / 62.1 / 96.6; 1.6 | 74 / 46.1 / 90.6; 2.0 |
+What the game really did cost, found with `tools/profile.sh` (Godot's own profiler, off-screen)
+and `streamprobe`: (1) never-edited voxel blocks were regenerated on the main thread for every
+edit and voxel query (digs 1.6–12 ms, `sdf_at` stalls up to 40 ms while streaming); (2) per-mesh-
+block work after a long jump: ~3,000 blocks unloaded in one 100–140 ms frame, then ~6,700 meshing
+tasks and 2–3 s of 15–30 ms frames; (3) renderer CPU about twice v0.2's (1,300–2,800 draw calls).
+Fixes: cached generated blocks, 32-voxel mesh blocks, a 4 ms voxel main-thread budget, the relay
+transit card. Script time is 0.3–1 ms per frame and physics 0.1–1 ms (profiler); prop streaming
+is budgeted at 2.5 ms and stays under it except when cells are freed after a jump (~4–6 ms, behind
+the card).
 
-After a 300 m relay jump the ground under the player has live colliders after 1.7–1.8 s; the
-player is held until then ("Surveying ground...").
+**Before (v0.3.0, e73f98b) / after (v0.3.1), same benchmark code, runs alternated, medians of
+three each** (`python tools/perf_compare.py --before <v0.3.0 checkout> --res <WxH> --reps 3`).
+Columns: avg FPS · p99 ms · max ms · renderer CPU ms · draw calls.
 
-**Reading these numbers honestly.** v0.2 ran at 500–880 FPS and was GPU-bound on a tiny,
-fully loaded planet. The big streamed planets run at ~80–120 FPS here and are **CPU-bound**: the
-GPU needs 1–4 ms, the frame takes 8–13 ms. That is an **unprofiled 5–8× regression** in frame
-rate (still well above 60 FPS on this machine). The p95 of ~16 ms even in the idle vista suggests
-a periodic per-tick cost rather than rendering. The CPU cost has not been attributed yet;
-candidates are prop-cell streaming, physics with thousands of static prop bodies, Voxel Tools'
-main-thread work and the HUD. Streaming causes frame-time spikes: the 99th percentile while
-sprinting is ~27 ms, and the first frames after a long jump spike to 90–120 ms (hidden behind the
-travel flash, but real). See ROADMAP for the planned work. Not measured: other GPUs/CPUs, 4K,
-long-session thermals.
+PERF_TABLES
+
+**Loading and memory (1920×1080):** terrain ready with colliders at the spawn 2.2–2.4 s (same as
+before), world ready 3.7–3.9 s. Static memory at the end of the run 405–415 MB (was 380: the
+cached voxel blocks, ~56 MB); video memory 305 MB (was 351: a quarter of the mesh instances).
+Saving all terrain edits 14–25 ms; database ~900 KB.
+
+**What 165 Hz needs (an estimate, not a measurement).** 165 Hz leaves 6.06 ms per frame. The
+CPU side measured here is ~0.9 ms of game logic plus 1.0–1.6 ms of renderer CPU when nothing
+streams, and up to the 4 ms voxel budget more while terrain streams in; the GPU timestamps say
+0.8–2.1 ms at 1080p (shared GPU). On an idle RTX 5070 that suggests standing and digging fits
+comfortably in 6 ms, and fast jetpack traversal will sometimes not (streaming frames of 8–15 ms
+were measured here). V-sync is on by default; with a non-VRR display a late frame halves the
+rate for that frame. Measure it with `perf_compare.py` on an idle machine before relying on it.
+
+Not measured: an idle GPU, other GPUs/CPUs, 4K, long-session thermals.
 
 ## Audio (`src/autoload/audio.gd`)
 

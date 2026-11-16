@@ -4,9 +4,10 @@ extends Node3D
 ##
 ## Streaming: the terrain is an octree of LODs centred on the planet. A single VoxelViewer
 ## follows the player (`attach_viewer`); full-resolution voxels (LOD0, editable, collidable)
-## exist within ~70 m of it, coarser LODs cover the rest of the planet down to a few blocks for
-## the far side. Only voxel blocks that were edited are stored (SQLite stream with key cache);
-## everything else is regenerated from the seed on demand. See docs/TECHNICAL.md.
+## exist within ~60 m of it (58-114 m by direction), coarser LODs cover the rest of the planet
+## down to a few blocks for the far side. Only voxel blocks that were edited are stored (SQLite
+## stream with key cache); everything else is regenerated from the seed on demand and kept in
+## memory while near the viewer. See docs/TECHNICAL.md.
 ##
 ## The planet always sits at the world origin with an identity transform, so planet-local
 ## metres == world metres. Voxel coordinates are world / voxel_size.
@@ -18,7 +19,7 @@ signal loaded()
 
 const TERRAIN_SHADER := preload("res://shaders/terrain.gdshader")
 const COLLISION_LAYER := 1
-const LOD0_DISTANCE := 96.0          ## voxels; measured editable radius ~70 m (docs/TECHNICAL.md)
+const LOD0_DISTANCE := 96.0          ## voxels; measured editable radius 58-114 m by direction (docs/TECHNICAL.md)
 const SPAWN_READY_RADIUS := 20.0     ## metres around the spawn that must be meshed before play
 
 var config: Dictionary
@@ -174,8 +175,8 @@ func is_area_ready(center: Vector3, radius_m: float) -> bool:
 
 
 ## Readiness fallback without Voxel Tools' debug query: wherever the voxel data says there is
-## ground under a probe point, a physics ray must hit the terrain collider near it. Five
-## vertical probes (centre and four points at 70 % of the radius).
+## ground under a probe point, a physics ray must hit the terrain collider near it. Nine
+## vertical probes: the centre, the edges and the corners of the area (its full radius).
 func _colliders_hit(center: Vector3, radius_m: float) -> bool:
 	if not is_inside_tree():
 		return false
@@ -184,7 +185,11 @@ func _colliders_hit(center: Vector3, radius_m: float) -> bool:
 	var t1 := up.cross(Vector3(0.3, 1.0, 0.2)).normalized()
 	var t2 := up.cross(t1)
 	var reach := radius_m + 3.0
-	for off: Vector3 in [Vector3.ZERO, t1 * radius_m * 0.7, -t1 * radius_m * 0.7, t2 * radius_m * 0.7, -t2 * radius_m * 0.7]:
+	var offs: Array[Vector3] = []
+	for i in [-1, 0, 1]:
+		for j in [-1, 0, 1]:
+			offs.append((t1 * float(i) + t2 * float(j)) * radius_m)
+	for off: Vector3 in offs:
 		var top := center + off + up * reach
 		var bottom := center + off - up * reach
 		# solid ground somewhere on the probe line? (sample the loaded voxels from the top down)
