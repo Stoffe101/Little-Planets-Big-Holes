@@ -91,6 +91,37 @@ func test_relay_activation_and_travel_rules() -> void:
 	assert_gt(float(GameState.stats.get("travels", 0)), 1.0, "travels counted")
 
 
+## Relay transit: the jump is covered from its first frame, the player is held (no input, no
+## falling) until the destination's ground is collidable, and then it releases on its own.
+func test_relay_transit_covers_the_jump_and_never_drops_the_player() -> void:
+	await place_player(w, geo.landing_dir)
+	assert_true(nav.travel("outpost") or nav.travel_origin() == "outpost", "recall works from the outpost too")
+	await wait_until(func() -> bool: return not w.transit.active, 900)
+	var rel: Dictionary = nav.relays[0]
+	GameState.set_flag(nav._flag("relay", rel["id"]))
+	var start := w.player.global_position
+	assert_true(nav.travel(rel["id"]), "travel from the outpost to an online relay")
+	assert_true(w.transit.active and w.transit.holding(), "the transit card covers the view in the jump frame")
+	assert_true(w.player.transit_hold, "the player is held during transit")
+	assert_gt(start.distance_to(w.player.global_position), 50.0, "already moved to the destination")
+	var arrived := w.player.global_position
+	var drift := 0.0
+	w.player.forced_move = Vector2(0, 1)
+	var frames := 0
+	while w.transit.holding() and frames < 1200:
+		await get_tree().physics_frame
+		frames += 1
+		drift = maxf(drift, w.player.global_position.distance_to(arrived))
+	w.player.forced_move = Vector2.INF
+	assert_false(w.transit.holding(), "the transit ends by itself (%d physics frames)" % frames)
+	assert_lt(w.transit.hold_seconds, TransitOverlay.MAX_HOLD + 0.5, "within the maximum hold")
+	assert_true(w.planet.is_area_ready(w.player.global_position, 3.0), "the ground is collidable when the view returns")
+	assert_lt(drift, 0.05, "held still while the destination streamed in: no falling, no walking (moved %.3f m)" % drift)
+	var landed := await wait_until(func() -> bool: return not w.transit.active and w.player.is_on_floor(), 600)
+	assert_true(landed, "standing on the ground after the fade")
+	assert_false(w.player.transit_hold, "control is back")
+
+
 func test_compass_bearings_and_heading() -> void:
 	await place_player(w, geo.landing_dir + Vector3(0.05, 0, 0.0))
 	var p := w.player

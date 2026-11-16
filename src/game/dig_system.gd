@@ -17,6 +17,8 @@ var planet: Planet
 var _samples := PackedVector3Array()
 var _remainder: Dictionary = {}    ## material index -> fractional units carried to the next dig
 var last_dig_usec := 0             ## instrumentation: duration of the most recent dig
+var last_survey_usec := 0          ## ... of which surveying the bite (material samples)
+var last_edit_usec := 0            ## ... of which the voxel edit itself
 var total_digs := 0
 var total_dig_usec := 0
 
@@ -94,7 +96,9 @@ func dig_sphere(center: Vector3, radius: float, power: int, opts: Dictionary = {
 		result["empty"] = true
 		result["unloaded"] = true
 		return result
+	var ts := Time.get_ticks_usec()
 	var sv := survey(center, radius, power)
+	last_survey_usec = Time.get_ticks_usec() - ts
 	var solid: int = sv["solid"]
 	var hard: int = sv["hard"]
 	result["dominant"] = sv["dominant"]
@@ -112,10 +116,12 @@ func dig_sphere(center: Vector3, radius: float, power: int, opts: Dictionary = {
 	var inv := planet.geology.inv_voxel
 	var vt := planet.voxel_tool
 	vt.mode = VoxelTool.MODE_REMOVE
+	var te := Time.get_ticks_usec()
 	if hard == 0:
 		vt.do_sphere(center * inv, radius * inv)
 	else:
 		_selective_sphere(center, radius, power)
+	last_edit_usec = Time.get_ticks_usec() - te
 
 	var sphere_volume := 4.0 / 3.0 * PI * radius * radius * radius
 	_finish(result, sv["counts"], sphere_volume / float(SAMPLE_COUNT), opts)

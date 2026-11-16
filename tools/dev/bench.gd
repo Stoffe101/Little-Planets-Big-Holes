@@ -36,8 +36,14 @@ func _run() -> void:
 		var a := rng.randf() * TAU
 		var m := rng.randf_range(16.0, 45.0)
 		return (up + (t1v * cos(a) + t2v * sin(a)) * (m / geo.radius)).normalized()
-	for radius: float in [0.85, 1.5, 2.4, 3.4, 6.5]:
+	# one dig per frame, like play (the tools dig at most a few times per second)
+	var radii: Array = [0.85, 1.5, 2.4, 3.4, 6.5]
+	if OS.has_environment("LPBH_BENCH_RADII"):
+		radii = Array(OS.get_environment("LPBH_BENCH_RADII").split(",")).map(func(x: String) -> float: return float(x))
+	for radius: float in radii:
 		var total := 0
+		var survey_t := 0
+		var edit_t := 0
 		var n := 0
 		for i in 40:
 			var d: Vector3 = near.call()
@@ -46,8 +52,12 @@ func _run() -> void:
 			var res := w.dig.dig_sphere(c, radius, 9)
 			if bool(res["ok"]):
 				total += Time.get_ticks_usec() - t
+				survey_t += w.dig.last_survey_usec
+				edit_t += w.dig.last_edit_usec
 				n += 1
-		print("dig_sphere r=%.2f m: %.3f ms avg over %d digs (survey + voxel edit, main thread)" % [radius, float(total) / 1000.0 / float(maxi(n, 1)), n])
+			await get_tree().process_frame
+		var nn := float(maxi(n, 1)) * 1000.0
+		print("dig_sphere r=%.2f m: %.3f ms avg over %d digs (survey %.3f, voxel edit %.3f; main thread)" % [radius, float(total) / nn, n, float(survey_t) / nn, float(edit_t) / nn])
 		for i in 10:
 			await get_tree().physics_frame
 	# selective digs at a hardness boundary

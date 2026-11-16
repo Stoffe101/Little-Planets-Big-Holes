@@ -19,7 +19,7 @@ func after_all() -> void:
 
 func _block_info(p: Vector3, lod: int) -> Dictionary:
 	var v := Vector3i((p * geo.inv_voxel).floor())
-	var s := 4 + lod
+	var s := int(round(log(float(w.planet.mesh_block_size)) / log(2.0))) + lod
 	return w.planet.terrain.debug_get_mesh_block_info(Vector3(v.x >> s, v.y >> s, v.z >> s), lod)
 
 
@@ -145,3 +145,34 @@ func test_planets_load_and_unload_cleanly() -> void:
 	print("         static memory change after loading 3 planets in turn: %+.0f MB" % grown)
 	assert_lt(grown, 250.0, "loading and unloading planets does not leak large amounts of memory")
 	GameState.current_planet = "pipseed"
+
+
+## `is_area_ready` has a fallback that does not need Voxel Tools' debug query (physics rays).
+## After a long jump the fallback must not report the destination ready while the block query
+## still sees LOD0 blocks without live colliders, and both must agree once it has streamed in.
+func test_readiness_fallback_agrees_with_the_block_query() -> void:
+	var p := w.planet
+	await place_player(w, geo.landing_dir)
+	var here := w.player.global_position
+	p.readiness_mode = "raycast"
+	assert_true(p.is_area_ready(here, 3.0), "fallback: ready where the player stands")
+	p.readiness_mode = "block_info"
+	var d := (here.normalized() + w.player.global_basis.x * (250.0 / geo.radius)).normalized()
+	var target := d * (geo.surface_radius(d) + 1.2)
+	w.player.teleport(target, Vector3.FORWARD)
+	var early := 0
+	var frames := 0
+	var both := false
+	while frames < 900 and not both:
+		await get_tree().physics_frame
+		frames += 1
+		var primary := p.is_area_ready(target, 3.0)
+		p.readiness_mode = "raycast"
+		var fallback := p.is_area_ready(target, 3.0)
+		p.readiness_mode = "block_info"
+		if fallback and not primary:
+			early += 1
+		both = primary and fallback
+	assert_true(both, "both checks report the destination ready (after %d physics frames)" % frames)
+	assert_eq(early, 0, "the fallback never says ready while a collider is still missing")
+	await place_player(w, geo.landing_dir)

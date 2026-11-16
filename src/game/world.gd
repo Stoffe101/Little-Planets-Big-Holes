@@ -29,6 +29,7 @@ var scanner: Node                ## Scanner
 var nav: Navigation              ## regions, relays, waypoint, compass/map markers
 var contracts: Contracts         ## the open survey contract
 var borer: AutoBorer             ## the deployable Auto-Borer rig
+var transit: TransitOverlay      ## covers relay jumps / recall while the destination streams in
 var environment: Environment
 var sky_material: ShaderMaterial
 var sun: DirectionalLight3D
@@ -122,6 +123,9 @@ func _build_optional_systems() -> void:
 	borer = AutoBorer.new()
 	borer.name = "Borer"
 	add_child(borer)
+	transit = TransitOverlay.new()
+	add_child(transit)
+	transit.setup(self)
 	if ResourceLoader.exists("res://src/entities/robot_manager.gd"):
 		robots = (load("res://src/entities/robot_manager.gd") as GDScript).new()
 		robots.name = "Robots"

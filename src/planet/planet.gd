@@ -32,10 +32,20 @@ var is_loaded := false
 var half_extent_voxels := 128
 var octree_size := 256
 var lod_count := 4
+## Voxels per mesh block edge. 32 (not 16): a quarter of the mesh instances, colliders and
+## meshing tasks for the same terrain. Measured (pass 3.1, docs/TECHNICAL.md): render CPU
+## -40 %, the frame that unloads the old area after a 300 m relay jump 100-140 ms -> 35-40 ms,
+## same load time and edit-to-collision latency. Dev A/B override: LPBH_MESH_BLOCK=16.
+var mesh_block_size := 32
 var _load_started_ms := 0
 var load_time_ms := 0
 var _ready_cache: Dictionary = {}    ## Vector3i (16-voxel block) -> bool, cleared every physics frame
 var _ready_cache_frame := -1
+## Collider check strategy for `is_area_ready`: "block_info" reads each LOD0 mesh block's
+## `collision_active` (Voxel Tools' debug_get_mesh_block_info, present in release builds of 1.7);
+## "raycast" probes the physics world instead. Picked once at setup; the raycast fallback keeps
+## streaming safe if a future Voxel Tools drops or renames the debug query.
+var readiness_mode := "block_info"
 
 
 func setup(planet_config: Dictionary, terrain_db_path := "", seed_offset := 0) -> void:
@@ -70,7 +80,15 @@ func _build_terrain(db_path: String) -> void:
 	terrain.voxel_bounds = AABB(Vector3.ONE * -octree_size / 2, Vector3.ONE * octree_size)
 	terrain.lod_distance = LOD0_DISTANCE
 	terrain.view_distance = octree_size
-	terrain.mesh_block_size = 16
+	if OS.has_environment("LPBH_MESH_BLOCK"):
+		mesh_block_size = int(OS.get_environment("LPBH_MESH_BLOCK"))
+	terrain.mesh_block_size = mesh_block_size
+	# Keep generated (never edited) voxel blocks in memory near the viewer. Without this every
+	# edit and every voxel query in an untouched block regenerated it from the generator graph
+	# on the main thread: a 6.5 m blast took 11 ms, now 0.2 ms; `sdf_at` (pickups, props,
+	# player) no longer stalls. Costs ~50-80 MB, bounded by the streaming area. Dev A/B:
+	# LPBH_CACHE_GEN=0.
+	terrain.cache_generated_blocks = OS.get_environment("LPBH_CACHE_GEN") != "0"
 	terrain.streaming_system = 1          # Clipbox: measured 5-50x faster than Octree here
 	terrain.generate_collisions = true
 	terrain.collision_lod_count = 1
@@ -93,6 +111,8 @@ func _build_terrain(db_path: String) -> void:
 	add_child(viewer)
 	viewer.position = geology.spawn_position()      # the planet sits at the origin, unrotated
 
+	if not terrain.has_method("debug_get_mesh_block_info") or OS.get_environment("LPBH_READY_MODE") == "raycast":
+		readiness_mode = "raycast"
 	voxel_tool = terrain.get_voxel_tool()
 	voxel_tool.channel = VoxelBuffer.CHANNEL_SDF
 	_load_started_ms = Time.get_ticks_msec()
@@ -133,14 +153,56 @@ func is_area_ready(center: Vector3, radius_m: float) -> bool:
 	var box := AABB(c - Vector3.ONE * r, Vector3.ONE * r * 2.0).intersection(terrain.voxel_bounds)
 	if not voxel_tool.is_area_editable(box) or not terrain.is_area_meshed(box, 0):
 		return false
-	var lo := Vector3i((box.position / 16.0).floor())
-	var hi := Vector3i((box.end / 16.0).floor())
+	if readiness_mode == "raycast":
+		return _colliders_hit(center, radius_m)
+	var mb := float(mesh_block_size)
+	var lo := Vector3i((box.position / mb).floor())
+	var hi := Vector3i((box.end / mb).floor())
 	for x in range(lo.x, hi.x + 1):
 		for y in range(lo.y, hi.y + 1):
 			for z in range(lo.z, hi.z + 1):
 				var info: Dictionary = terrain.debug_get_mesh_block_info(Vector3(x, y, z), 0)
-				if info.has("transition_mask") and not bool(info.get("collision_active", false)):
-					return false
+				if info.has("transition_mask"):
+					if not info.has("collision_active"):
+						# the debug query changed shape: switch to the physics probe for good
+						push_warning("Planet: mesh block info has no collision_active; using raycast readiness")
+						readiness_mode = "raycast"
+						return _colliders_hit(center, radius_m)
+					if not bool(info["collision_active"]):
+						return false
+	return true
+
+
+## Readiness fallback without Voxel Tools' debug query: wherever the voxel data says there is
+## ground under a probe point, a physics ray must hit the terrain collider near it. Five
+## vertical probes (centre and four points at 70 % of the radius).
+func _colliders_hit(center: Vector3, radius_m: float) -> bool:
+	if not is_inside_tree():
+		return false
+	var space := get_world_3d().direct_space_state
+	var up := up_at(center)
+	var t1 := up.cross(Vector3(0.3, 1.0, 0.2)).normalized()
+	var t2 := up.cross(t1)
+	var reach := radius_m + 3.0
+	for off: Vector3 in [Vector3.ZERO, t1 * radius_m * 0.7, -t1 * radius_m * 0.7, t2 * radius_m * 0.7, -t2 * radius_m * 0.7]:
+		var top := center + off + up * reach
+		var bottom := center + off - up * reach
+		# solid ground somewhere on the probe line? (sample the loaded voxels from the top down)
+		var expect := -1.0
+		for k in 13:
+			var p := top.lerp(bottom, float(k) / 12.0)
+			if voxel_tool.get_voxel_f((p * geology.inv_voxel).floor()) < 0.0:
+				expect = float(k) / 12.0 * reach * 2.0
+				break
+		if expect < 0.0:
+			continue
+		var q := PhysicsRayQueryParameters3D.create(top, bottom, 1 << (COLLISION_LAYER - 1))
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return false
+		var d := top.distance_to(hit["position"])
+		if absf(d - expect) > reach * 2.0 / 12.0 + 1.5:
+			return false
 	return true
 
 

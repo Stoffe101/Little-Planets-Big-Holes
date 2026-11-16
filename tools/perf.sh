@@ -8,7 +8,7 @@ ARGS=(--path . --resolution "$RES")
 [ -n "$METHOD" ] && ARGS+=(--rendering-method "$METHOD")
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)
-    GODOT="$GODOT" python tools/offscreen.py --timeout 900 -- "${ARGS[@]}" res://tools/dev/perf.tscn -- "$PLANET" 2>&1 | grep -E "^==|^scenario|fps|^[a-z0-9].* [0-9]+\.[0-9]+ |done|ERROR|^load|^memory|^save|^relay|^traversal" ;;
+    GODOT="$GODOT" python tools/offscreen.py --timeout 900 -- "${ARGS[@]}" res://tools/dev/perf.tscn -- "$PLANET" 2>&1 | grep -E "^==|^scenario|fps|^[a-z0-9].* [0-9]+\.[0-9]+ |done|ERROR|^load|^memory|^save|^relay|^traversal|^relay travel" ;;
   *)
-    xvfb-run -a -s "-screen 0 ${RES}x24" "$GODOT" "${ARGS[@]}" res://tools/dev/perf.tscn -- "$PLANET" 2>&1 | grep -E "^==|^scenario|fps|done|ERROR|^load|^memory|^save|^relay|^traversal" ;;
+    xvfb-run -a -s "-screen 0 ${RES}x24" "$GODOT" "${ARGS[@]}" res://tools/dev/perf.tscn -- "$PLANET" 2>&1 | grep -E "^==|^scenario|fps|done|ERROR|^load|^memory|^save|^relay|^traversal|^relay travel" ;;
 esac

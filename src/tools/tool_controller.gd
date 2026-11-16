@@ -160,7 +160,7 @@ func cooldown_ratio() -> float:
 # ------------------------------------------------------------------ input
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not enabled or player.controls_locked:
+	if not enabled or player.controls_locked or player.transit_hold:
 		return
 	for slot in range(1, 5):
 		if event.is_action_pressed("tool_%d" % slot):
@@ -197,7 +197,7 @@ func _physics_process(delta: float) -> void:
 	_time += delta
 	cooldown = maxf(0.0, cooldown - delta)
 	_hint_cooldown = maxf(0.0, _hint_cooldown - delta)
-	var using: bool = enabled and not player.controls_locked and _equip_t >= 1.0 and _wants_use()
+	var using: bool = enabled and not player.controls_locked and not player.transit_hold and _equip_t >= 1.0 and _wants_use()
 	match behavior():
 		"swing": _tick_swing(delta, using)
 		"drill": _tick_drill(delta, using)

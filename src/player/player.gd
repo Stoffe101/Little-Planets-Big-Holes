@@ -38,6 +38,7 @@ var headlamp: SpotLight3D
 var pitch := 0.0
 var input_enabled := true
 var controls_locked := false         ## UI open: no look, no move
+var transit_hold := false            ## relay transit in progress: held in place, no input (TransitOverlay)
 var up := Vector3.UP
 var vertical_speed := 0.0
 var jet_fuel := 1.0
@@ -151,7 +152,7 @@ func teleport(pos: Vector3, look_dir := Vector3.ZERO) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if controls_locked or not input_enabled:
+	if controls_locked or transit_hold or not input_enabled:
 		return
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		var sens := float(Settings.get_value("mouse_sensitivity")) * 0.01
@@ -194,7 +195,7 @@ func _physics_process(delta: float) -> void:
 	# collision yet (a jet-assisted sprint outran the loader, or a teleport), hold still for the
 	# few frames it takes rather than falling through the world.
 	waiting_for_ground = not planet.is_area_ready(pos, 3.0)
-	if waiting_for_ground:
+	if waiting_for_ground or transit_hold:
 		velocity = Vector3.ZERO
 		vertical_speed = 0.0
 		_curr_origin = pos
@@ -222,7 +223,7 @@ func _physics_process(delta: float) -> void:
 	var want_jump := false
 	var hold_jump := false
 	var sprinting := false
-	if input_enabled and not controls_locked:
+	if input_enabled and not controls_locked and not transit_hold:
 		if forced_move != Vector2.INF:
 			move = forced_move
 			want_jump = forced_jump

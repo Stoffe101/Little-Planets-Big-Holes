@@ -58,6 +58,8 @@ var _contract_text: Label
 var _contract_progress: Label
 var _contract_reward: Label
 var _ground_wait := 0.0
+var _compass_key := Vector4.INF      ## heading + position the compass was last drawn for
+var _compass_age := 0.0
 
 
 func setup(w: World) -> void:
@@ -662,7 +664,15 @@ func _process(delta: float) -> void:
 		_depth_label.text = "Surveying ground..."
 	_compass.visible = bool(Settings.get_value("compass"))
 	if _compass.visible:
-		_compass.queue_redraw()
+		# Redraw only when the view turned or the player moved noticeably (or every 0.5 s, for
+		# markers that come and go); the strip was redrawn every frame before (~0.1 ms).
+		var p := player.global_position
+		var key := Vector4(world.nav.heading(), p.x, p.y, p.z)
+		_compass_age += delta
+		if _compass_age > 0.5 or absf(key.x - _compass_key.x) > 0.002 or Vector3(key.y, key.z, key.w).distance_to(Vector3(_compass_key.y, _compass_key.z, _compass_key.w)) > 0.5:
+			_compass_key = key
+			_compass_age = 0.0
+			_compass.queue_redraw()
 	var jets := int(GameState.gear_value("jets"))
 	_jet_bar.visible = jets >= 2
 	_jet_bar.value = player.jet_fuel

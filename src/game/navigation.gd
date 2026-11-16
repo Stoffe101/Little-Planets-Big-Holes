@@ -125,6 +125,7 @@ func travel_targets() -> Array[Dictionary]:
 func travel(to: String) -> bool:
 	var target := Vector3.ZERO
 	var look := Vector3.ZERO
+	var dest_name := "Outpost"
 	if to == "outpost":
 		if world.base == null or not world.base.has_method("arrival"):
 			return false
@@ -143,10 +144,14 @@ func travel(to: String) -> bool:
 		var side := up.cross(Vector3(0.3, 0.1, 0.9)).normalized()
 		target = (rel["pos"] as Vector3) + side * 3.2 + up * 1.2
 		look = -side
+		dest_name = str(rel["name"])
 	world.fx.shock_ring(world.player.global_position + world.player.up * 0.2, world.player.up, 2.2, Pal.ION, 0.5)
 	Audio.play("jet_puff", -2.0, 0.6)
 	world.player.teleport(target, look)
-	# props around the destination stream in under their per-frame budget (no hitch here)
+	# The destination streams in behind the transit card: the long frames right after the jump
+	# and the ~2 s until its ground is collidable are never shown, and the player is held.
+	if world.transit != null:
+		world.transit.begin(target, dest_name)
 	GameState.add_stat("travels")
 	travelled.emit(to)
 	return true
