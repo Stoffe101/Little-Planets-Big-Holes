@@ -15,6 +15,9 @@ const DEFAULTS := {
 	"music_volume": 0.55,
 	"camera_shake": 0.7,
 	"view_bob": 0.4,
+	"horizon_smoothing": 0.25,   ## seconds: how gently the camera's "up" follows the planet (0 = rigid)
+	"sprint_fov": true,          ## widen the view a little while sprinting
+	"compass": true,             ## heading strip at the top of the screen
 	"fullscreen": false,
 	"vsync": true,
 	"shadow_quality": 2,

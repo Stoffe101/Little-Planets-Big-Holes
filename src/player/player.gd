@@ -7,6 +7,10 @@ extends CharacterBody3D
 ##   around the planet never snaps or rolls the view.
 ## * The camera rig is detached (top_level) and updated every rendered frame: mouse look has zero
 ##   latency while body motion is smoothed between physics ticks.
+## * Comfort: the camera's own "up" eases towards the body's up with a short time constant
+##   (Settings "horizon_smoothing"), so the horizon never snaps - walking a 400 m planet turns
+##   the world by under 1 degree per second, and transitions (core, teleports) are softened.
+##   See docs/TECHNICAL.md "Orientation and comfort" and tests/test_j_traversal.gd.
 
 signal landed(impact_speed: float)
 signal jumped()
@@ -42,6 +46,7 @@ var in_zero_g := false
 var depth := 0.0                     ## metres below the original surface (negative above ground)
 var trauma := 0.0                    ## camera shake amount 0..1
 var waiting_for_ground := false      ## terrain under the player is still streaming in
+var cam_up := Vector3.UP             ## the camera's smoothed up vector (comfort)
 var _air_jumps_left := 0
 var _coyote := 0.0
 var _jump_buffer := 0.0
@@ -58,6 +63,8 @@ var _shake_time := 0.0
 ## Test hook: when set, replaces keyboard input. Vector2(x = strafe, y = forward).
 var forced_move := Vector2.INF
 var forced_jump := false
+var forced_sprint := false
+var forced_hold_jump := false
 
 
 func _init() -> void:
@@ -138,6 +145,7 @@ func teleport(pos: Vector3, look_dir := Vector3.ZERO) -> void:
 	pitch = 0.0
 	_prev_origin = pos
 	_curr_origin = pos
+	cam_up = up
 	reset_physics_interpolation()
 	_update_camera(0.0)
 
@@ -218,7 +226,8 @@ func _physics_process(delta: float) -> void:
 		if forced_move != Vector2.INF:
 			move = forced_move
 			want_jump = forced_jump
-			hold_jump = forced_jump
+			hold_jump = forced_jump or forced_hold_jump
+			sprinting = forced_sprint
 			forced_jump = false
 		else:
 			move = Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_back", "move_forward"))
@@ -358,7 +367,18 @@ func _update_camera(delta: float) -> void:
 	# Smooth the origin between physics ticks; orientation is always the live value.
 	var f := clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0)
 	var origin := _prev_origin.lerp(_curr_origin, f) if Engine.is_in_physics_frame() == false else _curr_origin
-	var b := global_basis.orthonormalized()
+	var body := global_basis.orthonormalized()
+	# Comfort: the camera levels itself to a smoothed "up"; yaw always comes from the body.
+	var tau := float(Settings.get_value("horizon_smoothing"))
+	if tau > 0.001 and delta > 0.0 and cam_up.dot(body.y) > -0.99:
+		cam_up = cam_up.slerp(body.y, 1.0 - exp(-delta / tau)).normalized()
+	else:
+		cam_up = body.y
+	var fwd := -body.z - cam_up * (-body.z).dot(cam_up)
+	if fwd.length() < 0.01:
+		fwd = -body.z
+	fwd = fwd.normalized()
+	var b := Basis(fwd.cross(cam_up).normalized(), cam_up, -fwd)
 
 	_land_dip = lerpf(_land_dip, 0.0, clampf(delta * 9.0, 0.0, 1.0))
 	_recoil = _recoil.lerp(Vector2.ZERO, clampf(delta * 12.0, 0.0, 1.0))
@@ -382,7 +402,7 @@ func _update_camera(delta: float) -> void:
 	# sprint FOV kick
 	var target_kick := 0.0
 	var horiz2 := (velocity - up * velocity.dot(up)).length()
-	if horiz2 > WALK_SPEED * 1.2 * float(GameState.gear_value("boots")):
+	if horiz2 > WALK_SPEED * 1.2 * float(GameState.gear_value("boots")) and bool(Settings.get_value("sprint_fov")):
 		target_kick = 5.0
 	_fov_kick = lerpf(_fov_kick, target_kick, clampf(delta * 6.0, 0.0, 1.0))
 	camera.fov = float(Settings.get_value("fov")) + _fov_kick
