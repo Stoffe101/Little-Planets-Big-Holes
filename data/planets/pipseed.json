@@ -57,7 +57,7 @@
     {"id": "old_helmet",    "dir": [-0.90, -0.30, 0.30], "depth": 5.0,  "pocket": 1.5, "model": "helmet"},
     {"id": "vault_idol",    "dir": [-0.75, 0.25, -0.55], "depth": 27.0, "pocket": 0.0, "model": "idol", "in_cavity": "deep_vault"}
   ],
-  "core": {"chamber_radius": 5.5, "discovery": "pip_heart", "color": "#ffe36b", "color2": "#ff8fb8"},
+  "core": {"chamber_radius": 5.5, "discovery": "pip_heart", "style": "seed", "color": "#f3cf7a", "color2": "#e8a23c"},
   "surface_crystal": "pipquartz",
   "bonus_gem": "amethyst",
   "look": {"atmosphere": 1.0, "stars": 0.5, "nebula": 0.0, "sun_energy": 1.5, "sun_elevation": 40.0, "ambient_energy": 1.0,

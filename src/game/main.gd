@@ -171,6 +171,8 @@ func _open(screen: Control) -> void:
 	_open_screen = screen
 	if world != null and world.player != null:
 		world.player.controls_locked = true
+	if hud != null:
+		hud.set_dimmed(true)
 	_capture_mouse(false)
 
 
@@ -178,6 +180,8 @@ func _on_screen_closed() -> void:
 	_open_screen = null
 	if world != null and world.player != null:
 		world.player.controls_locked = false
+	if hud != null:
+		hud.set_dimmed(false)
 	if mode == Mode.PLAYING and not get_tree().paused:
 		_capture_mouse(true)
 
@@ -193,6 +197,8 @@ func _close_all_screens() -> void:
 func _on_pause_closed() -> void:
 	get_tree().paused = false
 	_open_screen = null
+	if hud != null:
+		hud.set_dimmed(false)
 	if mode == Mode.PLAYING:
 		_capture_mouse(true)
 
@@ -202,6 +208,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("pause") and _open_screen == null:
 		_open_screen = pause_menu
+		if hud != null:
+			hud.set_dimmed(true)
 		get_tree().paused = true
 		_capture_mouse(false)
 		pause_menu.open_screen()

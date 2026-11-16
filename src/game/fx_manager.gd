@@ -80,8 +80,8 @@ func _make_debris() -> GPUParticles3D:
 	pm.scale_curve = ct
 	pm.gravity = Vector3(0, -16, 0)
 	p.process_material = pm
-	var kit := MeshKit.new()
-	kit.rbox(Transform3D.IDENTITY, Vector3(0.16, 0.13, 0.15), Color.WHITE, 0.6)
+	var kit := MeshKit.new().matte()
+	kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.8, 0.9)), Vector3.ZERO), 0.085, Color.WHITE, 17, 0.28, false)
 	p.draw_pass_1 = kit.commit()
 	p.material_override = MeshKit.material()
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -107,9 +107,9 @@ func _make_dust() -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.one_shot = true
 	p.emitting = false
-	p.amount = 10
-	p.lifetime = 1.1
-	p.explosiveness = 0.9
+	p.amount = 7
+	p.lifetime = 1.3
+	p.explosiveness = 0.92
 	p.local_coords = false
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
@@ -128,7 +128,7 @@ func _make_dust() -> GPUParticles3D:
 	var sct := CurveTexture.new(); sct.curve = sc
 	pm.scale_curve = sct
 	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 0.55)); grad.set_color(1, Color(1, 1, 1, 0.0))
+	grad.set_color(0, Color(1, 1, 1, 0.3)); grad.set_color(1, Color(1, 1, 1, 0.0))
 	var gt := GradientTexture1D.new(); gt.gradient = grad
 	pm.color_ramp = gt
 	p.process_material = pm
@@ -145,8 +145,8 @@ func _make_sparks() -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.one_shot = true
 	p.emitting = false
-	p.amount = 14
-	p.lifetime = 0.45
+	p.amount = 10
+	p.lifetime = 0.35
 	p.explosiveness = 1.0
 	p.local_coords = false
 	var pm := ParticleProcessMaterial.new()
@@ -155,8 +155,8 @@ func _make_sparks() -> GPUParticles3D:
 	pm.initial_velocity_min = 3.0
 	pm.initial_velocity_max = 8.0
 	pm.gravity = Vector3(0, -9, 0)
-	pm.scale_min = 0.08
-	pm.scale_max = 0.2
+	pm.scale_min = 0.04
+	pm.scale_max = 0.11
 	var grad := Gradient.new()
 	grad.set_color(0, Color(1, 1, 1, 1)); grad.set_color(1, Color(1, 1, 1, 0))
 	var gt := GradientTexture1D.new(); gt.gradient = grad
@@ -206,7 +206,7 @@ func dig_burst(pos: Vector3, normal: Vector3, color: Color, amount := 1.0, dusty
 		_next_dust = (_next_dust + 1) % DUST_POOL
 		_orient(du, pos, normal)
 		var dm := du.process_material as ParticleProcessMaterial
-		dm.color = Color(color.r * 0.8 + 0.2, color.g * 0.8 + 0.2, color.b * 0.8 + 0.2, 1.0)
+		dm.color = Color(color.r * 0.7 + 0.25, color.g * 0.7 + 0.25, color.b * 0.7 + 0.24, 1.0)
 		dm.emission_sphere_radius = 0.45 * amount
 		dm.scale_min = 0.8 * amount
 		dm.scale_max = 1.6 * amount
@@ -214,7 +214,7 @@ func dig_burst(pos: Vector3, normal: Vector3, color: Color, amount := 1.0, dusty
 
 
 ## Bright sparks: tool bounced off something too hard, or gem glints.
-func sparks(pos: Vector3, normal: Vector3, color := Color(1.0, 0.9, 0.5), count := 14) -> void:
+func sparks(pos: Vector3, normal: Vector3, color := Color(1.0, 0.86, 0.6), count := 8) -> void:
 	if not enabled:
 		return
 	var s := _sparks[_next_spark]
@@ -230,12 +230,12 @@ func explosion(pos: Vector3, radius: float, color: Color) -> void:
 		return
 	var up := planet.up_at(pos) if planet else Vector3.UP
 	for i in 3:
-		dig_burst(pos + up * 0.3, up, color.lightened(0.1 * i), radius * 0.9, true)
-	sparks(pos, up, Color(1.0, 0.85, 0.5), 28)
+		dig_burst(pos + up * 0.3, up, color.lightened(0.06 * i), radius * 0.9, true)
+	sparks(pos, up, Color(1.0, 0.85, 0.6), 14)
 	# flash
 	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.8, 0.55)
-	light.light_energy = 6.0
+	light.light_color = Color(1.0, 0.82, 0.6)
+	light.light_energy = 3.5
 	light.omni_range = radius * 4.0
 	add_child(light)
 	light.global_position = pos + up * 0.5
@@ -243,7 +243,7 @@ func explosion(pos: Vector3, radius: float, color: Color) -> void:
 	tw.tween_property(light, "light_energy", 0.0, 0.35)
 	tw.tween_callback(light.queue_free)
 	# shockwave ring
-	shock_ring(pos, up, radius * 1.6, Color(1, 0.95, 0.8))
+	shock_ring(pos, up, radius * 1.5, Color(0.95, 0.92, 0.85), 0.4)
 
 
 func shock_ring(pos: Vector3, normal: Vector3, radius: float, color: Color, duration := 0.45) -> void:
@@ -251,8 +251,8 @@ func shock_ring(pos: Vector3, normal: Vector3, radius: float, color: Color, dura
 		return
 	if _ring_mesh == null:
 		var kit := MeshKit.new()
-		kit.emission = 2.0
-		kit.torus(Transform3D.IDENTITY, 1.0, 0.045, Color.WHITE, 28, 6)
+		kit.emission = 1.2
+		kit.torus(Transform3D.IDENTITY, 1.0, 0.018, Color.WHITE, 36, 5)
 		_ring_mesh = kit.commit()
 	var mi := MeshInstance3D.new()
 	mi.mesh = _ring_mesh
@@ -280,8 +280,8 @@ func floating_text(pos: Vector3, text: String, color: Color, size := 1.0, rise :
 	l.font_size = 64
 	l.pixel_size = 0.006 * size
 	l.modulate = color
-	l.outline_size = 14
-	l.outline_modulate = Color(0.1, 0.07, 0.2, 0.9)
+	l.outline_size = 10
+	l.outline_modulate = Color(0.06, 0.07, 0.09, 0.85)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
 	l.fixed_size = false

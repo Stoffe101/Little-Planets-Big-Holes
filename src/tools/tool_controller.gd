@@ -56,6 +56,7 @@ var _recoil_rest := 0.0
 var _pos_spring := Vector3.ZERO  ## smoothed positional offset (sway, bob)
 var _rot_spring := Vector3.ZERO
 var _reload_click := false
+var _pending_inspect := false
 ## Test hooks: set to drive the tool without real input.
 var forced_use := false
 var forced_use_enabled := false
@@ -77,8 +78,9 @@ func _on_tools_changed() -> void:
 		return
 	stats = GameState.tool_stats(family_id)
 	_rebuild_model()
-	_flash = 1.0
-	_inspect = 1.0       # hold the new kit up for a moment: an upgrade is an event
+	# hold the new kit up for a moment: an upgrade is an event. If a menu is open (the usual
+	# case - you are standing in the shop) the showing-off waits until you can see it.
+	_pending_inspect = true
 
 
 func _on_equipped_changed(fam: String) -> void:
@@ -152,7 +154,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if not fam.is_empty() and GameState.owns_family(fam["id"]):
 				GameState.set_equipped(fam["id"])
 			elif not fam.is_empty():
-				hint.emit("You don't own a %s yet - visit the Tool Shop!" % fam["name"])
+				hint.emit("You don't own a %s yet - visit the Workshop." % fam["name"])
 	if event.is_action_pressed("tool_next"):
 		_cycle(1)
 	elif event.is_action_pressed("tool_prev"):
@@ -312,7 +314,7 @@ func _tick_vacuum(delta: float, using: bool) -> void:
 		pulling = world.pickups.vacuum(player.eye_position(), player.aim_direction(), float(stats.get("range", 10.0)), float(stats.get("cone", 32.0)))
 		if GameState.is_full() and _hint_cooldown <= 0.0:
 			_hint_cooldown = 3.0
-			hint.emit("Backpack full! Sell at the rocket.")
+			hint.emit("Backpack full! Sell at the Depot.")
 		_shake = maxf(_shake, 0.12 + 0.04 * minf(float(pulling), 5.0))
 	_vacuuming = using
 	Audio.set_loop("vacuum_loop", using, 1.0 + 0.05 * minf(float(pulling), 6.0), -10.0)
@@ -343,15 +345,19 @@ func _tick_cannon(_delta: float, using: bool) -> void:
 
 func _make_shot() -> Node3D:
 	var kit := MeshKit.new()
-	kit.emission = 2.5
-	kit.sphere(Vector3.ZERO, 0.22, Color("#ffd23f"), Vector3.ONE, 10, 6)
+	# a seismic charge: graphite canister with an amber band and a lit fuse cap
+	kit.cast()
+	kit.turned(Vector3(0, 0, 0.16), Vector3(0, 0, -0.16), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.02), Vector2(0.12, 0.06), Vector2(0.12, 0.26), Vector2(0.08, 0.32), Vector2(0.0, 0.32)]), Pal.GRAPHITE, 12, true)
+	kit.paint()
+	kit.turned(Vector3(0, 0, 0.04), Vector3(0, 0, -0.04), PackedVector2Array([Vector2(0.123, 0.0), Vector2(0.123, 0.08)]), Pal.AMBER, 12)
+	kit.surf(0.3).set_emission(2.2)
+	kit.sphere(Vector3(0, 0, -0.16), 0.05, Pal.AMBER, Vector3.ONE, 8, 5)
 	kit.emission = 0.0
-	kit.torus(Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, 0)), Vector3.ZERO), 0.24, 0.05, Color("#ff5d8f"), 12, 5)
 	var mi := kit.instance(MeshKit.material(), false)
 	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.8, 0.4)
-	light.light_energy = 2.0
-	light.omni_range = 6.0
+	light.light_color = Color(1.0, 0.8, 0.5)
+	light.light_energy = 0.8
+	light.omni_range = 4.0
 	mi.add_child(light)
 	return mi
 
@@ -395,7 +401,7 @@ func _explode(shot: Dictionary, pos: Vector3) -> void:
 		hint.emit("The launch pad is shielded.")
 		return
 	var result: Dictionary = world.dig.dig_sphere(pos, radius, int(shot["power"]), shot["opts"])
-	var color := Color("#a06a45")
+	var color := Color("#8a6748")
 	if int(result["dominant"]) >= 0:
 		color = GameData.materials[int(result["dominant"])]["color_c"]
 	world.fx.explosion(pos, radius, color)
@@ -431,8 +437,8 @@ func _feedback(result: Dictionary, pos: Vector3, normal: Vector3, dir: Vector3, 
 	var amount := clampf(radius, 0.6, 3.0)
 	world.fx.dig_burst(pos, normal, color, amount * (0.55 if continuous else 1.0), not continuous or randf() < 0.35)
 	var cat := str(def["category"])
-	if cat == "ore" or cat == "crystal" or cat == "exotic":
-		world.fx.sparks(pos, normal, def["color2_c"], 10)
+	if (cat == "ore" or cat == "crystal" or cat == "exotic") and (not continuous or randf() < 0.25):
+		world.fx.sparks(pos, normal, def["color2_c"], 5)
 	var sound: String = SOUND_BY_MATERIAL.get(str(def.get("sound", "soft")), "dig_soft")
 	Audio.play(sound, -3.0 if not continuous else -9.0, 1.0 + (1.2 - radius) * 0.12, 0.1, 0.07 if continuous else 0.0)
 	if bool(result["hit_hard"]) and not continuous:
@@ -457,7 +463,7 @@ func _blocked_hint(mat: int) -> void:
 
 
 func _on_protected(pos: Vector3, normal: Vector3) -> void:
-	world.fx.sparks(pos, normal, Color("#8ffcff"), 8)
+	world.fx.sparks(pos, normal, Pal.TEAL, 6)
 	Audio.play("clang", -10.0, 1.4, 0.05, 0.15)
 	_kick = 0.5
 	if _hint_cooldown <= 0.0:
@@ -497,6 +503,11 @@ func _process(delta: float) -> void:
 	_piston = lerpf(_piston, 0.0, clampf(delta * 18.0, 0.0, 1.0))
 	_recoil_slide = lerpf(_recoil_slide, 0.0, clampf(delta * 5.0, 0.0, 1.0))
 	_land = lerpf(_land, 0.0, clampf(delta * 8.0, 0.0, 1.0))
+	if _pending_inspect and not player.controls_locked:
+		_pending_inspect = false
+		_flash = 1.0
+		_inspect = 1.0
+		Audio.play("equip", -6.0, 0.9, 0.03)
 	_flash = maxf(0.0, _flash - delta * 2.2)
 	_inspect = maxf(0.0, _inspect - delta / 1.5)
 

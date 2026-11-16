@@ -36,7 +36,7 @@ func can_scan() -> bool:
 
 func try_scan() -> bool:
 	if GameState.gear_level("scanner") <= 0:
-		world.message.emit("You need a scanner - buy the Pocket Pinger at the Gear Shop.", "hint")
+		world.message.emit("You need a scanner - buy the Pocket Pinger at the Outfitter.", "hint")
 		return false
 	if cooldown > 0.0:
 		return false
@@ -80,13 +80,13 @@ func try_scan() -> bool:
 			if d > max_range * (1.6 if level >= 3 else 1.0):
 				continue
 			var label := "?" if t["kind"] == "artifact" else ("Cavern" if t["kind"] == "place" else "Heart")
-			_add_marker(p2, Color("#fff08a"), label, d / PULSE_SPEED, 1.5)
+			_add_marker(p2, Pal.TEAL, label, d / PULSE_SPEED, 1.4)
 			secrets_found += 1
 	elif level == 1 and world.secrets != null:
 		# The basic pinger cannot pinpoint secrets but it does chirp when one is close.
 		for t: Dictionary in world.secrets.call("scan_targets"):
 			if t["kind"] == "artifact" and (t["pos"] as Vector3).distance_to(origin) < max_range:
-				_add_marker(t["pos"], Color("#fff08a"), "?", (t["pos"] as Vector3).distance_to(origin) / PULSE_SPEED, 1.3)
+				_add_marker(t["pos"], Pal.TEAL, "?", (t["pos"] as Vector3).distance_to(origin) / PULSE_SPEED, 1.3)
 				secrets_found += 1
 				break
 	if shown == 0 and secrets_found == 0:
@@ -98,9 +98,10 @@ func try_scan() -> bool:
 func _add_marker(pos: Vector3, color: Color, text: String, delay: float, size := 1.0) -> void:
 	if _marker_mesh == null:
 		var kit := MeshKit.new()
-		kit.emission = 2.5
-		kit.crystal(Vector3(0, -0.28, 0), Vector3(0, 0.28, 0), 0.16, Color.WHITE, 4)
-		kit.crystal(Vector3(0, 0.0, 0), Vector3(0, -0.28, 0), 0.16, Color.WHITE, 4)
+		kit.surf(0.3)
+		kit.emission = 1.6
+		kit.crystal(Vector3(0, -0.2, 0), Vector3(0, 0.2, 0), 0.09, Color.WHITE, 4, 0.5)
+		kit.crystal(Vector3(0, 0.0, 0), Vector3(0, -0.2, 0), 0.09, Color.WHITE, 4, 0.5)
 		_marker_mesh = kit.commit()
 	var node := Node3D.new()
 	add_child(node)
@@ -123,8 +124,8 @@ func _add_marker(pos: Vector3, color: Color, text: String, delay: float, size :=
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
 	l.modulate = color
-	l.outline_size = 12
-	l.outline_modulate = Color(0.1, 0.07, 0.2)
+	l.outline_size = 8
+	l.outline_modulate = Color(0.06, 0.07, 0.09)
 	l.render_priority = 6
 	node.add_child(l)
 	node.visible = false

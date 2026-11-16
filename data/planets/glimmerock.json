@@ -53,13 +53,13 @@
     {"id": "prism_lens",  "dir": [0.70, 0.45, 0.55],    "depth": 16.0, "pocket": 0.0, "model": "lens", "in_cavity": "grand_geode"},
     {"id": "glass_bird",  "dir": [0.30, 0.85, 0.40],    "depth": 4.5,  "pocket": 1.6, "model": "bird"}
   ],
-  "core": {"chamber_radius": 5.0, "discovery": "glimmer_heart", "color": "#b98cff", "color2": "#7dfff0"},
+  "core": {"chamber_radius": 5.0, "discovery": "glimmer_heart", "style": "crystal", "color": "#9fe0d8", "color2": "#b99be0"},
   "surface_crystal": "aquamarine",
   "bonus_gem": "aquamarine",
   "look": {"atmosphere": 0.15, "stars": 1.0, "nebula": 0.8, "sun_energy": 1.7, "sun_elevation": 34.0, "ambient_energy": 0.8,
            "exposure": 1.0, "turf_depth": 0.3, "cover_relief": 0.9, "cover_roughness": 0.88},
   "palette": {
-    "grass": ["#b9bfd0", "#a4aec6", "#c9c6d6"],
+    "grass": ["#9aa0b6", "#8990ab", "#aaa8bc"],
     "grass_dry": "#d6d3de",
     "sky_top": "#04060d", "sky_mid": "#0a1428", "sky_horizon": "#23405f", "sky_glow": "#7fb4d8", "sky_ground": "#2a3040",
     "sun": "#eef4ff", "ambient": "#aebfe0", "fog": "#12161f", "nebula": "#1f2f5c",

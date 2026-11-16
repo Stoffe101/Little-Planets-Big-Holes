@@ -4,49 +4,64 @@ extends Control
 
 signal closed()
 
+const MAX_WIDTH := 1500.0
+
 var content: VBoxContainer
 var title_label: Label
 var _margin: MarginContainer
+var _side_margin := 300
 
 
-func build(title: String, side_margin := 300, top_margin := 110, color := UiTheme.YELLOW) -> void:
+func build(title: String, side_margin := 300, top_margin := 110, _color := UiTheme.ACCENT) -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	theme = UiTheme.theme()
 	visible = false
+	_side_margin = side_margin
 	var dim := ColorRect.new()
-	dim.color = Color(0.06, 0.04, 0.14, 0.66)
+	dim.color = Color(0.03, 0.04, 0.05, 0.66)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	_margin = MarginContainer.new()
 	_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_margin.add_theme_constant_override("margin_left", side_margin)
-	_margin.add_theme_constant_override("margin_right", side_margin)
 	_margin.add_theme_constant_override("margin_top", top_margin)
 	_margin.add_theme_constant_override("margin_bottom", top_margin)
 	add_child(_margin)
+	resized.connect(_fit_margins)
+	_fit_margins()
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UiTheme.panel_box(UiTheme.PANEL, 28, 0.98))
+	panel.add_theme_stylebox_override("panel", UiTheme.panel_box(UiTheme.PANEL, 10, 0.97, 24))
 	_margin.add_child(panel)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	panel.add_child(v)
 	var header := HBoxContainer.new()
 	v.add_child(header)
-	title_label = UiTheme.label(title, 44, color, true)
+	title_label = UiTheme.label(title, 30, UiTheme.TEXT, true)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title_label)
-	var close := UiTheme.button("Close  [Esc]", UiTheme.PINK, 24)
+	var close := UiTheme.ghost_button("Close   Esc", 17)
 	close.pressed.connect(close_screen)
 	header.add_child(close)
+	v.add_child(UiTheme.divider())
 	content = VBoxContainer.new()
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 12)
 	v.add_child(content)
 
 
+## Side margins grow on wide screens so the panel never stretches past MAX_WIDTH.
+func _fit_margins() -> void:
+	if _margin == null:
+		return
+	var side := maxf(float(_side_margin), (size.x - MAX_WIDTH) * 0.5)
+	_margin.add_theme_constant_override("margin_left", int(side))
+	_margin.add_theme_constant_override("margin_right", int(side))
+
+
 func open_screen() -> void:
 	visible = true
-	Audio.play("ui_open", -8.0)
+	_fit_margins()
+	Audio.play("ui_open", -10.0)
 	refresh()
 
 
@@ -54,7 +69,7 @@ func close_screen() -> void:
 	if not visible:
 		return
 	visible = false
-	Audio.play("ui_close", -8.0)
+	Audio.play("ui_close", -10.0)
 	closed.emit()
 
 

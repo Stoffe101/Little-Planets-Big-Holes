@@ -556,7 +556,7 @@ func apply_to_material(mat: ShaderMaterial) -> void:
 			colors.append((m["color_c"] as Color))
 			colors2.append((m["color2_c"] as Color))
 			var is_ore := 1.0 if str(m["category"]) in ["ore", "crystal", "exotic"] else 0.0
-			var rocky := 1.0 if str(m["category"]) == "rock" else 0.0
+			var rocky := 1.0 if str(m["category"]) == "rock" else (2.0 if str(m["category"]) in ["crystal", "exotic"] else 0.0)
 			fx.append(Vector4(float(m.get("emission", 0.0)), float(m.get("sparkle", 0.0)), is_ore, rocky))
 			var f: Vector4 = finish.get(str(m["category"]), Vector4(0.9, 0.0, 1.0, 1.0))
 			pbr.append(Vector4(float(m.get("roughness", f.x)), float(m.get("metallic", f.y)), f.z, f.w))

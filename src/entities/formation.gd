@@ -74,7 +74,7 @@ func hit(power: int, world: Node3D, ore_bonus := 0.0) -> bool:
 	_wobble = 1.0
 	var up := global_basis.y.normalized()
 	var top := global_position + up * 0.6
-	world.fx.sparks(top, up, def["color2_c"], 16)
+	world.fx.sparks(top, up, def["color2_c"], 6)
 	if hits_left > 0:
 		Audio.play("dig_crystal", -3.0, 1.15, 0.1)
 		return true

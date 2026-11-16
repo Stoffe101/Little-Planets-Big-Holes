@@ -1,7 +1,7 @@
 class_name RobotManager
 extends Node3D
 ## Helper bots ("Scoopy"): hovering drones that collect loose chunks the player left behind
-## and haul them to the Sell-o-Matic, selling them automatically. They never dig, so the player
+## and haul them to the Depot, selling them automatically. They never dig, so the player
 ## still drives the excavation - bots just remove the walking-back-and-forth.
 ##
 ## Bots hover (no ground pathfinding), steer along the planet's curve and stay out of rock by
@@ -56,28 +56,38 @@ func _spawn(index: int) -> void:
 	var node := Node3D.new()
 	node.name = "Scoopy_%d" % index
 	add_child(node)
-	var body_col: Color = [Color("#f6f0ff"), Color("#ffe36b"), Color("#9fe8ff")][index % 3]
-	var kit := MeshKit.new()
-	kit.sphere(Vector3.ZERO, 0.42, body_col, Vector3(1, 0.82, 1), 14, 8)
-	kit.torus(Transform3D(Basis.IDENTITY, Vector3(0, -0.02, 0)), 0.44, 0.07, Color("#ff9438"), 18, 6)
-	kit.set_emission(1.8)
-	kit.sphere(Vector3(0, 0.06, 0.33), 0.17, Color("#8ffcff"), Vector3(1, 1, 0.5), 12, 6)
-	kit.set_emission(0.0)
-	kit.sphere(Vector3(0.04, 0.08, 0.41), 0.06, Color("#2a2540"), Vector3(1, 1, 0.5), 8, 5)
-	kit.tube(Vector3(0, 0.33, 0), Vector3(0.06, 0.62, -0.05), 0.018, 0.014, Color("#aab4d0"), 5)
-	kit.set_emission(2.0)
-	kit.sphere(Vector3(0.06, 0.64, -0.05), 0.05, Color("#ff5d8f"), Vector3.ONE, 6, 4)
-	kit.set_emission(0.0)
-	# scoop arms
+	# Scoopy: a compact hover drone in the outpost's livery. Bevelled hull, a visor strip that
+	# reads as a face without being a cartoon, two cargo arms and one downward thruster.
+	var stripe: Color = [Pal.AMBER, Pal.TEAL, Pal.STEEL_BLUE][index % 3]
+	var kit := MeshKit.new().paint()
+	kit.block(Vector3(0, 0.02, 0), Vector3(0.62, 0.36, 0.56), Pal.HULL, 0.11)
+	kit.block(Vector3(0, 0.02, 0), Vector3(0.628, 0.06, 0.566), stripe, 0.02)
+	kit.cast()
+	kit.block(Vector3(0, -0.17, 0), Vector3(0.46, 0.1, 0.42), Pal.GRAPHITE, 0.04)
+	kit.rubber()
+	kit.block(Vector3(0, 0.07, 0.275), Vector3(0.4, 0.13, 0.03), Pal.CHARCOAL, 0.012)
+	kit.surf(0.25).set_emission(1.6)
 	for sx: float in [-1.0, 1.0]:
-		kit.tube(Vector3(0.36 * sx, -0.1, 0.1), Vector3(0.46 * sx, -0.32, 0.26), 0.035, 0.03, Color("#aab4d0"), 6)
-		kit.rbox(Transform3D(Basis.from_euler(Vector3(0.5, 0, 0)), Vector3(0.46 * sx, -0.38, 0.3)), Vector3(0.16, 0.05, 0.2), Color("#ffd23f"), 0.5)
-	# thruster
-	kit.tube(Vector3(0, -0.3, 0), Vector3(0, -0.46, 0), 0.16, 0.22, Color("#57526f"), 10)
+		kit.block(Vector3(0.09 * sx, 0.075, 0.292), Vector3(0.07, 0.05, 0.008), Pal.TEAL, 0.004)
+	kit.set_emission(0.0)
+	kit.bare()
+	kit.tube(Vector3(0.14, 0.2, -0.1), Vector3(0.17, 0.44, -0.13), 0.01, 0.007, Pal.STEEL_DARK, 5)
+	kit.surf(0.25).set_emission(1.8)
+	kit.sphere(Vector3(0.17, 0.45, -0.13), 0.022, stripe, Vector3.ONE, 6, 4)
+	kit.set_emission(0.0)
+	# cargo arms with small scoops
+	for sx2: float in [-1.0, 1.0]:
+		kit.bare()
+		kit.tube(Vector3(0.3 * sx2, -0.08, 0.1), Vector3(0.4 * sx2, -0.3, 0.24), 0.022, 0.018, Pal.STEEL_DARK, 6)
+		kit.paint()
+		kit.hbox(Transform3D(Basis.from_euler(Vector3(0.5, 0, 0)), Vector3(0.4 * sx2, -0.36, 0.28)), Vector3(0.14, 0.03, 0.18), Pal.AMBER, 0.01)
+	# thruster nozzle
+	kit.cast()
+	kit.lathe(PackedVector2Array([Vector2(0.12, -0.22), Vector2(0.17, -0.34), Vector2(0.15, -0.34), Vector2(0.1, -0.24)]), Transform3D.IDENTITY, Pal.STEEL_DARK, 12)
 	node.add_child(kit.instance())
-	var glow := MeshKit.new()
-	glow.emission = 2.5
-	glow.sphere(Vector3(0, -0.5, 0), 0.14, Color("#8ffcff"), Vector3(1, 0.5, 1), 8, 4)
+	var glow := MeshKit.new().surf(0.3)
+	glow.emission = 2.0
+	glow.lathe(PackedVector2Array([Vector2(0.0, -0.36), Vector2(0.11, -0.3), Vector2(0.0, -0.28)]), Transform3D.IDENTITY, Pal.TEAL, 10, true)
 	var glow_node := glow.instance(MeshKit.material(), false)
 	glow_node.name = "Glow"
 	node.add_child(glow_node)
@@ -89,9 +99,10 @@ func _spawn(index: int) -> void:
 	cargo.visible = false
 	node.add_child(cargo)
 	var light := OmniLight3D.new()
-	light.light_color = Color("#8ffcff")
-	light.light_energy = 0.7
-	light.omni_range = 4.0
+	light.light_color = Pal.TEAL
+	light.light_energy = 0.35
+	light.omni_range = 3.0
+	light.position = Vector3(0, -0.4, 0)
 	node.add_child(light)
 	var start := _dock() + world.planet.up_at(_dock()) * (0.6 * index)
 	node.global_position = start

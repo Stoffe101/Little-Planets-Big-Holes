@@ -3,7 +3,7 @@
   "discoveries": [
     {"id": "dormant_bot", "planet": "pipseed", "kind": "artifact", "name": "Sleepy Scoopy", "reward": 150,
      "desc": "A little hover-bot, buried mid-nap for who knows how long. Its eye flickers when you brush off the dirt.",
-     "unlock_text": "Helper Bots are now available at the Gear Shop!"},
+     "unlock_text": "Helper Bots are now available at the Outfitter."},
     {"id": "time_capsule", "planet": "pipseed", "kind": "artifact", "name": "Somebody's Time Capsule", "reward": 400,
      "desc": "A tin full of bottle caps, a drawing of a rocket, and a note: 'Dig deeper. It's worth it.'"},
     {"id": "star_chart_a", "planet": "pipseed", "kind": "artifact", "name": "Star Chart (Left Half)", "reward": 200,

@@ -1,12 +1,12 @@
 class_name JournalUi
 extends UiScreen
-## Discovery journal (Tab): everything found so far, silhouettes for what is still buried,
-## plus lifetime statistics.
+## Field journal (Tab): everything found so far, placeholders for what is still buried,
+## lifetime statistics and the contents of the backpack.
 
 
 func _init() -> void:
 	name = "JournalUi"
-	build("EXPLORER'S JOURNAL", 220, 80, UiTheme.TEAL)
+	build("Field journal", 220, 80)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -21,54 +21,57 @@ func refresh() -> void:
 	clear_content()
 	var split := HBoxContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	split.add_theme_constant_override("separation", 18)
+	split.add_theme_constant_override("separation", 20)
 	content.add_child(split)
 
 	# --- stats column
 	var stats_card := PanelContainer.new()
-	stats_card.add_theme_stylebox_override("panel", UiTheme.box(UiTheme.PANEL_DARK, 18, 3, UiTheme.INK, 0, 18))
-	stats_card.custom_minimum_size = Vector2(400, 0)
+	stats_card.add_theme_stylebox_override("panel", UiTheme.card_box(UiTheme.PANEL_DARK, 18))
+	stats_card.custom_minimum_size = Vector2(380, 0)
 	split.add_child(stats_card)
 	var sv := VBoxContainer.new()
 	sv.add_theme_constant_override("separation", 6)
 	stats_card.add_child(sv)
-	sv.add_child(UiTheme.label("YOUR DIG SO FAR", 24, UiTheme.YELLOW, true))
+	sv.add_child(UiTheme.caps("Survey record", 13, UiTheme.ACCENT))
 	var s := GameState.stats
 	var mins := int(GameState.playtime / 60.0)
 	var rows := [
-		["Time played", "%dh %02dm" % [mins / 60, mins % 60]],
+		["Time on site", "%dh %02dm" % [mins / 60, mins % 60]],
 		["Credits earned", GameData.format_money(int(s.get("total_earned", 0)))],
-		["Scoops dug", GameData.format_money(int(s.get("digs", 0)))],
+		["Digs", GameData.format_money(int(s.get("digs", 0)))],
 		["Ground moved", "%s m³" % GameData.format_money(int(s.get("volume_dug", 0.0)))],
 		["Deepest point", "%d m" % int(s.get("max_depth", 0.0))],
-		["Chunks collected", GameData.format_money(int(s.get("chunks_collected", 0)))],
-		["Crystals shattered", str(int(s.get("formations", 0)))],
-		["Lucky gems", str(int(s.get("bonus_gems", 0)))],
+		["Units collected", GameData.format_money(int(s.get("chunks_collected", 0)))],
+		["Crystals harvested", str(int(s.get("formations", 0)))],
+		["Lucky finds", str(int(s.get("bonus_gems", 0)))],
 		["Earned by bots", GameData.format_money(int(s.get("robot_earned", 0)))],
 		["Discoveries", "%d / %d" % [GameState.discoveries.size(), GameData.discoveries.size()]],
 	]
 	for r: Array in rows:
 		var h := HBoxContainer.new()
-		var a := UiTheme.label(str(r[0]), 21, UiTheme.MUTED)
+		var a := UiTheme.label(str(r[0]), 16, UiTheme.DIM)
 		a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(a)
-		h.add_child(UiTheme.label(str(r[1]), 21, UiTheme.CREAM, true))
+		h.add_child(UiTheme.label(str(r[1]), 16, UiTheme.TEXT, true))
 		sv.add_child(h)
-	sv.add_child(UiTheme.label("BACKPACK", 24, UiTheme.YELLOW, true))
+	sv.add_child(UiTheme.spacer(false, Vector2(0, 8)))
+	sv.add_child(UiTheme.divider())
+	sv.add_child(UiTheme.caps("Backpack  ·  %d / %d" % [GameState.inventory_count(), GameState.capacity()], 13, UiTheme.ACCENT))
 	if GameState.inventory.is_empty():
-		sv.add_child(UiTheme.label("Empty. Go dig!", 20, UiTheme.MUTED))
+		sv.add_child(UiTheme.label("Empty.", 16, UiTheme.FAINT))
 	for mat_id: String in GameState.inventory:
 		var def := GameData.material(mat_id)
 		var h2 := HBoxContainer.new()
+		h2.add_theme_constant_override("separation", 8)
 		var dot := Panel.new()
-		dot.custom_minimum_size = Vector2(22, 22)
+		dot.custom_minimum_size = Vector2(10, 10)
 		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		dot.add_theme_stylebox_override("panel", UiTheme.box(def["color_c"], 11, 3, UiTheme.INK, 0, 0))
+		dot.add_theme_stylebox_override("panel", UiTheme.box(def["color_c"], 2, 0, UiTheme.LINE, 0, 0))
 		h2.add_child(dot)
-		var n := UiTheme.label("  %s  x%d" % [def["name"], int(GameState.inventory[mat_id])], 20, UiTheme.CREAM)
+		var n := UiTheme.label("%s  ×%d" % [def["name"], int(GameState.inventory[mat_id])], 16, UiTheme.TEXT)
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h2.add_child(n)
-		h2.add_child(UiTheme.label(GameData.format_money(int(round(float(GameState.inventory[mat_id]) * GameState.unit_value(mat_id)))), 20, UiTheme.GREEN, true))
+		h2.add_child(UiTheme.label(GameData.format_money(int(round(float(GameState.inventory[mat_id]) * GameState.unit_value(mat_id)))), 16, UiTheme.GOOD, true))
 		sv.add_child(h2)
 
 	# --- discoveries column
@@ -84,26 +87,31 @@ func refresh() -> void:
 	for pid in GameData.planet_order:
 		var cfg := GameData.planet(pid)
 		var known := GameState.visited.has(pid)
-		dv.add_child(UiTheme.label((str(cfg["name"]) if known else "Unknown planet").to_upper(), 26, UiTheme.SKY, true))
+		var total := 0
+		for d in GameData.discoveries:
+			if d.get("planet", "") == pid:
+				total += 1
+		dv.add_child(UiTheme.caps("%s  ·  %d / %d" % [str(cfg["name"]) if known else "Uncharted world", GameState.discovery_count(pid), total], 13, UiTheme.ACCENT))
 		for d in GameData.discoveries:
 			if d.get("planet", "") != pid:
 				continue
 			var found := GameState.has_discovery(d["id"])
 			var card := PanelContainer.new()
-			card.add_theme_stylebox_override("panel", UiTheme.box(UiTheme.PANEL_LIGHT if found else UiTheme.PANEL_DARK, 14, 3, UiTheme.INK, 0, 14))
+			card.add_theme_stylebox_override("panel", UiTheme.card_box(UiTheme.PANEL_LIGHT if found else UiTheme.PANEL_DARK, 12))
 			var h3 := HBoxContainer.new()
 			h3.add_theme_constant_override("separation", 12)
 			card.add_child(h3)
 			var kind := str(d.get("kind", "artifact"))
 			var icon_name: String = str({"artifact": "star", "place": "planet", "core": "luck"}.get(kind, "star")) if found else "lock"
-			h3.add_child(UiIcon.make(icon_name, UiTheme.YELLOW if found else Color(0.4, 0.38, 0.55), 42))
+			h3.add_child(UiIcon.make(icon_name, UiTheme.ACCENT if found else UiTheme.FAINT, 26))
 			var tv := VBoxContainer.new()
 			tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			tv.add_theme_constant_override("separation", 0)
+			tv.add_theme_constant_override("separation", 1)
 			h3.add_child(tv)
-			tv.add_child(UiTheme.label(str(d["name"]) if found else "? ? ?", 23, UiTheme.CREAM if found else UiTheme.MUTED, true))
-			var hint: String = str(d["desc"]) if found else str({"artifact": "Something is buried out there...", "place": "A hidden place, not yet found.", "core": "They say every planet has a heart."}.get(kind, ""))
-			var dl := UiTheme.label(hint, 18, UiTheme.MUTED)
+			tv.add_child(UiTheme.label(str(d["name"]) if found else "Not yet found", 18, UiTheme.TEXT if found else UiTheme.DIM, found))
+			var hint: String = str(d["desc"]) if found else str({"artifact": "Something is buried out there. A scanner helps.", "place": "A hidden place. Look for cave mouths marked by cairns.", "core": "They say every planet has a heart."}.get(kind, ""))
+			var dl := UiTheme.label(hint, 15, UiTheme.DIM if found else UiTheme.FAINT)
 			dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			tv.add_child(dl)
 			dv.add_child(card)
+		dv.add_child(UiTheme.spacer(false, Vector2(0, 6)))

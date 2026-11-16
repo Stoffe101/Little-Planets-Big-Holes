@@ -31,7 +31,7 @@ uniform int ore_mat[12];
 
 uniform vec3 mat_color[24] : source_color;
 uniform vec3 mat_color2[24] : source_color;
-uniform vec4 mat_fx[24];   // emission, sparkle, is_ore, rocky
+uniform vec4 mat_fx[24];   // emission, sparkle, is_ore, kind (0 soil, 1 rock, 2 crystalline)
 uniform vec4 mat_pbr[24];  // roughness, metallic, strata strength, relief strength
 
 uniform vec3 grass_a : source_color = vec3(0.21, 0.32, 0.11);
@@ -164,17 +164,21 @@ void fragment() {
 	vec3 relief = d1.yzw * 5.5 * 0.65 + d2.yzw * 17.0 * 0.35;    // gradient of `grain`
 
 	vec3 col;
+	vec3 facet_tilt = vec3(0.0);
 	float rough = pbr.x;
 	float metallic = 0.0;
 	float relief_k = pbr.w;
 	if (!is_ore) {
 		// Sediment: broad alternating tones plus thin darker bedding lines, both following the
 		// (warped) depth so every cut face shows the layering.
-		float tone = smoothstep(0.3, 0.7, texture(noise_a, vec3(dl * 0.11, n_big * 0.8, 0.37)).r);
-		col = mix(c1, c2, tone * 0.75 + (n_mid - 0.5) * 0.35);
-		float bed = fract(dl * 0.83 + n_big * 1.7);
+		float tone = smoothstep(0.3, 0.7, texture(noise_a, vec3(dl * 0.09, 0.37, 0.61)).r);
+		col = mix(c1, c2, clamp(tone * 0.7 + (n_mid - 0.5) * 0.4, 0.0, 1.0));
+		// bedding lines belong on cut walls; on floors and ceilings (which run along a stratum)
+		// they would smear into contour swirls, so they fade out there
+		float wall = 1.0 - smoothstep(0.45, 0.85, abs(up_facing));
+		float bed = fract(dl * 0.83 + n_big * 0.5);
 		float bed_line = 1.0 - smoothstep(0.0, 0.035, bed) * (1.0 - smoothstep(0.955, 1.0, bed));
-		col *= 1.0 - bed_line * 0.16 * pbr.z;
+		col *= 1.0 - bed_line * 0.16 * pbr.z * wall;
 		col *= 0.94 + 0.12 * grain;
 		// a soft dark seam where one stratum meets the next
 		col *= mix(0.82, 1.0, smoothstep(0.0, 0.16, layer_edge));
@@ -186,6 +190,15 @@ void fragment() {
 		metallic = pbr.y;
 		rough = mix(pbr.x, pbr.x * 0.6, fleck);
 		relief_k *= 1.4;
+		if (fx.w > 1.5) {
+			// crystalline bodies: small facets that each catch the light at their own angle
+			vec3 q = vec3(dot(lp, vec3(0.80, 0.36, -0.48)), dot(lp, vec3(-0.6, 0.48, -0.64)), dot(lp, vec3(0.0, 0.8, 0.6))) * 7.0;
+			vec3 cellp = floor(q);
+			vec3 tilt = vec3(hash13(cellp), hash13(cellp + 17.3), hash13(cellp + 41.7)) - 0.5;
+			facet_tilt = tilt * near_fade;
+			col *= 0.9 + 0.25 * hash13(cellp + 5.1);
+			relief_k *= 0.3;
+		}
 	}
 
 	// --- surface skin (grass / moss / dust) on the ORIGINAL surface only
@@ -207,7 +220,7 @@ void fragment() {
 
 	// --- fine relief: perturb the normal with the gradient of the grain noise
 	vec3 tangent_grad = relief - world_n * dot(relief, world_n);
-	vec3 n2 = normalize(world_n - tangent_grad * 0.028 * relief_k * near_fade);
+	vec3 n2 = normalize(world_n - tangent_grad * 0.028 * relief_k * near_fade + facet_tilt * 0.9 * (1.0 - cover));
 	NORMAL = normalize((VIEW_MATRIX * vec4(n2, 0.0)).xyz);
 
 	ALBEDO = col;

@@ -296,7 +296,7 @@ func on_dig(result: Dictionary, pos: Vector3) -> void:
 		var gem := GameData.mat_index(str(planet.config.get("bonus_gem", "amethyst")))
 		var up := planet.up_at(pos)
 		pickups.spawn(gem, 1 + randi() % 2, pos + up * 0.4, up * 6.0 + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)))
-		fx.sparks(pos + up * 0.4, up, GameData.materials[gem]["color2_c"], 24)
+		fx.sparks(pos + up * 0.4, up, GameData.materials[gem]["color2_c"], 10)
 		fx.floating_text(pos + up * 0.8, "LUCKY!", UiTheme.YELLOW, 0.9)
 		Audio.play("rare", -2.0)
 		GameState.add_stat("bonus_gems")

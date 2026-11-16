@@ -14,24 +14,32 @@ var _buttons: VBoxContainer
 func _init() -> void:
 	name = "PauseMenu"
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	build("PAUSED", 330, 90, UiTheme.PINK)
+	build("Paused", 330, 90)
 	closed.connect(func() -> void: resume_requested.emit())
 	var split := HBoxContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	split.add_theme_constant_override("separation", 26)
+	split.add_theme_constant_override("separation", 28)
 	content.add_child(split)
 	_buttons = VBoxContainer.new()
-	_buttons.add_theme_constant_override("separation", 14)
-	_buttons.custom_minimum_size = Vector2(320, 0)
+	_buttons.add_theme_constant_override("separation", 10)
+	_buttons.custom_minimum_size = Vector2(300, 0)
 	split.add_child(_buttons)
-	for b: Array in [["Resume", UiTheme.GREEN, "resume"], ["Save game", UiTheme.SKY, "save"], ["Main menu", UiTheme.YELLOW, "menu"], ["Quit to desktop", UiTheme.PINK, "quit"]]:
-		var btn := UiTheme.button(str(b[0]), b[1], 28)
-		btn.custom_minimum_size = Vector2(0, 64)
+	for b: Array in [["Resume", true, "resume"], ["Save game", false, "save"], ["Main menu", false, "menu"], ["Quit to desktop", false, "quit"]]:
+		var btn := UiTheme.button(str(b[0]), UiTheme.ACCENT, 20) if b[1] else UiTheme.ghost_button(str(b[0]), 20)
+		btn.custom_minimum_size = Vector2(0, 48)
 		var what := str(b[2])
 		btn.pressed.connect(func() -> void: _on_button(what))
 		_buttons.add_child(btn)
-	var keys := UiTheme.label("WASD move  -  Shift sprint  -  Space jump\nLeft mouse dig  -  1-4 / wheel tools\nE interact  -  Q scan  -  Tab journal\nF3 debug  -  F5 quick save", 19, UiTheme.MUTED)
-	_buttons.add_child(keys)
+	_buttons.add_child(UiTheme.spacer(false, Vector2(0, 12)))
+	_buttons.add_child(UiTheme.caps("Controls", 13, UiTheme.DIM))
+	for row: Array in [["W A S D", "Move"], ["Shift / Space", "Sprint / jump"], ["Left mouse", "Use tool"], ["1-4 / wheel", "Switch tool"],
+			["E", "Interact"], ["Q", "Scanner"], ["Tab", "Journal"], ["F5", "Quick save"], ["F3", "Performance overlay"]]:
+		var h := HBoxContainer.new()
+		var k := UiTheme.label(str(row[0]), 15, UiTheme.TEXT, true)
+		k.custom_minimum_size = Vector2(130, 0)
+		h.add_child(k)
+		h.add_child(UiTheme.label(str(row[1]), 15, UiTheme.DIM))
+		_buttons.add_child(h)
 	_settings_scroll = ScrollContainer.new()
 	_settings_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_settings_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

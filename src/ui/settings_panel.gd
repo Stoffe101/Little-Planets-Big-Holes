@@ -4,7 +4,7 @@ extends VBoxContainer
 
 
 func _init() -> void:
-	add_theme_constant_override("separation", 8)
+	add_theme_constant_override("separation", 6)
 	_section("CONTROLS")
 	_slider("Mouse sensitivity", "mouse_sensitivity", 0.05, 0.8, 0.01)
 	_slider("Field of view", "fov", 60.0, 105.0, 1.0)
@@ -23,7 +23,7 @@ func _init() -> void:
 	_toggle("V-Sync", "vsync")
 	_slider("3D render scale", "render_scale", 0.5, 1.0, 0.05)
 	_slider("Shadow quality", "shadow_quality", 0.0, 3.0, 1.0)
-	var reset := UiTheme.button("Reset to defaults", UiTheme.MUTED, 22)
+	var reset := UiTheme.ghost_button("Reset to defaults", 17)
 	reset.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	reset.pressed.connect(func() -> void:
 		Settings.reset_to_defaults()
@@ -34,14 +34,16 @@ func _init() -> void:
 
 
 func _section(text: String) -> void:
-	add_child(UiTheme.label(text, 22, UiTheme.YELLOW, true))
+	if get_child_count() > 0:
+		add_child(UiTheme.spacer(false, Vector2(0, 8)))
+	add_child(UiTheme.caps(text, 13, UiTheme.ACCENT))
 
 
 func _slider(text: String, key: String, lo: float, hi: float, step: float) -> void:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 14)
-	var l := UiTheme.label(text, 22, UiTheme.CREAM)
-	l.custom_minimum_size = Vector2(330, 0)
+	var l := UiTheme.label(text, 18, UiTheme.TEXT)
+	l.custom_minimum_size = Vector2(300, 0)
 	h.add_child(l)
 	var s := HSlider.new()
 	s.min_value = lo
@@ -50,10 +52,10 @@ func _slider(text: String, key: String, lo: float, hi: float, step: float) -> vo
 	s.value = float(Settings.get_value(key))
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	s.custom_minimum_size = Vector2(260, 30)
+	s.custom_minimum_size = Vector2(240, 24)
 	h.add_child(s)
-	var val := UiTheme.label("", 22, UiTheme.MUTED, true)
-	val.custom_minimum_size = Vector2(80, 0)
+	var val := UiTheme.label("", 17, UiTheme.DIM)
+	val.custom_minimum_size = Vector2(70, 0)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(val)
 	var is_int: bool = Settings.DEFAULTS[key] is int

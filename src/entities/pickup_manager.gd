@@ -53,23 +53,31 @@ func _mesh_for(mat: int) -> ArrayMesh:
 	var c1: Color = def["color_c"]
 	var c2: Color = def["color2_c"]
 	var kit := MeshKit.new()
-	kit.emission = float(def.get("emission", 0.0)) * 0.9
+	# Chunks are small faceted pieces of the real thing: dull clods and stones, ore as host
+	# rock carrying bright nuggets, crystals as glossy shards. Value reads from finish, not glow.
 	match str(def["category"]):
 		"soil":
-			kit.sphere(Vector3.ZERO, 1.0, c1, Vector3(1.0, 0.8, 0.9), 7, 4)
-			kit.sphere(Vector3(0.55, 0.25, 0.1), 0.6, c2, Vector3.ONE, 6, 4)
-			kit.sphere(Vector3(-0.4, 0.3, -0.35), 0.5, c1.lightened(0.08), Vector3.ONE, 6, 4)
+			kit.matte()
+			kit.rock(Transform3D(Basis.from_scale(Vector3(1.0, 0.8, 0.9)), Vector3.ZERO), 1.0, c1, mat * 7 + 1, 0.18, false)
+			kit.rock(Transform3D.IDENTITY.translated(Vector3(0.6, 0.25, 0.1)), 0.55, c2, mat * 7 + 2, 0.18, false)
 		"rock":
-			kit.rbox(Transform3D(Basis.from_euler(Vector3(0.3, 0.5, 0.2)), Vector3.ZERO), Vector3(1.7, 1.3, 1.5), c1, 0.55)
-			kit.rbox(Transform3D(Basis.from_euler(Vector3(0.8, 0.1, 0.6)), Vector3(0.5, 0.35, 0.2)), Vector3(0.9, 0.8, 0.9), c2, 0.5)
+			kit.matte()
+			kit.rock(Transform3D(Basis.from_scale(Vector3(1.1, 0.85, 0.95)), Vector3.ZERO), 1.05, c1, mat * 7 + 1, 0.26, false)
+			kit.rock(Transform3D.IDENTITY.translated(Vector3(0.55, 0.3, 0.2)), 0.5, c2, mat * 7 + 2, 0.26, false)
 		"ore":
-			kit.rbox(Transform3D(Basis.from_euler(Vector3(0.4, 0.3, 0.1)), Vector3.ZERO), Vector3(1.5, 1.2, 1.4), c1, 0.6)
-			kit.sphere(Vector3(0.45, 0.35, 0.2), 0.55, c2, Vector3.ONE, 6, 4)
-			kit.sphere(Vector3(-0.4, 0.2, -0.3), 0.45, c2, Vector3.ONE, 6, 4)
+			kit.matte()
+			kit.rock(Transform3D(Basis.from_scale(Vector3(1.05, 0.85, 0.95)), Vector3.ZERO), 0.95, Pal.ROCK_DARK, mat * 7 + 1, 0.24, false)
+			kit.surf(0.32, 0.8)
+			kit.emission = float(def.get("emission", 0.0)) * 0.5
+			kit.rock(Transform3D.IDENTITY.translated(Vector3(0.42, 0.32, 0.25)), 0.62, c1, mat * 7 + 2, 0.2, false)
+			kit.rock(Transform3D.IDENTITY.translated(Vector3(-0.45, 0.2, -0.3)), 0.5, c2, mat * 7 + 3, 0.2, false)
+			kit.rock(Transform3D.IDENTITY.translated(Vector3(0.05, -0.3, 0.55)), 0.4, c1, mat * 7 + 4, 0.2, false)
 		_:
-			kit.crystal(Vector3(0, -0.8, 0), Vector3(0, 1.3, 0), 0.55, c1)
-			kit.crystal(Vector3(0.2, -0.6, 0.1), Vector3(0.9, 0.7, 0.3), 0.32, c2)
-			kit.crystal(Vector3(-0.2, -0.6, -0.1), Vector3(-0.7, 0.6, -0.4), 0.28, c1.lightened(0.2))
+			kit.gloss()
+			kit.emission = clampf(float(def.get("emission", 0.0)) * 0.6, 0.02, 0.4)
+			kit.crystal(Vector3(0, -0.8, 0), Vector3(0, 1.3, 0), 0.5, c1, 6, 0.75)
+			kit.crystal(Vector3(0.2, -0.6, 0.1), Vector3(0.9, 0.7, 0.3), 0.3, c2, 6, 0.7)
+			kit.crystal(Vector3(-0.2, -0.6, -0.1), Vector3(-0.7, 0.6, -0.4), 0.26, c1.lightened(0.15), 6, 0.7)
 	var mesh := kit.commit()
 	_meshes[mat] = mesh
 	return mesh

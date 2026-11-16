@@ -1,7 +1,7 @@
 class_name MenuBackdrop
 extends Node3D
-## 3D scene behind the main menu: a tiny toy planet with a rocket, trees and one very big hole,
-## turning slowly under a candy-coloured sky.
+## 3D scene behind the main menu: a small planet with one very deep, cleanly cut hole that
+## shows its strata, the lander standing beside it, turning slowly in open space.
 
 var _planet: Node3D
 var _moon: Node3D
@@ -10,105 +10,135 @@ var _t := 0.0
 
 
 func _ready() -> void:
+	var cfg := GameData.planet("pipseed")
+	var pal: Dictionary = cfg.get("palette", {})
 	var env := Environment.new()
 	_sky = ShaderMaterial.new()
 	_sky.shader = preload("res://shaders/sky.gdshader")
+	# seen from orbit: nearly all space, a faint glow low in the frame
 	_sky.set_shader_parameter("up_dir", Vector3(0.1, 1.0, 0.2).normalized())
 	_sky.set_shader_parameter("sun_dir", Vector3(-0.5, 0.45, 0.6).normalized())
-	_sky.set_shader_parameter("planet_a_dir", Vector3(0.9, 0.3, -0.5))
-	_sky.set_shader_parameter("planet_b_dir", Vector3(-0.8, 0.5, -0.4))
+	_sky.set_shader_parameter("top_color", Color("#05080f"))
+	_sky.set_shader_parameter("mid_color", Color("#0a1322"))
+	_sky.set_shader_parameter("horizon_color", Color("#16273d"))
+	_sky.set_shader_parameter("ground_color", Color("#0a1018"))
+	_sky.set_shader_parameter("atmosphere", 0.0)
+	_sky.set_shader_parameter("star_amount", 1.0)
+	_sky.set_shader_parameter("nebula_amount", 0.6)
+	_sky.set_shader_parameter("planet_a_size", 0.0001)
+	_sky.set_shader_parameter("moon_size", 0.0001)
+	_sky.set_shader_parameter("horizon_dip", 0.9)
 	var sky := Sky.new()
 	sky.sky_material = _sky
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#b9b4ff")
-	env.ambient_light_energy = 0.34
-	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED   # sky reflections wash out the palette
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.ambient_light_color = Color("#8fa6c4")
+	env.ambient_light_energy = 0.35
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_white = 6.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.45
-	env.glow_hdr_threshold = 1.1
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	env.glow_intensity = 0.25
+	env.glow_hdr_threshold = 1.6
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.light_energy = 0.8
-	sun.light_color = Color("#fff2c9")
+	sun.light_energy = 1.9
+	sun.light_color = Color(str(pal.get("sun", "#fff1d6")))
 	sun.shadow_enabled = true
-	sun.look_at_from_position(Vector3(-5, 5, 7), Vector3.ZERO)
+	sun.look_at_from_position(Vector3(-6, 5, 6), Vector3.ZERO)
 	add_child(sun)
 	var cam := Camera3D.new()
-	cam.fov = 42.0
-	cam.position = Vector3(-3.6, 0.9, 11.5)
-	cam.look_at_from_position(cam.position, Vector3(-3.6, 0.4, 0.0))
+	cam.fov = 40.0
+	cam.position = Vector3(-3.4, 0.6, 12.0)
+	cam.look_at_from_position(cam.position, Vector3(-3.4, 0.2, 0.0))
 	add_child(cam)
 	cam.make_current()
 
 	_planet = Node3D.new()
-	_planet.position = Vector3(1.6, -0.3, 0)
+	_planet.position = Vector3(2.0, -0.2, 0)
 	add_child(_planet)
-	var kit := MeshKit.new()
+	var grass: Array = pal.get("grass", ["#7d9a5e", "#6b8f66", "#a3a868"])
+	var kit := MeshKit.new().matte()
 	var r := 3.0
-	kit.sphere(Vector3.ZERO, r, Color("#7fdc5a"), Vector3.ONE, 40, 24)
+	# The planet is one lathe whose profile dips into a stepped pit at the pole, so the hole is
+	# real geometry with every stratum in its own colour.
+	var rim_a := deg_to_rad(152.0)
+	var body := PackedVector2Array()
+	for i in 25:
+		var a := rim_a * float(i) / 24.0
+		body.append(Vector2(r * sin(a), -r * cos(a)))
+	kit.lathe(body, Transform3D.IDENTITY, Color(str(grass[0])), 56, true)
+	var rim := Vector2(r * sin(rim_a), -r * cos(rim_a))
+	var strata := ["topsoil", "clay", "stone", "hardrock"]
+	var p := rim
+	for i in strata.size():
+		var col: Color = GameData.material(strata[i])["color_c"]
+		var wall := Vector2(p.x - 0.06, p.y - 0.42)
+		var ledge := Vector2(wall.x - 0.26, wall.y)
+		kit.lathe(PackedVector2Array([p, wall]), Transform3D.IDENTITY, col, 56)
+		kit.lathe(PackedVector2Array([wall, ledge]), Transform3D.IDENTITY, col.darkened(0.12), 56)
+		p = ledge
+	kit.lathe(PackedVector2Array([p, Vector2(p.x - 0.05, p.y - 0.5), Vector2(0.0, p.y - 0.5)]), Transform3D.IDENTITY, GameData.material("corestone")["color_c"], 56)
+	# something glints at the bottom
+	kit.gloss().set_emission(0.8)
+	var floor_y := p.y - 0.5
+	for k in 3:
+		var a2 := TAU * float(k) / 3.0
+		kit.crystal(Vector3(cos(a2) * 0.12, floor_y, sin(a2) * 0.12), Vector3(cos(a2) * 0.3, floor_y + 0.4 + 0.12 * k, sin(a2) * 0.3), 0.08, GameData.material("amethyst")["color2_c"], 6)
+	kit.matte().set_emission(0.0)
+	# low hills, boulders and a few trees
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
-	var hill_cols := [Color("#3fcf8e"), Color("#c9ea5c"), Color("#6fd65a")]
-	for i in 26:
+	var top := Vector3.UP
+	for i in 22:
 		var d := _rand_dir(rng)
-		kit.sphere(d * (r - 0.55), rng.randf_range(0.7, 1.3), hill_cols[i % 3], Vector3.ONE, 14, 8)
-	# the big hole: a dark soil bowl with strata rings and a glowing gem at the bottom
-	var hole_dir := Vector3(-0.35, 0.55, 0.76).normalized()
-	var hb := _basis(hole_dir)
-	kit.blob(Transform3D(hb.scaled(Vector3(1.15, 0.5, 1.15)), hole_dir * (r - 0.05)), Color("#8a5638"), 18, 8)
-	kit.blob(Transform3D(hb.scaled(Vector3(0.85, 0.5, 0.85)), hole_dir * (r - 0.0)), Color("#c2643c"), 16, 8)
-	kit.blob(Transform3D(hb.scaled(Vector3(0.56, 0.5, 0.56)), hole_dir * (r + 0.04)), Color("#7d8aa6"), 14, 8)
-	kit.blob(Transform3D(hb.scaled(Vector3(0.3, 0.5, 0.3)), hole_dir * (r + 0.07)), Color("#3a2b52"), 12, 6)
-	kit.set_emission(2.0)
-	kit.crystal(hole_dir * (r + 0.2), hole_dir * (r + 0.75), 0.14, Color("#b266ff"))
-	kit.set_emission(0.0)
-	# trees, mushrooms, rocks
-	var tree_cols := [Color("#ff8fb8"), Color("#ffb347"), Color("#6fe3c4"), Color("#ffe36b")]
-	for i in 34:
+		if d.dot(top) > 0.72:
+			continue
+		kit.blob(Transform3D(_basis(d) * Basis.from_scale(Vector3(1.0, 0.22, 1.0) * rng.randf_range(0.7, 1.2)), d * (r - 0.1)), Color(str(grass[i % 3])).lerp(Color(str(grass[0])), 0.6), 20, 10)
+	for i in 30:
 		var d2 := _rand_dir(rng)
-		if d2.dot(hole_dir) > 0.82:
+		if d2.dot(top) > 0.78:
 			continue
 		var b := _basis(d2)
-		var base := d2 * (r + 0.25)
-		var kind := i % 3
-		if kind == 0:
-			kit.tube(base, base + d2 * 0.45, 0.07, 0.05, Color("#8a5a3a"), 6)
-			kit.sphere(base + d2 * 0.72, 0.36, tree_cols[i % 4], Vector3.ONE, 10, 6)
-			kit.sphere(base + d2 * 1.02, 0.22, (tree_cols[i % 4] as Color).lightened(0.15), Vector3.ONE, 8, 5)
-		elif kind == 1:
-			kit.tube(base, base + d2 * 0.16, 0.05, 0.04, Color("#fff3df"), 6)
-			kit.blob(Transform3D(b.scaled(Vector3(0.17, 0.11, 0.17)), base + d2 * 0.18), Color("#ff5d73"), 8, 5)
+		var base := d2 * (r + 0.02)
+		if i % 3 == 0:
+			kit.tube(base, base + d2 * 0.42, 0.03, 0.02, Pal.BARK, 5)
+			kit.rock(Transform3D(b * Basis.from_scale(Vector3(1.0, 0.32, 1.0)), base + d2 * 0.45), 0.24, Color("#5c876c"), 500 + i, 0.14, false)
+			kit.rock(Transform3D(b * Basis.from_scale(Vector3(1.0, 0.32, 1.0)), base + d2 * 0.58 + b.x * 0.06), 0.15, Color("#6f8f58"), 600 + i, 0.14, false)
 		else:
-			kit.rbox(Transform3D(b, base - d2 * 0.05), Vector3(0.34, 0.26, 0.3), Color("#9aa3bd"), 0.5)
-	# rocket
-	var rd := Vector3(0.5, 0.75, 0.42).normalized()
+			kit.rock(Transform3D(b, base), rng.randf_range(0.08, 0.2), Pal.ROCK if i % 2 == 0 else Pal.ROCK_WARM, 700 + i, 0.24)
+	# the lander beside the pit
+	var rd := (top + Vector3(0.62, 0.0, 0.3)).normalized()
 	var rb := _basis(rd)
-	var p0 := rd * (r + 0.35)
-	kit.tube(p0, p0 + rd * 0.95, 0.24, 0.22, Color("#f6f0ff"), 12)
-	kit.cone(p0 + rd * 0.95, p0 + rd * 1.45, 0.22, Color("#ff5d6c"), 12)
+	var p0 := rd * (r + 0.02)
+	kit.paint()
+	kit.lathe(PackedVector2Array([Vector2(0.14, 0.12), Vector2(0.2, 0.3), Vector2(0.2, 0.86), Vector2(0.15, 1.08), Vector2(0.08, 1.2)]), Transform3D(rb, p0), Pal.HULL, 16, true)
+	kit.lathe(PackedVector2Array([Vector2(0.08, 1.2), Vector2(0.0, 1.3)]), Transform3D(rb, p0), Pal.GRAPHITE, 12)
+	kit.lathe(PackedVector2Array([Vector2(0.202, 0.74), Vector2(0.202, 0.78)]), Transform3D(rb, p0), Pal.AMBER, 16)
+	kit.cast()
+	kit.lathe(PackedVector2Array([Vector2(0.12, 0.02), Vector2(0.08, 0.14)]), Transform3D(rb, p0), Pal.GRAPHITE, 12)
+	kit.bare()
 	for i in 3:
-		var a := TAU * float(i) / 3.0
-		var out := (rb.x * cos(a) + rb.z * sin(a))
-		kit.rbox(Transform3D(Basis(out, rd, out.cross(rd)), p0 + out * 0.3 + rd * 0.15), Vector3(0.26, 0.42, 0.06), Color("#ff5d6c"), 0.5)
-	kit.set_emission(1.2)
-	kit.sphere(p0 + rd * 0.62 + rb.z * 0.2, 0.09, Color("#7fe6ff"), Vector3.ONE, 8, 5)
-	kit.set_emission(0.0)
+		var a3 := TAU * float(i) / 3.0
+		var out := (rb.x * cos(a3) + rb.z * sin(a3))
+		kit.tube(p0 + out * 0.2 + rd * 0.36, p0 + out * 0.42, 0.016, 0.012, Pal.STEEL, 5)
 	_planet.add_child(kit.instance())
-	# a little moon with its own crater
+	# tilt the pit towards the camera
+	_planet.rotation = Vector3(deg_to_rad(52.0), 0.0, deg_to_rad(-16.0))
+
+	# the neighbouring moon
 	_moon = Node3D.new()
 	add_child(_moon)
-	var mk := MeshKit.new()
-	mk.sphere(Vector3.ZERO, 0.7, Color("#d9c8ff"), Vector3.ONE, 20, 12)
-	mk.sphere(Vector3(0.2, 0.3, 0.5), 0.28, Color("#a995dd"), Vector3(1, 1, 0.5), 10, 6)
-	mk.sphere(Vector3(-0.4, -0.1, 0.4), 0.2, Color("#a995dd"), Vector3(1, 1, 0.5), 10, 6)
-	mk.set_emission(1.5)
-	mk.crystal(Vector3(0, 0.6, 0), Vector3(0.1, 1.15, 0), 0.12, Color("#7dfff0"))
+	var gpal: Dictionary = GameData.planet("glimmerock").get("palette", {})
+	var gs: Array = gpal.get("from_space", ["#aab3c8", "#6f7f9a"])
+	var mk := MeshKit.new().matte()
+	mk.rock(Transform3D.IDENTITY, 0.6, Color(str(gs[0])), 9, 0.05, false)
+	mk.gloss().set_emission(0.5)
+	mk.crystal(Vector3(0, 0.5, 0), Vector3(0.08, 0.95, 0), 0.08, Color("#4fc6bd"), 6)
 	_moon.add_child(mk.instance())
 
 
@@ -126,6 +156,7 @@ func _basis(up: Vector3) -> Basis:
 
 func _process(delta: float) -> void:
 	_t += delta
-	_planet.rotation = Vector3(0.18 * sin(_t * 0.2), _t * 0.12, 0.08)
-	_moon.position = _planet.position + Vector3(cos(_t * 0.3) * 5.2, 1.6 + sin(_t * 0.4) * 0.5, sin(_t * 0.3) * 5.2)
-	_moon.rotation.y = _t * 0.5
+	# turn about the pit's own axis so the hole stays in view
+	_planet.rotate_object_local(Vector3.UP, delta * 0.07)
+	_moon.position = _planet.position + Vector3(cos(_t * 0.12) * 5.6, 1.9 + sin(_t * 0.2) * 0.3, sin(_t * 0.12) * 5.6 - 2.0)
+	_moon.rotation.y = _t * 0.2
