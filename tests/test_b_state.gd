@@ -5,7 +5,8 @@ extends TestSuite
 func test_inventory_capacity() -> void:
 	GameState.reset()
 	var cap := GameState.capacity()
-	assert_eq(cap, 40, "starting capacity")
+	assert_eq(cap, int(GameData.gear_by_id["backpack"]["values"][0]), "starting capacity comes from the gear table")
+	assert_gt(cap, 10, "starting capacity is usable")
 	assert_eq(GameState.add_to_inventory("topsoil", 10), 10, "accepts when there is room")
 	assert_eq(GameState.add_to_inventory("copper", cap), cap - 10, "accepts only what fits")
 	assert_true(GameState.is_full(), "full")
@@ -17,7 +18,8 @@ func test_selling_pays_exact_value() -> void:
 	GameState.reset()
 	GameState.add_to_inventory("topsoil", 7)
 	GameState.add_to_inventory("copper", 5)
-	var expected := 7 * int(GameData.material("topsoil")["value"]) + 5 * int(GameData.material("copper")["value"])
+	# values may be fractional per unit; each material line is rounded to whole credits
+	var expected := int(round(7.0 * float(GameData.material("topsoil")["value"]))) + int(round(5.0 * float(GameData.material("copper")["value"])))
 	assert_eq(GameState.inventory_value(), expected, "inventory value")
 	var before := GameState.money
 	var res := GameState.sell_all()
@@ -78,9 +80,11 @@ func test_mods_apply_to_stats() -> void:
 
 func test_gear_levels() -> void:
 	GameState.reset()
-	GameState.money = 40
+	var pack: Dictionary = GameData.gear_by_id["backpack"]
+	GameState.money = int(pack["costs"][0])
 	assert_true(GameState.buy_gear("backpack"), "buy backpack")
-	assert_eq(GameState.capacity(), 80, "capacity grew")
+	assert_eq(GameState.capacity(), int(pack["values"][1]), "capacity grew to the next level")
+	assert_gt(int(pack["values"][1]), int(pack["values"][0]), "and that is an improvement")
 	assert_false(GameState.buy_gear("backpack"), "cannot afford the next one")
 	GameState.money = 10000000
 	for i in 20:
@@ -114,7 +118,10 @@ func test_objectives_advance_and_reward() -> void:
 	GameState.add_stat("digs", 1)
 	assert_eq(GameState.objective_index, 1, "objective completed")
 	assert_eq(GameState.money, reward, "reward paid")
-	GameState.add_to_inventory("topsoil", 12)
+	var need := int(GameState.current_objective()["cond"]["gte"])
+	GameState.add_to_inventory("topsoil", need - 1)
+	assert_eq(GameState.objective_index, 1, "collect objective needs the full amount")
+	GameState.add_to_inventory("topsoil", 1)
 	assert_eq(GameState.objective_index, 2, "collect objective completed")
 
 

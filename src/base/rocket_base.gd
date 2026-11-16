@@ -62,6 +62,14 @@ func setup(w: World) -> void:
 	_refresh_displays()
 
 
+## Where a newly arrived player stands, and what they look at: a few steps in front of the
+## outpost with the lander, Workshop and Depot all in view. Returns [position, look direction].
+func arrival() -> Array:
+	var stand := _spot(Vector2(2.6, 11.5))
+	var centre := origin + geo.landing_dir * 1.6
+	return [stand.origin + stand.basis.y * 0.15, centre - stand.origin]
+
+
 # ------------------------------------------------------------------ placement
 
 ## World transform for a spot on the pad given local metres (x, z) from the rocket.
@@ -237,7 +245,7 @@ func _build_rocket(local: Vector2) -> void:
 		var vb := Basis.from_euler(Vector3(0, va, 0))
 		kit.louvre(Transform3D(vb, vb * Vector3(0, 3.0, 1.3)), Vector3(0.36, 0.5, 0.05), 5, Pal.CHARCOAL, Pal.GRAPHITE)
 	_rocket.add_child(kit.instance())
-	_label(_rocket, "LPB-01", Vector3(0.0, 5.42, 1.24), 0.55, Pal.GRAPHITE).rotation.x = -0.12
+	_label(_rocket, "LPB-01", Vector3(0.0, 5.36, 1.3), 0.4, Pal.GRAPHITE).rotation.x = -0.1
 	var shape := CapsuleShape3D.new()
 	shape.radius = 1.35
 	shape.height = 7.4

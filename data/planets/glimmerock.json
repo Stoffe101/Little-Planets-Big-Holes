@@ -9,7 +9,7 @@
   "gravity": 8.5,
   "unlock": {"discoveries": ["star_chart_a", "star_chart_b"]},
   "unlock_hint": "Find both Star Chart fragments buried on Pipseed.",
-  "travel_cost": 2500,
+  "travel_cost": 8000,
   "terrain": {
     "hill_amp": 2.2, "hill_freq": 2.6,
     "detail_amp": 1.1, "detail_freq": 7.5,

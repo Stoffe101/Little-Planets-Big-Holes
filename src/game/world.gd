@@ -127,6 +127,9 @@ func _on_planet_loaded() -> void:
 			sys.call("setup", self)
 	if GameState.has_discovery(str((planet.config.get("core", {}) as Dictionary).get("discovery", ""))):
 		bloom = 1.0
+	if base != null and base.has_method("arrival"):
+		var spot: Array = base.call("arrival")
+		player.teleport(spot[0], spot[1])
 	player.input_enabled = true
 	tools.enabled = true
 	is_ready = true

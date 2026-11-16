@@ -131,10 +131,11 @@ func add_to_inventory(material_id: String, amount: int) -> int:
 
 
 func inventory_value() -> int:
-	var total := 0.0
+	# rounded per material, exactly like sell_all(), so the HUD's "worth" is what the Depot pays
+	var total := 0
 	for k: String in inventory:
-		total += float(inventory[k]) * unit_value(k)
-	return int(round(total))
+		total += int(round(float(inventory[k]) * unit_value(k)))
+	return total
 
 
 func unit_value(material_id: String) -> float:
