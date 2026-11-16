@@ -18,6 +18,7 @@ func _ready() -> void:
 	world.start(pid, false)
 	await world.ready_to_play
 	print("ready, planet load ms=", world.planet.load_time_ms)
+	await settle()
 	await frames(6)
 	await call("scenario_" + scenario)
 	print("done")
@@ -73,8 +74,32 @@ func scenario_spawn() -> void:
 
 func place(dir: Vector3, look := Vector3(1, 0, 0.3)) -> void:
 	var d := dir.normalized()
+	await stream(d * (world.planet.geology.surface_radius(d) + 1.0))
 	world.player.teleport(world.planet.ground_point(d) + d * 0.1, look)
+	world.props.update_now(world.player.global_position)
 	await physics(40)
+
+
+## Moves the player (and the terrain viewer) to `pos`, waits for full-resolution ground with
+## collision there, then for the rest of the LOD pyramid so the horizon is complete in the shot.
+func stream(pos: Vector3, radius := 8.0) -> void:
+	world.player.teleport(pos, -world.player.global_basis.z)
+	var t0 := Time.get_ticks_msec()
+	while not world.planet.is_area_ready(pos, radius) and Time.get_ticks_msec() - t0 < 20000:
+		await physics(1)
+	await settle()
+
+
+## Waits until the voxel engine has no generation or meshing work left (max 15 s).
+func settle() -> void:
+	var t0 := Time.get_ticks_msec()
+	var quiet := 0
+	while Time.get_ticks_msec() - t0 < 15000 and quiet < 10:
+		await frames(1)
+		var t: Dictionary = VoxelEngine.get_stats()["tasks"]
+		quiet = quiet + 1 if int(t["meshing"]) + int(t["generation"]) + int(t["streaming"]) == 0 else 0
+	if world.props != null:
+		world.props.update_now(world.player.global_position)
 
 func scenario_dig() -> void:
 	await place(Vector3(0.25, 1, 0.1))
@@ -218,6 +243,7 @@ func scenario_tour() -> void:
 	var dir := Vector3(0.45, 0.8, -0.4).normalized()
 	var top := dir * geo.surface_radius(dir)
 	var side := dir.cross(Vector3.UP).normalized()
+	await stream(top + dir * 2.0, 24.0)
 	# open quarry: a big stepped pit so the layers are visible in daylight
 	for i in 9:
 		world.dig.dig_sphere(top - dir * (1.5 + 2.2 * i) + side * (i * 1.6), 5.5 - i * 0.3, 9)
@@ -241,6 +267,7 @@ func scenario_tour() -> void:
 			var cd: Vector3 = c["dir"]
 			var cside := cd.cross(Vector3(0.2, 0.9, 0.3)).normalized()
 			var stand := cc + cside * float(c["radius"]) * 0.55 - cd * float(c["radius"]) * 0.2
+			await stream(cc, float(c["radius"]) + 2.0)
 			world.player.teleport(world.planet.ground_point(stand.normalized(), stand.length()), cc - stand)
 			await physics(40)
 			look_at_point(cc - cd * 1.0)
@@ -248,6 +275,7 @@ func scenario_tour() -> void:
 			await shot("grotto")
 	# the heart
 	world.tools.visible = false
+	await stream(Vector3(3.6, -1.2, 2.3), geo.core_radius + 2.0)
 	world.player.teleport(Vector3(3.6, -1.2, 2.3), Vector3(-1, 0, -0.6))
 	await physics(20)
 	look_at_point(Vector3.ZERO)
@@ -258,9 +286,7 @@ func scenario_surface() -> void:
 	var dirs := [Vector3(0.6, 0.55, 0.55), Vector3(-0.5, 0.6, 0.6), Vector3(0.2, -0.8, 0.5)]
 	var i := 0
 	for d: Vector3 in dirs:
-		var n := d.normalized()
-		world.player.teleport(world.planet.ground_point(n) + n * 0.1, Vector3(0.3, 0.2, 1))
-		await physics(15)
+		await place(d, Vector3(0.3, 0.2, 1))
 		look_pitch(-4)
 		await shot("surface_%d" % i)
 		i += 1

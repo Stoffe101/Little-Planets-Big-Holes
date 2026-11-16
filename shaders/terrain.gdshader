@@ -261,7 +261,8 @@ void fragment() {
 	float turf = turf_depth + (n_mid - 0.5) * 0.2;
 	float slope_ok = smoothstep(0.3, 0.5, up_facing);
 	// regions with thin cover show bare ground in patches (the cover follows the mottling)
-	float patchy = smoothstep(cover_amount - 0.2, cover_amount + 0.2, 1.0 - (n_big * 0.6 + n_mid * 0.4));
+	float mottle = n_big * 0.6 + n_mid * 0.4;
+	float patchy = smoothstep(mottle - 0.1, mottle + 0.1, cover_amount * 1.15 - 0.05);
 	float soil_here = float(fx.w < 0.5 && fx.z < 0.5);     // cover grows on soil, not on rock or ore
 	float cover = (1.0 - smoothstep(turf - 0.025, turf + 0.025, depth)) * slope_ok * patchy * mix(0.25, 1.0, soil_here);
 	vec3 gcol = mix(grass_a, grass_b, smoothstep(0.38, 0.66, hm.g));
