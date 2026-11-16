@@ -17,7 +17,7 @@ signal purchase_made(kind: String, id: String)
 signal sold(total: int, items: Dictionary)
 signal planet_unlocked(id: String)
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 
 var money: int = 0
 var inventory: Dictionary = {}        ## material id -> units (int)
@@ -32,6 +32,7 @@ var equipped: String = "shovel"
 var objective_index: int = 0
 var playtime: float = 0.0
 var slot_seed: int = 0                ## per-save seed offset mixed into planet seeds (0 = canonical worlds)
+var terrain_generations: Dictionary = {}   ## planet id -> terrain generation the player last played on
 var flags: Dictionary = {}            ## misc persistent world state, e.g. "pipseed/formation_12": true
 
 
@@ -55,6 +56,7 @@ func reset() -> void:
 	playtime = 0.0
 	slot_seed = 0
 	flags = {}
+	terrain_generations = {}
 	_emit_all()
 
 
@@ -591,6 +593,7 @@ func to_dict() -> Dictionary:
 		"playtime": playtime,
 		"slot_seed": slot_seed,
 		"flags": flags.duplicate(),
+		"terrain_generations": terrain_generations.duplicate(),
 	}
 
 
@@ -642,6 +645,11 @@ func from_dict(d: Dictionary) -> bool:
 	slot_seed = int(d.get("slot_seed", 0))
 	for k: Variant in (d.get("flags", {}) as Dictionary):
 		flags[str(k)] = d["flags"][k]
+	var gens: Variant = d.get("terrain_generations", {})
+	if gens is Dictionary:
+		for k: Variant in (gens as Dictionary):
+			if GameData.planets.has(str(k)):
+				terrain_generations[str(k)] = maxi(1, int((gens as Dictionary)[k]))
 	_emit_all()
 	check_objectives()
 	return true

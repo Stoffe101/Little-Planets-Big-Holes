@@ -84,6 +84,7 @@ func test_jumping() -> void:
 
 func test_zero_gravity_in_the_core() -> void:
 	assert_lt(w.planet.gravity_at(Vector3(0.5, 0.2, 0.1)).length(), 0.5, "almost no gravity at the centre")
+	await stream_to(w, Vector3(2.5, 0.0, 1.0), 4.0)
 	w.player.teleport(Vector3(2.5, 0.0, 1.0), Vector3(-1, 0, 0))
 	await physics(40)
 	assert_true(w.player.in_zero_g, "zero-g mode inside the heart chamber")
@@ -97,6 +98,7 @@ func test_zero_gravity_in_the_core() -> void:
 func test_dig_removes_ground_and_collision_follows() -> void:
 	_reset_progress()
 	var d := DIG_DIR.normalized()
+	await stream_to(w, d * (geo.surface_radius(d) + 2.0))
 	var surface := w.planet.ground_point(d)
 	var before := ray(w, d * (geo.radius + 30.0), Vector3.ZERO)
 	assert_false(before.is_empty(), "physics ray hits the terrain")
@@ -118,6 +120,7 @@ func test_dig_removes_ground_and_collision_follows() -> void:
 func test_yields_are_made_of_what_was_dug() -> void:
 	_reset_progress()
 	var d := Vector3(0.6, 0.6, -0.5).normalized()
+	await stream_to(w, d * (geo.surface_radius(d) + 2.0))
 	var surface := w.planet.ground_point(d)
 	var res := w.dig.dig_sphere(surface - d * 0.7, 1.5, 1)
 	assert_true(bool(res["ok"]), "dig ok")
@@ -136,10 +139,25 @@ func test_digging_air_does_nothing() -> void:
 	assert_false(bool(res["ok"]), "not counted as a dig")
 
 
+func test_digging_unloaded_terrain_is_refused() -> void:
+	_reset_progress()
+	await place_player(w, geo.landing_dir + Vector3(0.05, 0, 0))
+	var anti := -geo.landing_dir
+	var far := anti * (geo.surface_radius(anti) - 1.0)
+	assert_false(w.planet.is_area_ready(far, 2.0), "the far side is not loaded at full resolution")
+	var res := w.dig.dig_sphere(far, 1.5, 5)
+	assert_true(bool(res.get("unloaded", false)), "dig reports unloaded terrain")
+	assert_false(bool(res["ok"]), "nothing dug")
+	assert_eq(int(GameState.stats["digs"]), 0, "not counted as a dig")
+	var cap := w.dig.dig_capsule(far, far + anti.cross(Vector3.RIGHT).normalized() * 6.0, 1.5, 5)
+	assert_false(bool(cap["ok"]), "capsule digs are refused too")
+
+
 func test_weak_tools_bounce_off_hard_layers() -> void:
 	_reset_progress()
 	var d := Vector3(-0.6, 0.5, 0.62).normalized()
 	var deep := d * (geo.surface_radius(d) - 9.0)       # dense clay / iron: hardness >= 2
+	await stream_to(w, d * (geo.surface_radius(d) + 2.0), 12.0)
 	assert_true(w.planet.is_solid(deep), "solid at depth")
 	var res := w.dig.dig_sphere(deep, 1.2, 1)
 	assert_true(bool(res["blocked"]), "power 1 is blocked 9 m down")
@@ -167,6 +185,7 @@ func test_selective_dig_leaves_harder_material_standing() -> void:
 		var center := d * (sr - 4.1)
 		if geo.material_at(soft_p) != soil or geo.hardness_of(geo.material_at(hard_p)) < 2:
 			continue
+		await stream_to(w, d * (sr + 2.0), 8.0)
 		if not w.planet.is_solid(soft_p) or not w.planet.is_solid(hard_p):
 			continue
 		var sv := w.dig.survey(center, 1.7, 1)
@@ -189,6 +208,7 @@ func test_tunnel_into_a_hillside_is_walkable() -> void:
 	var d := Vector3(0.62, 0.50, 0.60).normalized()          # the tall hill
 	var side := d.cross(Vector3.UP).normalized()
 	var mouth := (d + side * 0.16).normalized()
+	await stream_to(w, mouth * (geo.surface_radius(mouth) + 2.0), 18.0)
 	var a := w.planet.ground_point(mouth) + mouth * 0.5
 	var inward := (-mouth * 0.45 - side).normalized()
 	var b := a + inward * 11.0
@@ -359,17 +379,21 @@ func test_artifact_pickup_records_a_discovery() -> void:
 	var n := sm.artifacts.size()
 	assert_gt(float(n), 3.0, "artifacts are buried on the planet")
 	for a in sm.artifacts:
+		await stream_to(w, a["pos"], 3.0)
 		assert_false(w.planet.is_solid(a["pos"]), "artifact %s sits in an open pocket or cavern" % a["id"])
+	# (streaming into the caverns above discovered them, which pays their own rewards)
+	var money0 := GameState.money
 	sm.collect("time_capsule")
 	assert_true(GameState.has_discovery("time_capsule"), "discovery recorded")
 	assert_eq(sm.artifacts.size(), n - 1, "artifact removed from the world")
-	assert_eq(GameState.money, int(GameData.discovery("time_capsule")["reward"]), "reward paid")
+	assert_eq(GameState.money - money0, int(GameData.discovery("time_capsule")["reward"]), "reward paid")
 
 
 func test_entering_a_hidden_cavern_discovers_it() -> void:
 	_reset_progress()
 	for c in geo.cavities:
 		if c["id"] == "mushroom_hollow":
+			await stream_to(w, c["center"], 3.0)
 			assert_false(w.planet.is_solid(c["center"]), "cavern is hollow")
 			w.player.teleport(c["center"], Vector3(1, 0, 0))
 	var found := await wait_until(func() -> bool: return GameState.has_discovery("mushroom_hollow"), 120)
@@ -378,6 +402,7 @@ func test_entering_a_hidden_cavern_discovers_it() -> void:
 
 func test_touching_the_heart_awakens_the_planet() -> void:
 	_reset_progress()
+	await stream_to(w, Vector3(0.5, 0.2, 0.1), geo.core_radius + 5.0)
 	assert_false(w.planet.is_solid(Vector3.ZERO), "core chamber is hollow")
 	assert_true(w.planet.is_solid(Vector3(geo.core_radius + 4.0, 0, 0)), "surrounded by rock")
 	var sm: SecretsManager = w.secrets
@@ -394,10 +419,15 @@ func test_repeated_digging_stays_stable_and_fast() -> void:
 	_reset_progress()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2718
+	# Hammer one streamed-in area (everything editable lies within ~70 m of the player).
+	var site := Vector3(-0.4, -0.6, 0.7).normalized()
+	await stream_to(w, site * (geo.surface_radius(site) - 8.0), 30.0)
+	var t1 := site.cross(Vector3.UP).normalized()
+	var t2 := site.cross(t1)
 	var digs0 := w.dig.total_digs
 	var usec0 := w.dig.total_dig_usec
 	for i in 400:
-		var d := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, -0.2), rng.randf_range(-1, 1)).normalized()
+		var d := (site + (t1 * rng.randf_range(-1, 1) + t2 * rng.randf_range(-1, 1)) * (22.0 / geo.radius)).normalized()
 		var depth := rng.randf_range(0.0, 20.0)
 		w.dig.dig_sphere(d * (geo.surface_radius(d) - depth), rng.randf_range(0.8, 3.2), 1 + rng.randi() % 5)
 		if i % 20 == 0:

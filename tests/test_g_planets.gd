@@ -16,6 +16,7 @@ func test_glimmerock_loads_and_differs() -> void:
 	var mat := GameData.mat_id(geo.material_at(d * (geo.surface_radius(d) - 0.5)))
 	assert_true(mat in ["glimdust", "moonsilver"], "surface material is glimmer dust (got %s)" % mat)
 	# starting shovel cannot dig here; the spade can
+	await stream_to(w, d * (geo.surface_radius(d) + 2.0))
 	var p := w.planet.ground_point(d) - d * 0.5
 	assert_true(bool(w.dig.dig_sphere(p, 1.0, 1)["blocked"]), "power 1 bounces off glimmer dust")
 	assert_true(bool(w.dig.dig_sphere(p, 1.0, 2)["ok"]), "power 2 digs it")

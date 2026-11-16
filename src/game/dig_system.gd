@@ -70,6 +70,15 @@ static func _dominant(counts: Dictionary) -> int:
 	return best
 
 
+## True if every voxel in the box (world metres) is loaded at full resolution. Edits are only
+## possible there (VoxelLodTerrain keeps full-resolution voxels near the viewer only).
+func _editable(lo: Vector3, hi: Vector3) -> bool:
+	var inv := planet.geology.inv_voxel
+	var a := (lo * inv).floor() - Vector3.ONE * 2.0
+	var b := (hi * inv).ceil() + Vector3.ONE * 2.0
+	return planet.voxel_tool.is_area_editable(AABB(a, b - a))
+
+
 ## Excavates a sphere. `power` is the tool's strength (compared with material hardness).
 ## opts: {"yield_mult": float, "ore_yield": float (bonus fraction for ore/crystal), "source": String}
 ## Result: {ok, blocked, empty, center, radius, volume, yields: {mat_index: int units},
@@ -80,6 +89,10 @@ func dig_sphere(center: Vector3, radius: float, power: int, opts: Dictionary = {
 		"volume": 0.0, "yields": {}, "dominant": -1, "hard_material": -1, "hit_hard": false}
 	if planet == null or not planet.is_loaded:
 		result["empty"] = true
+		return result
+	if not _editable(center - Vector3.ONE * radius, center + Vector3.ONE * radius):
+		result["empty"] = true
+		result["unloaded"] = true
 		return result
 	var sv := survey(center, radius, power)
 	var solid: int = sv["solid"]
@@ -120,6 +133,12 @@ func dig_capsule(a: Vector3, b: Vector3, radius: float, power: int, opts: Dictio
 		"volume": 0.0, "yields": {}, "dominant": -1, "hard_material": -1, "hit_hard": false}
 	if planet == null or not planet.is_loaded:
 		result["empty"] = true
+		return result
+	var lo := Vector3(minf(a.x, b.x), minf(a.y, b.y), minf(a.z, b.z)) - Vector3.ONE * radius
+	var hi := Vector3(maxf(a.x, b.x), maxf(a.y, b.y), maxf(a.z, b.z)) + Vector3.ONE * radius
+	if not _editable(lo, hi):
+		result["empty"] = true
+		result["unloaded"] = true
 		return result
 	var counts: Dictionary = {}
 	var hard_counts: Dictionary = {}

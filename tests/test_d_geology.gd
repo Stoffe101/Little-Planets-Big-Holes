@@ -40,9 +40,12 @@ func test_different_seed_different_planet() -> void:
 func test_landing_pad_is_flat() -> void:
 	var l := geo.landing_dir
 	var side := l.cross(Vector3.RIGHT).normalized()
-	for k in 8:
-		var d := (l + side.rotated(l, TAU * k / 8.0) * 0.1).normalized()
-		assert_near(geo.height_at(d), geo.landing_height, 0.05, "pad height")
+	# The outpost needs ~12 m of level ground around the pad; sample rings in metres (the planet
+	# used to be 48 m in radius, where the old 0.1 rad offset was ~5 m).
+	for dist: float in [5.0, 9.0, 12.0]:
+		for k in 8:
+			var d := (l + side.rotated(l, TAU * k / 8.0) * (dist / geo.radius)).normalized()
+			assert_near(geo.height_at(d), geo.landing_height, 0.05, "pad height %.0f m out" % dist)
 
 
 func test_strata_get_harder_with_depth() -> void:

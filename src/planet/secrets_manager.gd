@@ -23,6 +23,8 @@ var _check := 0.0
 var _time := 0.0
 var _core_id := ""
 var formation_count := 0
+var _undecorated: Array[Dictionary] = []   ## cavities waiting for their terrain to stream in
+const DECORATE_RANGE := 70.0               ## metres from the cavern edge where dressing is built
 
 
 func setup(w: World) -> void:
@@ -34,8 +36,32 @@ func setup(w: World) -> void:
 			continue
 		_spawn_artifact(a)
 	for c in geo.cavities:
-		_decorate_cavity(c)
+		var cfg: Dictionary = c["cfg"]
+		if cfg.has("discovery"):
+			places.append({"id": str(cfg["discovery"]), "center": c["center"], "radius": c["radius"]})
+		_undecorated.append(c)
 	_build_heart()
+	_decorate_ready()
+
+
+## Cavern dressing needs the real cavern walls, which only exist where the terrain is loaded at
+## full resolution. Each cavern is dressed once, the first time the player comes near enough.
+func _decorate_ready() -> void:
+	var p := world.player.global_position if world != null and world.player != null else geo.spawn_position()
+	for i in range(_undecorated.size() - 1, -1, -1):
+		var c := _undecorated[i]
+		var center: Vector3 = c["center"]
+		var r: float = c["radius"]
+		if p.distance_to(center) > r + DECORATE_RANGE:
+			continue
+		if not planet.is_area_ready(center, r * 1.6):
+			continue
+		_undecorated.remove_at(i)
+		_decorate_cavity(c)
+
+
+func decorated_count() -> int:
+	return geo.cavities.size() - _undecorated.size()
 
 
 # ------------------------------------------------------------------ artifacts
@@ -95,7 +121,7 @@ func _artifact_setting(kind: String, seed_value: int) -> Node3D:
 	var kit := MeshKit.new().matte()
 	kit.rock(Transform3D(Basis.from_scale(Vector3(1.3, 0.34, 1.2)), Vector3(0, -0.04, 0)), 0.55, Pal.ROCK_DARK, seed_value, 0.16)
 	match kind:
-		"robot", "helmet", "capsule":
+		"robot", "helmet", "capsule", "probe":
 			# an expedition marker: a short survey stake with an amber tag
 			kit.bare()
 			kit.tube(Vector3(0.62, -0.1, -0.3), Vector3(0.66, 0.7, -0.32), 0.014, 0.012, Pal.STEEL_DARK, 6)
@@ -209,6 +235,21 @@ func _artifact_model(kind: String) -> Node3D:
 			kit.set_emission(0.0)
 			kit.surf(0.4, 0.7)
 			kit.tube(Vector3(0, 0, 0), Vector3(0, 0.28, 0), 0.012, 0.012, Pal.BRASS, 5)
+		"probe":
+			# a survey penetrator from an earlier expedition: a finned dart driven into the ground,
+			# its sample core still clipped to the side
+			var tilt := Basis.from_euler(Vector3(0.18, 0.0, -0.22))
+			kit.cast()
+			kit.turned(tilt * Vector3(0, -0.1, 0), tilt * Vector3(0, 0.95, 0), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.09, 0.12), Vector2(0.11, 0.3), Vector2(0.11, 0.8), Vector2(0.08, 0.92), Vector2(0.0, 1.0)]), Pal.STEEL_DARK, 12, true)
+			kit.bare()
+			for k in 3:
+				var fin := tilt * Basis.from_euler(Vector3(0, TAU * float(k) / 3.0, 0))
+				kit.hbox(Transform3D(fin, tilt * Vector3(0, 0.78, 0) + fin * Vector3(0.15, 0, 0)), Vector3(0.12, 0.24, 0.014), Pal.STEEL, 0.004)
+			kit.gloss()
+			kit.tube(tilt * Vector3(0.1, 0.25, 0.04), tilt * Vector3(0.1, 0.62, 0.04), 0.032, 0.032, Pal.ROCK_WARM.darkened(0.15), 8)
+			kit.surf(0.3).set_emission(0.9)
+			kit.block(tilt * Vector3(0.0, 0.7, 0.105), Vector3(0.05, 0.05, 0.01), Pal.TEAL, 0.003, tilt)
+			kit.set_emission(0.0)
 		_:
 			kit.surf(0.34, 0.75)
 			kit.rock(Transform3D.IDENTITY.translated(Vector3(0, 0.4, 0)), 0.3, Pal.BRASS, 3, 0.1, false)
@@ -232,8 +273,6 @@ func _decorate_cavity(c: Dictionary) -> void:
 	var decor := str(cfg.get("decor", ""))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(c["id"])) * 3 + geo.seed_value
-	if cfg.has("discovery"):
-		places.append({"id": str(cfg["discovery"]), "center": center, "radius": radius})
 	var up: Vector3 = c["dir"]
 	# One soft key light per cavern, high and off-centre, so the space has a lit side and a
 	# shaded side instead of a flat wash.
@@ -257,6 +296,10 @@ func _decorate_cavity(c: Dictionary) -> void:
 		"vault":
 			light.light_color = Pal.LAMP_WARM
 			_cavity_vault(c)
+		"workings":
+			light.light_color = Pal.LAMP_WARM
+			light.light_energy = 0.55
+			_cavity_workings(c, rng)
 
 
 ## Marches from the cavern centre along `dir` until it hits rock. Returns the wall point or null.
@@ -360,6 +403,79 @@ func _cavity_vault(c: Dictionary) -> void:
 		kit.hbox(Transform3D(b, p + Vector3(0, 2.7, 0) - Vector3(cos(a), 0, sin(a)) * 0.215), Vector3(0.06, 0.4, 0.02), Pal.LAMP_WARM, 0.004)
 		kit.set_emission(0.0)
 	node.add_child(kit.instance(MeshKit.material(), false))
+
+
+## The Old Workings: an abandoned dig from before your time. Timber sets brace the walls, a
+## short run of narrow rail leads to a tipped ore tub, and one storm lantern still hangs from a
+## beam. Wood and rusted iron only - nothing here is ours, so no amber.
+func _cavity_workings(c: Dictionary, rng: RandomNumberGenerator) -> void:
+	var center: Vector3 = c["center"]
+	var radius: float = c["radius"]
+	var up: Vector3 = c["dir"]
+	var x := up.cross(Vector3(0.3, 0.2, 0.9)).normalized()
+	var z := x.cross(up).normalized()
+	var floor_hit: Variant = _wall(center, -up, radius * 1.6)
+	var floor_p: Vector3 = floor_hit if floor_hit != null else center - up * (radius - 1.0)
+	var node := Node3D.new()
+	add_child(node)
+	node.global_transform = Transform3D(Basis(x, up, z), floor_p)
+	var kit := MeshKit.new()
+	# timber sets: two posts and a cap, each set as far out as the walls allow
+	for k in 3:
+		var a := TAU * float(k) / 3.0 + rng.randf_range(-0.3, 0.3)
+		var d := Vector3(cos(a), 0, sin(a))
+		var wall: Variant = _wall(center, (x * d.x + z * d.z).normalized(), radius * 1.8)
+		var reach := 3.0
+		if wall != null:
+			reach = clampf(((wall as Vector3) - center).length() - 0.5, 1.8, 6.0)
+		var side := Vector3(-d.z, 0, d.x)
+		var base := d * reach
+		var b := Basis.from_euler(Vector3(0, -a, 0))
+		kit.matte()
+		for s: float in [-1.0, 1.0]:
+			kit.hbox(Transform3D(b * Basis.from_euler(Vector3(0, 0, s * 0.05)), base + side * s * 0.9 + Vector3(0, 1.3, 0)), Vector3(0.2, 2.6, 0.2), Pal.WOOD_DARK, 0.02)
+		kit.hbox(Transform3D(b, base + Vector3(0, 2.66, 0)), Vector3(0.22, 0.22, 2.3), Pal.WOOD, 0.02)
+		kit.cast()
+		for s: float in [-1.0, 1.0]:
+			kit.hbox(Transform3D(b, base + Vector3(0, 2.66, 0) + side * s * 0.95), Vector3(0.26, 0.26, 0.06), Pal.RUST_DARK, 0.005)
+	# narrow rails on sleepers
+	var rail_dir := Vector3(1, 0, 0.2).normalized()
+	var rail_side := Vector3(-rail_dir.z, 0, rail_dir.x)
+	var rail_b := Basis(rail_side, Vector3.UP, -rail_dir)
+	for i in 7:
+		var t := -3.0 + float(i)
+		kit.matte()
+		kit.hbox(Transform3D(rail_b, rail_dir * t + Vector3(0, 0.04, 0)), Vector3(1.0, 0.08, 0.16), Pal.WOOD_DARK.darkened(0.1), 0.01)
+	kit.cast()
+	for s: float in [-0.3, 0.3]:
+		kit.hbox(Transform3D(rail_b, rail_side * s + Vector3(0, 0.11, 0)), Vector3(0.05, 0.06, 6.4), Pal.RUST, 0.004)
+	# tipped ore tub at the end of the line
+	var tub := Transform3D(rail_b * Basis.from_euler(Vector3(0, 0, 1.25)), rail_dir * 3.9 + Vector3(0, 0.45, 0) + rail_side * 0.3)
+	kit.cast()
+	kit.hbox(tub, Vector3(0.8, 0.55, 1.1), Pal.RUST, 0.03)
+	kit.hbox(tub.translated_local(Vector3(0, 0.3, 0)), Vector3(0.86, 0.06, 1.16), Pal.RUST_DARK, 0.01)
+	for s: float in [-1.0, 1.0]:
+		kit.tube(tub * Vector3(0.42, -0.25, s * 0.35), tub * Vector3(0.52, -0.25, s * 0.35), 0.13, 0.13, Pal.STEEL_DARK.darkened(0.3), 10)
+	# spilled ore under the tub
+	for i in 4:
+		kit.rock(Transform3D(Basis.IDENTITY, rail_dir * (3.3 + rng.randf() * 0.8) + rail_side * rng.randf_range(0.4, 1.2) + Vector3(0, 0.05, 0)), rng.randf_range(0.1, 0.2), Pal.RUST.lerp(Pal.ROCK_DARK, 0.5), rng.randi(), 0.25)
+	# a storm lantern hanging under a cap beam
+	var lamp_at := Vector3(2.4, 2.25, 0.0)
+	kit.bare()
+	kit.tube(lamp_at + Vector3(0, 0.3, 0), lamp_at + Vector3(0, 0.12, 0), 0.008, 0.008, Pal.STEEL_DARK, 4)
+	kit.cast()
+	kit.lathe(PackedVector2Array([Vector2(0.07, -0.12), Vector2(0.08, -0.1), Vector2(0.08, 0.1), Vector2(0.05, 0.13), Vector2(0.0, 0.14)]), Transform3D(Basis.IDENTITY, lamp_at), Pal.RUST_DARK, 6, false, true)
+	kit.surf(0.3).set_emission(1.4)
+	kit.lathe(PackedVector2Array([Vector2(0.06, -0.09), Vector2(0.065, 0.08), Vector2(0.0, 0.09)]), Transform3D(Basis.IDENTITY, lamp_at), Pal.LAMP_WARM, 8)
+	kit.set_emission(0.0)
+	node.add_child(kit.instance(MeshKit.material(), true))
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Pal.LAMP_WARM
+	lamp.light_energy = 0.8
+	lamp.omni_range = 7.0
+	lamp.omni_attenuation = 1.4
+	lamp.position = lamp_at
+	node.add_child(lamp)
 
 
 # ------------------------------------------------------------------ heart
@@ -477,6 +593,8 @@ func _process(delta: float) -> void:
 	_check -= delta
 	if _check <= 0.0 and world != null and world.player != null:
 		_check = 0.3
+		if not _undecorated.is_empty():
+			_decorate_ready()
 		var p := world.player.global_position
 		for pl in places:
 			if not GameState.has_discovery(pl["id"]) and p.distance_to(pl["center"]) < float(pl["radius"]) * 0.9:

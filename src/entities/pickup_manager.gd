@@ -194,6 +194,11 @@ func _physics_process(delta: float) -> void:
 		if float(it["retry"]) > 0.0:
 			it["retry"] = float(it["retry"]) - delta
 		match state:
+			State.FLYING when not planet.is_loaded_at(pos):
+				# Out of the streamed area (a bot dropped it, or the player walked away): the real
+				# terrain here is not in memory, so park it until the player comes back.
+				it["state"] = State.RESTING
+				it["vel"] = Vector3.ZERO
 			State.FLYING:
 				var vel: Vector3 = it["vel"]
 				vel += planet.gravity_at(pos) * delta

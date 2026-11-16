@@ -469,6 +469,8 @@ func _on_message(text: String, kind: String) -> void:
 			_feed_add(int(parts[0]), int(parts[1]))
 		"hint":
 			toast(text, UiTheme.TEXT)
+		"notice":
+			toast(text, UiTheme.TEXT, 9.0)
 		"save":
 			_save_label.text = text
 			_save_label.modulate.a = 1.0
@@ -479,7 +481,7 @@ func _on_message(text: String, kind: String) -> void:
 			toast(text, UiTheme.TEXT)
 
 
-func toast(text: String, color := UiTheme.TEXT) -> void:
+func toast(text: String, color := UiTheme.TEXT, hold := 2.8) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if text == _last_hint and now - _last_hint_time < 2.5:
 		return
@@ -496,7 +498,7 @@ func toast(text: String, color := UiTheme.TEXT) -> void:
 	p.modulate.a = 0.0
 	var tw := p.create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.15)
-	tw.tween_interval(2.8)
+	tw.tween_interval(hold)
 	tw.tween_property(p, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(p.queue_free)
 

@@ -37,6 +37,8 @@ var _look: Dictionary = {}       ## the planet's "look" block (lighting tuning)
 var underground := 0.0           ## 0 on the surface .. 1 deep below (drives ambient, fog, audio)
 var _pending_tracker: Variant = null
 var bloom := 0.0                 ## planet "awakened" glow (after finding the heart)
+var resurveyed := false         ## this save last played an older terrain generation of the planet
+var setup_ms: Dictionary = {}    ## system name -> milliseconds spent in setup (perf tools, tests)
 
 
 func start(p_id: String, with_persistence := true) -> void:
@@ -85,6 +87,8 @@ func start(p_id: String, with_persistence := true) -> void:
 
 	var spawn := planet.geology.spawn_position()
 	player.teleport(spawn + planet.geology.landing_dir * 3.0, Vector3(1, 0, 0.3))
+	# Terrain streaming (full-resolution voxels, collision) follows the player from now on.
+	planet.attach_viewer(player)
 	planet.loaded.connect(_on_planet_loaded)
 	if planet.is_loaded:
 		_on_planet_loaded()
@@ -124,7 +128,9 @@ func _on_planet_loaded() -> void:
 	player.teleport(ground + stand_dir * 0.15, -side + Vector3(0.3, 0, 0.2))
 	for sys: Node in [props, base, secrets, robots, scanner]:
 		if sys != null and sys.has_method("setup"):
+			var t0 := Time.get_ticks_usec()
 			sys.call("setup", self)
+			setup_ms[sys.name] = (Time.get_ticks_usec() - t0) / 1000.0
 	if GameState.has_discovery(str((planet.config.get("core", {}) as Dictionary).get("discovery", ""))):
 		bloom = 1.0
 	if base != null and base.has_method("arrival"):
@@ -134,6 +140,21 @@ func _on_planet_loaded() -> void:
 	tools.enabled = true
 	is_ready = true
 	ready_to_play.emit()
+	_check_terrain_generation()
+
+
+## A save made on an older terrain generation of this planet: tell the player once, then
+## remember that they have seen the new ground. (Progress is untouched; see SaveSystem.)
+func _check_terrain_generation() -> void:
+	var gen := planet.geology.generation
+	var seen := int(GameState.terrain_generations.get(planet_id, gen))
+	GameState.terrain_generations[planet_id] = gen
+	if seen >= gen or not persist_terrain:
+		return
+	resurveyed = true
+	var pname := str(planet.config.get("name", planet_id))
+	get_tree().create_timer(2.0).timeout.connect(func() -> void:
+		message.emit("%s has been resurveyed - it is much bigger now. Your credits, tools and upgrades are all here; old dig sites are archived in the save folder." % pname, "notice"))
 
 
 # ------------------------------------------------------------------ look

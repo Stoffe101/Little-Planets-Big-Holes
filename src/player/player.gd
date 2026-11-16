@@ -41,6 +41,7 @@ var is_jetting := false
 var in_zero_g := false
 var depth := 0.0                     ## metres below the original surface (negative above ground)
 var trauma := 0.0                    ## camera shake amount 0..1
+var waiting_for_ground := false      ## terrain under the player is still streaming in
 var _air_jumps_left := 0
 var _coyote := 0.0
 var _jump_buffer := 0.0
@@ -181,6 +182,15 @@ func _physics_process(delta: float) -> void:
 		return
 	_prev_origin = _curr_origin
 	var pos := global_position
+	# Terrain streams in around the player. If the ground here has not got full-resolution
+	# collision yet (a jet-assisted sprint outran the loader, or a teleport), hold still for the
+	# few frames it takes rather than falling through the world.
+	waiting_for_ground = not planet.is_area_ready(pos, 3.0)
+	if waiting_for_ground:
+		velocity = Vector3.ZERO
+		vertical_speed = 0.0
+		_curr_origin = pos
+		return
 
 	# --- gravity & orientation
 	var grav := planet.gravity_at(pos)

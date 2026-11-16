@@ -105,9 +105,22 @@ func free_world(w: World) -> void:
 	await frames(4)
 
 
+## Moves the player - and with it the terrain viewer - to `pos` and waits until the terrain
+## within `radius` metres of it is loaded at full resolution with live collision. On a big
+## streamed planet anything far from the player is only an approximation until this is done.
+## Returns false on timeout. The player is left hovering at `pos` (held while ground loads).
+func stream_to(w: World, pos: Vector3, radius := 6.0, max_physics_frames := 900) -> bool:
+	w.player.teleport(pos, -w.player.global_basis.z)
+	var ok := await wait_until(func() -> bool: return w.planet.is_area_ready(pos, radius), max_physics_frames)
+	assert_true(ok, "terrain streamed in around %s" % str(pos.snapped(Vector3.ONE * 0.1)))
+	await physics(2)        # colliders enabled this frame are visible to queries next frame
+	return ok
+
+
 ## Stands the player on the ground in a given direction from the planet centre.
 func place_player(w: World, dir: Vector3, look := Vector3(0.3, 0.2, 1.0)) -> void:
 	var d := dir.normalized()
+	await stream_to(w, d * (w.planet.geology.surface_radius(d) + 1.0))
 	w.player.teleport(w.planet.ground_point(d) + d * 0.1, look)
 	await physics(20)
 

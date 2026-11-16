@@ -183,6 +183,8 @@ func test_world_arrival_props_and_base() -> void:
 	assert_gt(to_base.dot(w.player.aim_direction()), 0.7, "first view faces the outpost")
 	# props: deterministic and independent of digging
 	var props: PropField = w.props
+	# props stream in cells around the player; make sure every cell around here is built
+	props.update_now(w.player.global_position)
 	assert_gt(float(props.prop_count), 1000.0, "ground cover placed")
 	assert_gt(float(props.landmark_count), 4.0, "landmarks placed (mountain stones + cave cairns)")
 	var before: Dictionary = {}
@@ -192,14 +194,17 @@ func test_world_arrival_props_and_base() -> void:
 	assert_gt(float(before.size()), 10.0, "surface crystals placed")
 	for key: String in before:
 		assert_true(key.contains("/crystal_"), "new crystal flag namespace")
-	# dig a big hole somewhere else, then rebuild the prop field from scratch
-	var dig_dir := Vector3(0.5, 0.75, 0.4).normalized()
+	# dig a big hole somewhere else (in the loaded area, 35 m from the pad), then rebuild the
+	# prop field from scratch around the same spot
+	var side := geo.landing_dir.cross(Vector3.RIGHT).normalized()
+	var dig_dir := (geo.landing_dir + side * (35.0 / geo.radius)).normalized()
 	for i in 6:
 		w.dig.dig_sphere(w.planet.ground_point(dig_dir) - dig_dir * float(i), 4.0, 9)
 	await physics(4)
 	var again := PropField.new()
 	w.add_child(again)
 	again.setup(w)
+	again.enabled = false
 	var moved := 0
 	var missing := 0
 	for c in again.get_children():
@@ -213,9 +218,10 @@ func test_world_arrival_props_and_base() -> void:
 	assert_eq(missing, 0, "and never creates one under a new index")
 	again.queue_free()
 	# landmarks are uprooted like any other prop when the ground under them is dug away
-	assert_gt(float(props._landmarks.size()), 4.0, "landmarks are registered for removal")
-	var lm: Dictionary = props._landmarks[0]
-	var lm_node: Node = lm["node"]
+	var lms := props.live_items(true)
+	assert_gt(float(lms.size()), 4.0, "landmarks are registered for removal")
+	var lm: Dictionary = lms[0]
+	var lm_node: Node = lm["body"]
 	var lm_pos: Vector3 = lm["pos"]
 	var lm_count := props.landmark_count
 	props.on_dig(lm_pos, 2.0)
@@ -224,11 +230,10 @@ func test_world_arrival_props_and_base() -> void:
 	assert_eq(props.landmark_count, lm_count - 1, "and no longer counted")
 	# nothing grows through the outpost's pads
 	var too_close := 0
-	for cell: Vector3i in props._grid:
-		for e: Array in props._grid[cell]:
-			var q: Vector3 = e[2]
-			if (q - geo.landing_dir * q.dot(geo.landing_dir)).length() < 9.5 and q.dot(geo.landing_dir) > 0.0:
-				too_close += 1
+	for e: Dictionary in props.live_items(false):
+		var q: Vector3 = e["pos"]
+		if (q - geo.landing_dir * q.dot(geo.landing_dir)).length() < 9.5 and q.dot(geo.landing_dir) > 0.0:
+			too_close += 1
 	assert_eq(too_close, 0, "no ground cover or pebbles inside the outpost")
 	# everything the base builds stands on shielded ground
 	for child in w.base.get_children():

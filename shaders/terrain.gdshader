@@ -27,12 +27,23 @@ uniform int layer_mat[8];
 uniform int ore_count = 0;
 uniform vec4 ore_a[12];   // min depth, max depth, scale, threshold
 uniform vec4 ore_b[12];   // offset xyz, channel
+uniform vec4 ore_c[12];   // region index (-1 = none), threshold inside that region
 uniform int ore_mat[12];
 
 uniform vec3 mat_color[24] : source_color;
 uniform vec3 mat_color2[24] : source_color;
 uniform vec4 mat_fx[24];   // emission, sparkle, is_ore, kind (0 soil, 1 rock, 2 crystalline)
 uniform vec4 mat_pbr[24];  // roughness, metallic, strata strength, relief strength
+
+// Regions: soft areas that lift the strata, thin the ground cover and recolour it.
+uniform int region_count = 0;
+uniform vec4 region_a[8];   // direction xyz, cos(inner radius)
+uniform vec4 region_b[8];   // cos(outer radius), strata lift (m), ground cover (0..1), unused
+uniform vec4 region_grass_a[8] : source_color;   // a = 0 means "use the planet's colours"
+uniform vec4 region_grass_b[8] : source_color;
+
+// Transvoxel LOD stitching (set by VoxelLodTerrain per mesh block).
+uniform int u_transition_mask;
 
 uniform vec3 grass_a : source_color = vec3(0.21, 0.32, 0.11);
 uniform vec3 grass_b : source_color = vec3(0.15, 0.27, 0.13);
@@ -103,7 +114,33 @@ vec4 vnoise_d(vec3 p) {
 	return vec4(v, dv);
 }
 
+// VoxelMesherTransvoxel packs, per vertex, a secondary position (CUSTOM0.xyz) and bit flags
+// (CUSTOM0.a): bits 0-5 = cell borders, bits 8-13 = vertex borders, bits 16-21 = which
+// transition side the vertex belongs to (0 = regular cell). Verified against meshes produced
+// by Voxel Tools 1.7 (tools/dev/lodproto.gd).
+vec3 transvoxel_position(vec3 vertex_pos, vec4 fdata) {
+	int idata = floatBitsToInt(fdata.a);
+	int cell_border_mask = idata & 63;
+	int vertex_border_mask = (idata >> 8) & 63;
+	// near a side with a lower-resolution neighbour: move to the secondary position...
+	float t = float((u_transition_mask & cell_border_mask) != 0);
+	// ...unless the vertex sits on a side whose neighbour is NOT lower resolution
+	t *= float((vertex_border_mask & ~u_transition_mask) == 0);
+	vec3 pos = mix(vertex_pos, fdata.xyz, t);
+	// transition-cell triangles are only shown on the sides that need them
+	int transition_side = (idata >> 16) & 63;
+	if (transition_side != 0 && (transition_side & u_transition_mask) == 0) {
+		pos = vec3(0.0);
+	}
+	return pos;
+}
+
+float region_weight(int i, vec3 dir) {
+	return smoothstep(region_b[i].x, region_a[i].w, dot(dir, region_a[i].xyz));
+}
+
 void vertex() {
+	VERTEX = transvoxel_position(VERTEX, CUSTOM0);
 	// Mesh blocks are separate instances offset from the terrain origin, so go through world space.
 	// The planet sits at the world origin (see planet.gd), therefore world metres == planet-local metres.
 	lp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -117,7 +154,22 @@ void fragment() {
 	vec3 hm = texture(height_map, oct_encode(dir)).rgb;
 	float depth = planet_radius + hm.r - r;
 	float warp = (sin(lp.x * 0.21 + 1.3) + sin(lp.y * 0.17 + 4.1) + sin(lp.z * 0.19 + 2.2)) * (layer_warp / 3.0);
-	float dl = depth + warp * smoothstep(1.0, 5.0, depth);
+	float lift = 0.0;
+	float cover_amount = 1.0;
+	vec3 rgrass_a = vec3(0.0);
+	vec3 rgrass_b = vec3(0.0);
+	float rgrass_w = 0.0;
+	for (int i = 0; i < region_count; i++) {
+		float w = region_weight(i, dir);
+		lift += region_b[i].y * w;
+		cover_amount = mix(cover_amount, region_b[i].z, w);
+		if (region_grass_a[i].a > 0.5 && w > 0.0) {
+			rgrass_a = mix(rgrass_a, region_grass_a[i].rgb, w / max(rgrass_w + w, 0.0001));
+			rgrass_b = mix(rgrass_b, region_grass_b[i].rgb, w / max(rgrass_w + w, 0.0001));
+			rgrass_w = max(rgrass_w, w);
+		}
+	}
+	float dl = depth + warp * smoothstep(1.0, 5.0, depth) + lift * smoothstep(0.0, 1.5, depth);
 
 	int mat = layer_mat[0];
 	float layer_edge = 10.0;   // distance (m) to the nearest strata boundary
@@ -135,7 +187,10 @@ void fragment() {
 		vec4 a = ore_a[i];
 		if (dl > a.x && dl < a.y) {
 			float edge = clamp(max(1.0 - (dl - a.x) / edge_fade, 1.0 - (a.y - dl) / edge_fade), 0.0, 1.0);
-			float thr = mix(a.w, 1.01, edge);
+			float base_thr = a.w;
+			int ri = int(ore_c[i].x);
+			if (ri >= 0) { base_thr = mix(a.w, ore_c[i].y, region_weight(ri, dir)); }
+			float thr = mix(base_thr, 1.01, edge);
 			float n = sample_noise(int(ore_b[i].w), lp * a.z + ore_b[i].xyz);
 			if (n > thr) {
 				mat = ore_mat[i];
@@ -205,9 +260,14 @@ void fragment() {
 	// --- surface skin (grass / moss / dust) on the ORIGINAL surface only
 	float turf = turf_depth + (n_mid - 0.5) * 0.2;
 	float slope_ok = smoothstep(0.3, 0.5, up_facing);
-	float cover = (1.0 - smoothstep(turf - 0.025, turf + 0.025, depth)) * slope_ok;
+	// regions with thin cover show bare ground in patches (the cover follows the mottling)
+	float patchy = smoothstep(cover_amount - 0.2, cover_amount + 0.2, 1.0 - (n_big * 0.6 + n_mid * 0.4));
+	float soil_here = float(fx.w < 0.5 && fx.z < 0.5);     // cover grows on soil, not on rock or ore
+	float cover = (1.0 - smoothstep(turf - 0.025, turf + 0.025, depth)) * slope_ok * patchy * mix(0.25, 1.0, soil_here);
 	vec3 gcol = mix(grass_a, grass_b, smoothstep(0.38, 0.66, hm.g));
 	gcol = mix(gcol, grass_c, smoothstep(0.55, 0.8, hm.b) * 0.8);
+	vec3 rg = mix(rgrass_a, rgrass_b, smoothstep(0.38, 0.66, hm.g));
+	gcol = mix(gcol, rg, rgrass_w);
 	gcol *= 0.9 + 0.2 * n_big;
 	gcol *= 0.93 + 0.14 * grain;
 	gcol = mix(gcol, gcol * vec3(1.06, 1.14, 0.98) + vec3(0.004, 0.012, 0.0), bloom_amount);

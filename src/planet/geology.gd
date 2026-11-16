@@ -3,55 +3,74 @@ extends RefCounted
 ## Deterministic description of a planet's shape and what it is made of.
 ##
 ## One Geology instance is the single source of truth for:
-##   * the voxel generator graph (terrain SDF: hills, mountains, caves, cavities, core chamber)
+##   * the voxel generator graph (terrain SDF: hills, landforms, caves, cavities, core chamber)
 ##   * CPU material queries used by gameplay (`material_at`)
 ##   * the data handed to the terrain shader so that what you SEE is what you DIG
 ##
 ## Everything derives from the planet config + seed, so the same seed always produces the
 ## same planet (and the same in multiplayer on every peer).
+##
+## Shape = hills + detail + regional roughness + landforms (domes, basins, plateaus, craters,
+## ridges) + a flattened landing site. `height_exact()` evaluates that function directly (the
+## generator graph builds the same function in C++); `height_at()` reads it from a baked
+## octahedral height map, which is exactly what the terrain shader samples, so gameplay and
+## rendering agree on depth and therefore on materials.
+##
+## Regions are soft areas on the sphere (centre direction + angular radius) that change how a
+## place looks and what it holds: extra roughness, lifted strata (rock near the surface), less
+## ground cover, their own ground-cover colours and prop densities, and richer ore.
 
 const NOISE_N := 96                 ## edge length of the tileable 3D material-noise textures
 const NOISE_CHANNELS := 3
-const HEIGHT_MAP_N := 256           ## octahedral height map resolution
 const MAX_LAYERS := 8
 const MAX_ORES := 12
+const MAX_REGIONS := 8
 const EDGE_FADE := 1.5              ## metres over which an ore band fades out at its depth limits
+const BAKE_VERSION := 3             ## bump when the height function changes (invalidates caches)
 
 var cfg: Dictionary
 var id: String
 var seed_value: int
+var generation := 1
 var radius: float                   ## nominal planet radius in metres
 var voxel_size: float
 var inv_voxel: float
+var height_map_n := 256
 
 # terrain shape
 var hill_noise: ZN_FastNoiseLite
 var detail_noise: ZN_FastNoiseLite
+var rough_noise: ZN_FastNoiseLite
 var hill_amp := 3.0
 var hill_freq := 1.7
 var detail_amp := 0.6
 var detail_freq := 5.5
-var mountains: Array[Dictionary] = []     ## {dir: Vector3, height: float, cos_w: float}
-var basins: Array[Dictionary] = []
+var rough_freq := 24.0
+var features: Array[Dictionary] = []     ## {type, dir, ...} see _add_feature
 var landing_dir := Vector3.UP
 var landing_cos_in := 0.98
 var landing_cos_out := 0.94
 var landing_height := 0.5
+var regions: Array[Dictionary] = []      ## {id, name, dir, cos_in, cos_out, rough, lift, cover, cfg}
 
 # geology
 var layer_bottom := PackedFloat32Array()
 var layer_mat := PackedInt32Array()
 var layer_warp := 1.5
-var ores: Array[Dictionary] = []          ## {mat, min, max, thr, scale, offset: Vector3, channel}
-var cavities: Array[Dictionary] = []      ## {id, center: Vector3, radius, spheres: Array[[Vector3, float]], cfg}
-var artifacts: Array[Dictionary] = []     ## {id, pos: Vector3, pocket, model, cfg}
+var ores: Array[Dictionary] = []          ## {mat, min, max, thr, thr_boost, region, scale, offset, channel}
+var cavities: Array[Dictionary] = []      ## {id, center, radius, spheres, dir, entrance, cfg}
+var artifacts: Array[Dictionary] = []     ## {id, pos, pocket, model, cfg}
 var core_radius := 5.0
 
 # baked data
 var noise_bytes: Array[PackedByteArray] = []
 var noise_textures: Array[ImageTexture3D] = []
+var height_data := PackedFloat32Array()   ## height_map_n^2 heights (metres), octahedral
+var tint_data := PackedFloat32Array()     ## height_map_n^2 * 2 tint channels
 var height_image: Image
 var height_texture: ImageTexture
+var bake_ms := 0
+var bake_from_cache := false
 var _material_hardness := PackedInt32Array()
 
 
@@ -59,10 +78,16 @@ func _init(config: Dictionary, seed_offset := 0) -> void:
 	cfg = config
 	id = str(cfg.get("id", "planet"))
 	seed_value = int(cfg.get("seed", 1)) + seed_offset
+	generation = int(cfg.get("generation", 1))
 	radius = float(cfg.get("radius", 48.0))
 	voxel_size = float(cfg.get("voxel_size", 0.5))
 	inv_voxel = 1.0 / voxel_size
+	# ~1.4 m per texel at any radius, between 256 and 1024 texels wide
+	height_map_n = clampi(int(pow(2.0, ceil(log(radius * 2.5) / log(2.0)))), 256, 1024)
+	if cfg.has("height_map_size"):
+		height_map_n = int(cfg["height_map_size"])
 	_setup_terrain()
+	_setup_regions()
 	_setup_layers()
 	_setup_cavities()
 	for m in GameData.materials:
@@ -77,6 +102,7 @@ func _setup_terrain() -> void:
 	hill_freq = float(t.get("hill_freq", 1.7))
 	detail_amp = float(t.get("detail_amp", 0.6))
 	detail_freq = float(t.get("detail_freq", 5.5))
+	rough_freq = float(t.get("rough_freq", detail_freq * 3.0))
 	hill_noise = ZN_FastNoiseLite.new()
 	hill_noise.noise_type = ZN_FastNoiseLite.TYPE_OPEN_SIMPLEX_2
 	hill_noise.seed = seed_value
@@ -89,16 +115,105 @@ func _setup_terrain() -> void:
 	detail_noise.seed = seed_value + 101
 	detail_noise.period = 1.0
 	detail_noise.fractal_type = ZN_FastNoiseLite.FRACTAL_NONE
+	rough_noise = ZN_FastNoiseLite.new()
+	rough_noise.noise_type = ZN_FastNoiseLite.TYPE_OPEN_SIMPLEX_2
+	rough_noise.seed = seed_value + 211
+	rough_noise.period = 1.0
+	rough_noise.fractal_type = ZN_FastNoiseLite.FRACTAL_FBM
+	rough_noise.fractal_octaves = 2
+	rough_noise.fractal_gain = 0.5
+	# legacy keys
 	for m: Dictionary in t.get("mountains", []):
-		mountains.append({"dir": _vec(m["dir"]).normalized(), "height": float(m["height"]), "cos_w": cos(float(m["width"]))})
+		_add_feature({"type": "dome", "dir": m["dir"], "height": float(m["height"]), "width": float(m["width"])})
 	for b: Dictionary in t.get("basins", []):
-		basins.append({"dir": _vec(b["dir"]).normalized(), "height": -float(b["depth"]), "cos_w": cos(float(b["width"]))})
+		_add_feature({"type": "dome", "dir": b["dir"], "height": -float(b["depth"]), "width": float(b["width"])})
+	for f: Dictionary in t.get("features", []):
+		_add_feature(f)
+	# crater fields: a deterministic scatter of craters inside an area
+	for field: Dictionary in t.get("crater_fields", []):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value * 977 + int(field.get("seed", 1))
+		var centre := _vec(field["dir"]).normalized()
+		var spread := float(field.get("radius", 0.2))
+		var t1 := centre.cross(Vector3(0.3, 0.8, 0.5)).normalized()
+		var t2 := centre.cross(t1).normalized()
+		for i in int(field.get("count", 6)):
+			var a := rng.randf() * TAU
+			var d := sqrt(rng.randf()) * spread
+			var dir := (centre * cos(d) + (t1 * cos(a) + t2 * sin(a)) * sin(d)).normalized()
+			var size := rng.randf_range(float(field.get("min", 0.01)), float(field.get("max", 0.03)))
+			var depth_m := size * radius * float(field.get("depth_ratio", 0.22))
+			_add_feature({"type": "crater", "dir": [dir.x, dir.y, dir.z], "radius": size, "depth": depth_m, "rim": depth_m * 0.35})
 	var l: Dictionary = t.get("landing", {})
 	landing_dir = _vec(l.get("dir", [0, 1, 0])).normalized()
 	var flat := float(l.get("flat_radius", 0.17))
 	landing_cos_in = cos(flat)
 	landing_cos_out = cos(flat + float(l.get("blend", 0.15)))
 	landing_height = float(l.get("height", 0.5))
+
+
+## Landforms. Every type is a function of dot(n, dir) (and for ridges a second axis), which the
+## generator graph can reproduce exactly with smoothstep / abs / multiply nodes.
+func _add_feature(f: Dictionary) -> void:
+	var e := {"type": str(f.get("type", "dome")), "dir": _vec(f["dir"]).normalized(), "src": f}
+	match e["type"]:
+		"dome":
+			# a rounded hill or (negative height) a basin
+			e["height"] = float(f["height"])
+			e["c0"] = cos(float(f["width"]))
+			e["c1"] = 1.0
+		"plateau":
+			# flat-topped table with a steep rim
+			var r := float(f.get("radius", 0.1))
+			var edge := float(f.get("edge", 0.02))
+			e["height"] = float(f["height"])
+			e["c0"] = cos(r + edge)
+			e["c1"] = cos(r)
+		"crater":
+			# bowl with a raised rim; t = (1 - dot) / (1 - cos r) is 0 at the centre, 1 at the rim
+			var r2 := float(f.get("radius", 0.03))
+			e["k"] = 1.0 / maxf(1.0 - cos(r2), 0.000001)
+			e["depth"] = float(f.get("depth", r2 * radius * 0.2))
+			e["rim"] = float(f.get("rim", float(e["depth"]) * 0.3))
+		"ridge":
+			# a long crest along the great circle from `dir` to `dir2`
+			var a := _vec(f["dir"]).normalized()
+			var b := _vec(f["dir2"]).normalized()
+			e["axis"] = a.cross(b).normalized()            # plane normal of the great circle
+			e["mid"] = (a + b).normalized()
+			e["c_len"] = cos(a.angle_to(b) * 0.5 + float(f.get("taper", 0.03)))
+			e["c_len_in"] = cos(a.angle_to(b) * 0.5)
+			e["w"] = sin(float(f.get("width", 0.02)))
+			e["height"] = float(f["height"])
+		_:
+			push_warning("Geology: unknown feature type %s" % e["type"])
+			return
+	features.append(e)
+
+
+func _setup_regions() -> void:
+	for r: Dictionary in cfg.get("regions", []):
+		if regions.size() >= MAX_REGIONS:
+			push_warning("Geology: more than %d regions, extra ignored" % MAX_REGIONS)
+			break
+		var rad := float(r.get("radius", 0.2))
+		var blend := float(r.get("blend", 0.06))
+		regions.append({
+			"id": str(r["id"]), "name": str(r.get("name", r["id"])),
+			"dir": _vec(r["dir"]).normalized(),
+			"cos_in": cos(rad), "cos_out": cos(rad + blend),
+			"rough": float(r.get("rough", 0.0)),
+			"lift": float(r.get("strata_lift", 0.0)),
+			"cover": float(r.get("cover", 1.0)),
+			"cfg": r,
+		})
+
+
+func region_index(rid: String) -> int:
+	for i in regions.size():
+		if regions[i]["id"] == rid:
+			return i
+	return -1
 
 
 func _setup_layers() -> void:
@@ -118,7 +233,10 @@ func _setup_layers() -> void:
 			"mat": GameData.mat_index(o["material"]),
 			"min": float(o["min_depth"]), "max": float(o["max_depth"]),
 			"abundance": float(o.get("abundance", 0.05)),
-			"thr": 0.75,   # replaced by _calibrate_ores() once the noise is baked
+			"boost": float(o.get("boost", 1.0)),
+			"region": region_index(str(o.get("region", ""))),
+			"thr": 0.75,        # replaced by _calibrate_ores() once the noise is baked
+			"thr_boost": 0.75,
 			"scale": 6.0 / blob,
 			"offset": Vector3(rng.randf() * NOISE_N, rng.randf() * NOISE_N, rng.randf() * NOISE_N),
 			"channel": i % NOISE_CHANNELS,
@@ -132,7 +250,7 @@ func _setup_cavities() -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash(str(c["id"])) + seed_value
 		var rad := float(c["radius"])
-		var center := dir * (surface_radius(dir) - float(c["depth"]))
+		var center := dir * (surface_radius_exact(dir) - float(c["depth"]))
 		var spheres: Array = [[center, rad]]
 		for j in int(c.get("lobes", 3)):
 			var off := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * rad * rng.randf_range(0.55, 0.95)
@@ -143,19 +261,22 @@ func _setup_cavities() -> void:
 			# A sloped tunnel from the cavern up to a point on the surface.
 			var tangent := dir.cross(Vector3(0.31, 0.77, -0.55)).normalized()
 			tangent = tangent.rotated(dir, rng.randf() * TAU)
-			var arc := float(c["depth"]) * 1.25 / radius
+			if c.has("entrance_bearing"):
+				tangent = dir.cross(Vector3(0.31, 0.77, -0.55)).normalized().rotated(dir, deg_to_rad(float(c["entrance_bearing"])))
+			var arc := float(c["depth"]) * float(c.get("entrance_slope", 1.25)) / radius
 			var out_dir := (dir * cos(arc) + tangent * sin(arc)).normalized()
-			var mouth := out_dir * (surface_radius(out_dir) + 0.4)
+			var mouth := out_dir * (surface_radius_exact(out_dir) + 0.4)
 			var start: Vector3 = center + (mouth - center).normalized() * rad * 0.6
-			var steps := int(ceil(start.distance_to(mouth) / 1.6))
+			var tunnel_r := float(c.get("entrance_radius", 2.0))
+			var steps := int(ceil(start.distance_to(mouth) / (tunnel_r * 0.8)))
 			for s in steps + 1:
 				var f := float(s) / float(steps)
-				spheres.append([start.lerp(mouth, f), lerpf(2.1, 1.75, f) + rng.randf() * 0.25])
+				spheres.append([start.lerp(mouth, f), lerpf(tunnel_r * 1.05, tunnel_r * 0.88, f) + rng.randf() * 0.25])
 			entrance_pos = mouth
 		cavities.append({"id": str(c["id"]), "center": center, "radius": rad, "spheres": spheres, "dir": dir, "entrance": entrance_pos, "cfg": c})
 	for a: Dictionary in cfg.get("artifacts", []):
 		var dir := _vec(a["dir"]).normalized()
-		var pos := dir * (surface_radius(dir) - float(a["depth"]))
+		var pos := dir * (surface_radius_exact(dir) - float(a["depth"]))
 		var in_cav := str(a.get("in_cavity", ""))
 		if in_cav != "":
 			for c in cavities:
@@ -171,17 +292,84 @@ static func _vec(a: Variant) -> Vector3:
 	return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
 
-# ------------------------------------------------------------------ terrain shape (CPU mirror of the generator graph)
+# ------------------------------------------------------------------ terrain shape
 
-## Height of the original (un-dug) surface above the nominal radius, for a unit direction.
-func height_at(dir: Vector3) -> float:
+## Region weights at a unit direction (0..1 each, not normalised).
+func region_weights(dir: Vector3) -> PackedFloat32Array:
+	var w := PackedFloat32Array()
+	w.resize(regions.size())
+	for i in regions.size():
+		var r := regions[i]
+		w[i] = smoothstep(float(r["cos_out"]), float(r["cos_in"]), dir.dot(r["dir"]))
+	return w
+
+
+## The region a direction belongs to most (or {} for the planet's open land).
+func region_at(dir: Vector3) -> Dictionary:
+	var best := {}
+	var best_w := 0.35
+	var w := region_weights(dir)
+	for i in w.size():
+		if w[i] > best_w:
+			best_w = w[i]
+			best = regions[i]
+	return best
+
+
+func _feature_height(f: Dictionary, n: Vector3) -> float:
+	var d := n.dot(f["dir"])
+	match str(f["type"]):
+		"dome", "plateau":
+			return float(f["height"]) * smoothstep(float(f["c0"]), float(f["c1"]), d)
+		"crater":
+			var t := (1.0 - d) * float(f["k"])
+			var bowl := -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, t))
+			var rim := float(f["rim"]) * smoothstep(0.55, 1.0, t) * (1.0 - smoothstep(1.0, 1.9, t))
+			return bowl + rim
+		"ridge":
+			var off := absf(n.dot(f["axis"]))
+			var across := 1.0 - smoothstep(0.0, float(f["w"]), off)
+			var along := smoothstep(float(f["c_len"]), float(f["c_len_in"]), n.dot(f["mid"]))
+			return float(f["height"]) * across * across * along
+	return 0.0
+
+
+## Height of the original (un-dug) surface above the nominal radius, evaluated directly.
+## This is the function the voxel generator graph reproduces.
+func height_exact(dir: Vector3) -> float:
 	var h := hill_amp * hill_noise.get_noise_3dv(dir * hill_freq) + detail_amp * detail_noise.get_noise_3dv(dir * detail_freq)
-	for m in mountains:
-		h += float(m["height"]) * smoothstep(float(m["cos_w"]), 1.0, dir.dot(m["dir"]))
-	for b in basins:
-		h += float(b["height"]) * smoothstep(float(b["cos_w"]), 1.0, dir.dot(b["dir"]))
-	var f := smoothstep(landing_cos_out, landing_cos_in, dir.dot(landing_dir))
-	return lerpf(h, landing_height, f)
+	var rough := 0.0
+	for r in regions:
+		if float(r["rough"]) != 0.0:
+			rough += float(r["rough"]) * smoothstep(float(r["cos_out"]), float(r["cos_in"]), dir.dot(r["dir"]))
+	if rough != 0.0:
+		h += rough * rough_noise.get_noise_3dv(dir * rough_freq)
+	for f in features:
+		h += _feature_height(f, dir)
+	var lf := smoothstep(landing_cos_out, landing_cos_in, dir.dot(landing_dir))
+	return lerpf(h, landing_height, lf)
+
+
+func surface_radius_exact(dir: Vector3) -> float:
+	return radius + height_exact(dir)
+
+
+## Height of the original surface from the baked map (bilinear, mirrors the GPU sampler).
+## Falls back to the exact function before the map is baked.
+func height_at(dir: Vector3) -> float:
+	if height_data.is_empty():
+		return height_exact(dir)
+	var uv := oct_encode(dir)
+	var n := height_map_n
+	var fx := uv.x * n - 0.5
+	var fy := uv.y * n - 0.5
+	var x0 := int(floor(fx)); var y0 := int(floor(fy))
+	var tx := fx - float(x0); var ty := fy - float(y0)
+	var x1 := clampi(x0 + 1, 0, n - 1); var y1 := clampi(y0 + 1, 0, n - 1)
+	x0 = clampi(x0, 0, n - 1); y0 = clampi(y0, 0, n - 1)
+	var a := lerpf(height_data[y0 * n + x0], height_data[y0 * n + x1], tx)
+	var b := lerpf(height_data[y1 * n + x0], height_data[y1 * n + x1], tx)
+	return lerpf(a, b, ty)
 
 
 func surface_radius(dir: Vector3) -> float:
@@ -196,24 +384,38 @@ func depth_at(p: Vector3) -> float:
 	return surface_radius(p / r) - r
 
 
+## Upper bound of the surface radius (used for bounds, ray starts and props).
 func max_surface_radius() -> float:
-	var extra := hill_amp + detail_amp
-	var top := 0.0
-	for m in mountains:
-		top = maxf(top, float(m["height"]))
-	return radius + extra + top
+	var tallest := 0.0
+	for f in features:
+		if f.has("height"):
+			tallest += maxf(float(f["height"]), 0.0) * 0.0
+			tallest = maxf(tallest, float(f["height"]))
+		elif f.has("rim"):
+			tallest = maxf(tallest, float(f["rim"]))
+	var rough_max := 0.0
+	for r in regions:
+		rough_max = maxf(rough_max, absf(float(r["rough"])))
+	return radius + hill_amp + detail_amp + rough_max + tallest
 
 
 func spawn_position() -> Vector3:
 	return landing_dir * (surface_radius(landing_dir) + 1.2)
 
 
+## Great-circle distance in metres between two directions (at the nominal radius).
+func surface_distance(a: Vector3, b: Vector3) -> float:
+	return a.normalized().angle_to(b.normalized()) * radius
+
+
 # ------------------------------------------------------------------ materials
 
 func bake() -> void:
+	var t0 := Time.get_ticks_msec()
 	_bake_noise()
 	_calibrate_ores()
 	_bake_height_map()
+	bake_ms = Time.get_ticks_msec() - t0
 
 
 func _bake_noise() -> void:
@@ -240,7 +442,8 @@ func _bake_noise() -> void:
 
 
 ## Converts each ore's designer-facing `abundance` (fraction of rock inside its depth band)
-## into a noise threshold using the actual histogram of the baked noise.
+## into a noise threshold using the actual histogram of the baked noise. Ores tied to a region
+## get a second, lower threshold that applies inside it (`boost` x the abundance).
 func _calibrate_ores() -> void:
 	var hist: Array[PackedInt32Array] = []
 	var totals := PackedInt32Array()
@@ -256,31 +459,76 @@ func _calibrate_ores() -> void:
 		totals.append(n)
 	for o in ores:
 		var h := hist[int(o["channel"])]
-		var want := float(o["abundance"]) * float(totals[int(o["channel"])])
-		var acc := 0.0
-		var level := 255
-		while level > 0 and acc < want:
-			acc += float(h[level])
-			level -= 1
-		o["thr"] = (float(level) + 0.5) / 255.0
+		var total := float(totals[int(o["channel"])])
+		o["thr"] = _threshold_for(h, total, float(o["abundance"]))
+		o["thr_boost"] = _threshold_for(h, total, minf(float(o["abundance"]) * float(o["boost"]), 0.45))
+
+
+static func _threshold_for(h: PackedInt32Array, total: float, abundance: float) -> float:
+	var want := abundance * total
+	var acc := 0.0
+	var level := 255
+	while level > 0 and acc < want:
+		acc += float(h[level])
+		level -= 1
+	return (float(level) + 0.5) / 255.0
+
+
+func _cache_key() -> String:
+	var src := {"v": BAKE_VERSION, "n": height_map_n, "r": radius, "seed": seed_value, "t": cfg.get("terrain", {}), "regions": cfg.get("regions", [])}
+	return "%s_g%d_%s" % [id, generation, str(hash(JSON.stringify(src, "", true)))]
 
 
 func _bake_height_map() -> void:
-	var n := HEIGHT_MAP_N
+	var n := height_map_n
+	var path := "user://planet_cache/%s.heights" % _cache_key()
+	bake_from_cache = false
+	if FileAccess.file_exists(path):
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f != null and f.get_length() == n * n * 3 * 4:
+			var all := f.get_buffer(n * n * 3 * 4).to_float32_array()
+			height_data = all.slice(0, n * n)
+			tint_data = all.slice(n * n)
+			bake_from_cache = true
+	if not bake_from_cache:
+		var rows: Array = []
+		rows.resize(n)
+		var tint := FastNoiseLite.new()
+		tint.seed = seed_value + 77
+		tint.frequency = 1.0
+		tint.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		var job := func(y: int) -> void:
+			var row := PackedFloat32Array()
+			row.resize(n * 3)
+			for x in n:
+				var dir := oct_decode(Vector2((float(x) + 0.5) / float(n), (float(y) + 0.5) / float(n)))
+				row[x] = height_exact(dir)
+				row[n + x * 2] = tint.get_noise_3dv(dir * 1.9) * 0.5 + 0.5
+				row[n + x * 2 + 1] = tint.get_noise_3dv(dir * 4.3 + Vector3(9.1, 3.3, 7.7)) * 0.5 + 0.5
+			rows[y] = row
+		var task := WorkerThreadPool.add_group_task(job, n, -1, true, "height map bake")
+		WorkerThreadPool.wait_for_group_task_completion(task)
+		height_data = PackedFloat32Array()
+		height_data.resize(n * n)
+		tint_data = PackedFloat32Array()
+		tint_data.resize(n * n * 2)
+		for y in n:
+			var row: PackedFloat32Array = rows[y]
+			for x in n:
+				height_data[y * n + x] = row[x]
+				tint_data[(y * n + x) * 2] = row[n + x * 2]
+				tint_data[(y * n + x) * 2 + 1] = row[n + x * 2 + 1]
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://planet_cache"))
+		var out := FileAccess.open(path, FileAccess.WRITE)
+		if out != null:
+			out.store_buffer(height_data.to_byte_array())
+			out.store_buffer(tint_data.to_byte_array())
 	var data := PackedFloat32Array()
 	data.resize(n * n * 3)
-	var tint := FastNoiseLite.new()
-	tint.seed = seed_value + 77
-	tint.frequency = 1.0
-	tint.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	var k := 0
-	for y in n:
-		for x in n:
-			var dir := oct_decode(Vector2((float(x) + 0.5) / float(n), (float(y) + 0.5) / float(n)))
-			data[k] = height_at(dir)
-			data[k + 1] = tint.get_noise_3dv(dir * 1.9) * 0.5 + 0.5
-			data[k + 2] = tint.get_noise_3dv(dir * 4.3 + Vector3(9.1, 3.3, 7.7)) * 0.5 + 0.5
-			k += 3
+	for i in n * n:
+		data[i * 3] = height_data[i]
+		data[i * 3 + 1] = tint_data[i * 2]
+		data[i * 3 + 2] = tint_data[i * 2 + 1]
 	height_image = Image.create_from_data(n, n, false, Image.FORMAT_RGBF, data.to_byte_array())
 	# Half-float is used for the GPU copy: unlike RGB32F it is linearly filterable on every desktop GPU.
 	var gpu_image: Image = height_image.duplicate()
@@ -308,11 +556,11 @@ static func oct_decode(uv: Vector2) -> Vector3:
 
 ## Surface tint channels (0..1) used for meadow colouring and prop placement.
 func tint_at(dir: Vector3) -> Vector2:
-	if height_image == null:
+	if tint_data.is_empty():
 		return Vector2(0.5, 0.5)
 	var uv := oct_encode(dir)
-	var c := height_image.get_pixel(clampi(int(uv.x * HEIGHT_MAP_N), 0, HEIGHT_MAP_N - 1), clampi(int(uv.y * HEIGHT_MAP_N), 0, HEIGHT_MAP_N - 1))
-	return Vector2(c.g, c.b)
+	var i := clampi(int(uv.y * height_map_n), 0, height_map_n - 1) * height_map_n + clampi(int(uv.x * height_map_n), 0, height_map_n - 1)
+	return Vector2(tint_data[i * 2], tint_data[i * 2 + 1])
 
 
 ## Trilinear sample of a tileable noise channel; `q` is in texel units. Mirrors GPU filtering.
@@ -335,10 +583,21 @@ func sample_noise(channel: int, q: Vector3) -> float:
 	return lerpf(lerpf(c00, c01, ty), lerpf(c10, c11, ty), tz) / 255.0
 
 
-## Layer depth: depth below the original surface plus a gentle warp so strata are not perfect shells.
+## Strata shift (metres) at a direction: regions with lifted strata expose deeper rock.
+func strata_lift(dir: Vector3) -> float:
+	var lift := 0.0
+	for r in regions:
+		if float(r["lift"]) != 0.0:
+			lift += float(r["lift"]) * smoothstep(float(r["cos_out"]), float(r["cos_in"]), dir.dot(r["dir"]))
+	return lift
+
+
+## Layer depth: depth below the original surface plus a gentle warp so strata are not perfect
+## shells, plus the regional strata lift.
 func layer_depth(p: Vector3, depth: float) -> float:
 	var w := (sin(p.x * 0.21 + 1.3) + sin(p.y * 0.17 + 4.1) + sin(p.z * 0.19 + 2.2)) * (layer_warp / 3.0)
-	return depth + w * smoothstep(1.0, 5.0, depth)
+	var lift := strata_lift(p.normalized()) if not regions.is_empty() else 0.0
+	return depth + w * smoothstep(1.0, 5.0, depth) + lift * smoothstep(0.0, 1.5, depth)
 
 
 ## Material index at a point (planet-local metres). Does not know about digging - combine with the voxel SDF.
@@ -348,12 +607,18 @@ func material_at(p: Vector3) -> int:
 
 func material_for(p: Vector3, depth: float) -> int:
 	var dl := layer_depth(p, depth)
+	var dir := p.normalized()
 	for o in ores:
 		var lo: float = o["min"]
 		var hi: float = o["max"]
 		if dl > lo and dl < hi:
 			var edge := maxf(1.0 - (dl - lo) / EDGE_FADE, 1.0 - (hi - dl) / EDGE_FADE)
-			var thr: float = lerpf(o["thr"], 1.01, clampf(edge, 0.0, 1.0))
+			var base_thr: float = o["thr"]
+			var ri: int = o["region"]
+			if ri >= 0:
+				var rg := regions[ri]
+				base_thr = lerpf(base_thr, o["thr_boost"], smoothstep(float(rg["cos_out"]), float(rg["cos_in"]), dir.dot(rg["dir"])))
+			var thr: float = lerpf(base_thr, 1.01, clampf(edge, 0.0, 1.0))
 			if sample_noise(o["channel"], p * (o["scale"] as float) + (o["offset"] as Vector3)) > thr:
 				return o["mat"]
 	for i in layer_bottom.size():
@@ -412,14 +677,36 @@ func build_generator() -> VoxelGeneratorGraph:
 	var dn := b.node(VoxelGraphFunction.NODE_FAST_NOISE_3D, [b.mul(nx, detail_freq), b.mul(ny, detail_freq), b.mul(nz, detail_freq)])
 	g.set_node_param(dn[0], 0, detail_noise)
 	var h: Variant = b.add(b.mul(hn, hill_amp), b.mul(dn, detail_amp))
-	for m: Dictionary in mountains + basins:
-		var d: Vector3 = m["dir"]
-		var dot: Variant = b.add(b.add(b.mul(nx, d.x), b.mul(ny, d.y)), b.mul(nz, d.z))
-		var s := b.smoothstep(dot, float(m["cos_w"]), 1.0)
-		h = b.add(h, b.mul(s, float(m["height"])))
+	# regional roughness
+	var rough: Variant = null
+	for r in regions:
+		if float(r["rough"]) == 0.0:
+			continue
+		var w := b.smoothstep(b.dot3(nx, ny, nz, r["dir"]), float(r["cos_out"]), float(r["cos_in"]))
+		var term: Variant = b.mul(w, float(r["rough"]))
+		rough = term if rough == null else b.add(rough, term)
+	if rough != null:
+		var rn := b.node(VoxelGraphFunction.NODE_FAST_NOISE_3D, [b.mul(nx, rough_freq), b.mul(ny, rough_freq), b.mul(nz, rough_freq)])
+		g.set_node_param(rn[0], 0, rough_noise)
+		h = b.add(h, b.mul(rough, rn))
+	# landforms
+	for f in features:
+		var dot: Variant = b.dot3(nx, ny, nz, f["dir"])
+		match str(f["type"]):
+			"dome", "plateau":
+				h = b.add(h, b.mul(b.smoothstep(dot, float(f["c0"]), float(f["c1"])), float(f["height"])))
+			"crater":
+				var t: Variant = b.mul(b.sub(1.0, dot), float(f["k"]))
+				var bowl: Variant = b.mul(b.sub(1.0, b.smoothstep(t, 0.0, 1.0)), -float(f["depth"]))
+				var rim: Variant = b.mul(b.mul(b.smoothstep(t, 0.55, 1.0), b.sub(1.0, b.smoothstep(t, 1.0, 1.9))), float(f["rim"]))
+				h = b.add(h, b.add(bowl, rim))
+			"ridge":
+				var off := b.node(VoxelGraphFunction.NODE_ABS, [b.dot3(nx, ny, nz, f["axis"])])
+				var across: Variant = b.sub(1.0, b.smoothstep(off, 0.0, float(f["w"])))
+				var along := b.smoothstep(b.dot3(nx, ny, nz, f["mid"]), float(f["c_len"]), float(f["c_len_in"]))
+				h = b.add(h, b.mul(b.mul(b.mul(across, across), along), float(f["height"])))
 	# landing pad flattening
-	var ldot: Variant = b.add(b.add(b.mul(nx, landing_dir.x), b.mul(ny, landing_dir.y)), b.mul(nz, landing_dir.z))
-	var lf := b.smoothstep(ldot, landing_cos_out, landing_cos_in)
+	var lf := b.smoothstep(b.dot3(nx, ny, nz, landing_dir), landing_cos_out, landing_cos_in)
 	h = b.node(VoxelGraphFunction.NODE_MIX, [h, landing_height, lf])
 
 	# surface radius (voxels) and base sdf
@@ -504,6 +791,9 @@ class _GraphBuilder:
 	func mul(a: Variant, b: Variant) -> Array:
 		return node(VoxelGraphFunction.NODE_MULTIPLY, [a, b])
 
+	func dot3(nx: Variant, ny: Variant, nz: Variant, d: Vector3) -> Array:
+		return add(add(mul(nx, d.x), mul(ny, d.y)), mul(nz, d.z))
+
 	func smoothstep(x: Variant, edge0: float, edge1: float) -> Array:
 		var n := node(VoxelGraphFunction.NODE_SMOOTHSTEP, [x])
 		g.set_node_param(n[0], 0, edge0)
@@ -531,7 +821,7 @@ func apply_to_material(mat: ShaderMaterial) -> void:
 	mat.set_shader_parameter("layer_count", mini(layer_bottom.size(), MAX_LAYERS))
 	mat.set_shader_parameter("layer_bottom", lb)
 	mat.set_shader_parameter("layer_mat", lm)
-	var oa: Array[Vector4] = []; var ob: Array[Vector4] = []
+	var oa: Array[Vector4] = []; var ob: Array[Vector4] = []; var oc: Array[Vector4] = []
 	var om := PackedInt32Array(); om.resize(MAX_ORES)
 	for i in MAX_ORES:
 		if i < ores.size():
@@ -539,13 +829,35 @@ func apply_to_material(mat: ShaderMaterial) -> void:
 			var off: Vector3 = o["offset"]
 			oa.append(Vector4(o["min"], o["max"], o["scale"], o["thr"]))
 			ob.append(Vector4(off.x, off.y, off.z, float(o["channel"])))
+			var ri: int = o["region"]
+			oc.append(Vector4(float(ri), o["thr_boost"], 0.0, 0.0))
 			om[i] = o["mat"]
 		else:
-			oa.append(Vector4.ZERO); ob.append(Vector4.ZERO)
+			oa.append(Vector4.ZERO); ob.append(Vector4.ZERO); oc.append(Vector4(-1, 0, 0, 0))
 	mat.set_shader_parameter("ore_count", mini(ores.size(), MAX_ORES))
 	mat.set_shader_parameter("ore_a", oa)
 	mat.set_shader_parameter("ore_b", ob)
+	mat.set_shader_parameter("ore_c", oc)
 	mat.set_shader_parameter("ore_mat", om)
+	# regions: direction + cos edges, then (lift, cover, rough, 0), then their ground-cover colours
+	var ra: Array[Vector4] = []; var rb: Array[Vector4] = []
+	var rg0: Array[Color] = []; var rg1: Array[Color] = []
+	for i in MAX_REGIONS:
+		if i < regions.size():
+			var r := regions[i]
+			var d: Vector3 = r["dir"]
+			ra.append(Vector4(d.x, d.y, d.z, float(r["cos_in"])))
+			rb.append(Vector4(float(r["cos_out"]), float(r["lift"]), float(r["cover"]), 0.0))
+			var cols: Array = (r["cfg"] as Dictionary).get("grass", [])
+			rg0.append(Color(str(cols[0])) if cols.size() > 0 else Color(0, 0, 0, 0))
+			rg1.append(Color(str(cols[1])) if cols.size() > 1 else Color(0, 0, 0, 0))
+		else:
+			ra.append(Vector4(0, 1, 0, 2.0)); rb.append(Vector4(2.0, 0, 1, 0)); rg0.append(Color(0, 0, 0, 0)); rg1.append(Color(0, 0, 0, 0))
+	mat.set_shader_parameter("region_count", mini(regions.size(), MAX_REGIONS))
+	mat.set_shader_parameter("region_a", ra)
+	mat.set_shader_parameter("region_b", rb)
+	mat.set_shader_parameter("region_grass_a", rg0)
+	mat.set_shader_parameter("region_grass_b", rg1)
 	var colors: Array[Color] = []; var colors2: Array[Color] = []; var fx: Array[Vector4] = []; var pbr: Array[Vector4] = []
 	# roughness, metallic, strata strength, relief strength - by category unless the material overrides
 	var finish := {"soil": Vector4(0.95, 0.0, 1.0, 1.0), "rock": Vector4(0.86, 0.0, 0.7, 1.35),
@@ -556,8 +868,8 @@ func apply_to_material(mat: ShaderMaterial) -> void:
 			colors.append((m["color_c"] as Color))
 			colors2.append((m["color2_c"] as Color))
 			var is_ore := 1.0 if str(m["category"]) in ["ore", "crystal", "exotic"] else 0.0
-			var rocky := 1.0 if str(m["category"]) == "rock" else (2.0 if str(m["category"]) in ["crystal", "exotic"] else 0.0)
-			fx.append(Vector4(float(m.get("emission", 0.0)), float(m.get("sparkle", 0.0)), is_ore, rocky))
+			var kind := 1.0 if str(m["category"]) == "rock" else (2.0 if str(m["category"]) in ["crystal", "exotic"] else 0.0)
+			fx.append(Vector4(float(m.get("emission", 0.0)), float(m.get("sparkle", 0.0)), is_ore, kind))
 			var f: Vector4 = finish.get(str(m["category"]), Vector4(0.9, 0.0, 1.0, 1.0))
 			pbr.append(Vector4(float(m.get("roughness", f.x)), float(m.get("metallic", f.y)), f.z, f.w))
 		else:

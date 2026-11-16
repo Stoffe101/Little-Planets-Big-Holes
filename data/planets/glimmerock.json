@@ -4,75 +4,358 @@
   "tagline": "A low-gravity crystal moon. Brittle crust, dazzling geodes.",
   "order": 1,
   "seed": 9051,
-  "radius": 42.0,
+  "radius": 300.0,
+  "generation": 2,
   "voxel_size": 0.5,
   "gravity": 8.5,
-  "unlock": {"discoveries": ["star_chart_a", "star_chart_b"]},
+  "unlock": {
+    "discoveries": ["star_chart_a", "star_chart_b"]
+  },
   "unlock_hint": "Find both Star Chart fragments buried on Pipseed.",
   "travel_cost": 8000,
   "terrain": {
-    "hill_amp": 2.2, "hill_freq": 2.6,
-    "detail_amp": 1.1, "detail_freq": 7.5,
-    "mountains": [
-      {"dir": [0.70, 0.45, 0.55], "height": 14.0, "width": 0.22},
-      {"dir": [-0.60, 0.55, -0.58], "height": 12.0, "width": 0.20},
-      {"dir": [0.20, -0.85, 0.48], "height": 16.0, "width": 0.24},
-      {"dir": [-0.80, -0.35, 0.48], "height": 11.0, "width": 0.20},
-      {"dir": [0.55, -0.35, -0.75], "height": 13.0, "width": 0.22},
-      {"dir": [-0.15, 0.30, 0.94], "height": 9.0, "width": 0.18}
+    "hill_amp": 5.0,
+    "hill_freq": 3.6,
+    "detail_amp": 2.2,
+    "detail_freq": 18.0,
+    "rough_freq": 52.0,
+    "features": [
+      {
+        "type": "dome",
+        "name": "The Needle",
+        "dir": [0.38946, 0.86112, 0.3268],
+        "height": 46.0,
+        "width": 0.13333
+      },
+      {
+        "type": "dome",
+        "name": "Needle's Sister",
+        "dir": [0.27785, 0.80606, 0.52256],
+        "height": 30.0,
+        "width": 0.10667
+      },
+      {
+        "type": "dome",
+        "name": "Splinter",
+        "dir": [0.11645, 0.89307, 0.43458],
+        "height": 22.0,
+        "width": 0.08
+      },
+      {
+        "type": "crater",
+        "name": "The Shattered Rim",
+        "dir": [-0.71621, 0.64737, -0.26068],
+        "radius": 0.16,
+        "depth": 20.0,
+        "rim": 7.0
+      },
+      {
+        "type": "dome",
+        "name": "Silver Mare",
+        "dir": [0.08325, 0.87758, -0.47214],
+        "height": -8.0,
+        "width": 0.28333
+      },
+      {
+        "type": "ridge",
+        "name": "Glass Spine",
+        "dir": [-0.14776, 0.95534, 0.25593],
+        "dir2": [-0.58386, 0.64737, 0.48992],
+        "height": 16.0,
+        "width": 0.03333,
+        "taper": 0.06
+      },
+      {
+        "type": "plateau",
+        "name": "Bell Mesa",
+        "dir": [0.8284, -0.29157, -0.47827],
+        "height": 18.0,
+        "radius": 0.13333,
+        "edge": 0.02
+      }
     ],
-    "basins": [
-      {"dir": [0.85, 0.15, -0.50], "depth": 6.0, "width": 0.36},
-      {"dir": [-0.40, -0.80, -0.45], "depth": 5.0, "width": 0.32}
+    "crater_fields": [
+      {
+        "dir": [0.08325, 0.87758, -0.47214],
+        "radius": 0.3,
+        "count": 11,
+        "min": 0.01333,
+        "max": 0.03667,
+        "seed": 7,
+        "depth_ratio": 0.26
+      }
     ],
-    "landing": {"dir": [0.0, 1.0, 0.0], "flat_radius": 0.19, "blend": 0.16, "height": 0.4}
+    "landing": {
+      "dir": [0.0, 1.0, 0.0],
+      "flat_radius": 0.05667,
+      "blend": 0.04,
+      "height": 0.4
+    }
   },
   "layers": [
-    {"material": "glimdust",   "thickness": 3.0},
-    {"material": "glasscrust", "thickness": 9.0},
-    {"material": "geoderock",  "thickness": 14.0},
-    {"material": "prismcore",  "thickness": 999.0}
+    {
+      "material": "glimdust",
+      "thickness": 2.5
+    },
+    {
+      "material": "glasscrust",
+      "thickness": 9.0
+    },
+    {
+      "material": "geoderock",
+      "thickness": 30.0
+    },
+    {
+      "material": "prismcore",
+      "thickness": 999.0
+    }
   ],
   "layer_warp": 2.2,
   "ores": [
-    {"material": "voidopal",   "min_depth": 26.0, "max_depth": 40.0, "abundance": 0.030, "blob": 2.2},
-    {"material": "rosequartz", "min_depth": 12.0, "max_depth": 32.0, "abundance": 0.055, "blob": 3.0},
-    {"material": "aquamarine", "min_depth": 4.0,  "max_depth": 22.0, "abundance": 0.070, "blob": 3.2},
-    {"material": "moonsilver", "min_depth": 0.6,  "max_depth": 12.0, "abundance": 0.085, "blob": 2.6}
+    {
+      "material": "voidopal",
+      "min_depth": 40.0,
+      "max_depth": 170.0,
+      "abundance": 0.025,
+      "blob": 2.2
+    },
+    {
+      "material": "rosequartz",
+      "min_depth": 14.0,
+      "max_depth": 90.0,
+      "abundance": 0.045,
+      "blob": 3.0,
+      "region": "rim",
+      "boost": 3.0
+    },
+    {
+      "material": "aquamarine",
+      "min_depth": 4.0,
+      "max_depth": 40.0,
+      "abundance": 0.055,
+      "blob": 3.2,
+      "region": "spires",
+      "boost": 3.0
+    },
+    {
+      "material": "moonsilver",
+      "min_depth": 0.6,
+      "max_depth": 14.0,
+      "abundance": 0.07,
+      "blob": 2.6,
+      "region": "mare",
+      "boost": 3.0
+    }
   ],
-  "caves": {"min_depth": 5.0, "max_depth": 30.0, "period": 18.0, "width": 0.11},
+  "caves": {
+    "min_depth": 6.0,
+    "max_depth": 100.0,
+    "period": 24.0,
+    "width": 0.1
+  },
   "cavities": [
-    {"id": "grand_geode",   "dir": [0.70, 0.45, 0.55],   "depth": 16.0, "radius": 8.0, "lobes": 6, "discovery": "grand_geode", "decor": "crystals", "entrance": true},
-    {"id": "bell_chamber",  "dir": [-0.40, -0.80, -0.45], "depth": 9.0, "radius": 5.0, "lobes": 4, "discovery": "bell_chamber", "decor": "crystals", "entrance": true},
-    {"id": "geode_b",       "dir": [-0.60, 0.55, -0.58], "depth": 14.0, "radius": 5.5, "lobes": 5, "decor": "crystals"},
-    {"id": "geode_c",       "dir": [0.55, -0.35, -0.75], "depth": 18.0, "radius": 6.0, "lobes": 5, "decor": "crystals"},
-    {"id": "geode_d",       "dir": [-0.80, -0.35, 0.48], "depth": 11.0, "radius": 4.5, "lobes": 4, "decor": "crystals"}
+    {
+      "id": "grand_geode",
+      "dir": [0.38946, 0.86112, 0.3268],
+      "depth": 30.0,
+      "radius": 11.0,
+      "lobes": 6,
+      "discovery": "grand_geode",
+      "decor": "crystals",
+      "entrance": true,
+      "entrance_slope": 1.1,
+      "entrance_radius": 2.4
+    },
+    {
+      "id": "bell_chamber",
+      "dir": [0.8284, -0.29157, -0.47827],
+      "depth": 14.0,
+      "radius": 7.0,
+      "lobes": 4,
+      "discovery": "bell_chamber",
+      "decor": "crystals",
+      "entrance": true
+    },
+    {
+      "id": "geode_b",
+      "dir": [-0.71621, 0.64737, -0.26068],
+      "depth": 34.0,
+      "radius": 8.0,
+      "lobes": 5,
+      "decor": "crystals"
+    },
+    {
+      "id": "geode_c",
+      "dir": [0.08325, 0.87758, -0.47214],
+      "depth": 24.0,
+      "radius": 7.0,
+      "lobes": 5,
+      "decor": "crystals"
+    },
+    {
+      "id": "geode_d",
+      "dir": [-0.49272, 0.16997, 0.85342],
+      "depth": 18.0,
+      "radius": 6.0,
+      "lobes": 4,
+      "decor": "crystals"
+    }
   ],
   "artifacts": [
-    {"id": "echo_bell",   "dir": [-0.40, -0.80, -0.45], "depth": 9.0,  "pocket": 0.0, "model": "bell", "in_cavity": "bell_chamber"},
-    {"id": "prism_lens",  "dir": [0.70, 0.45, 0.55],    "depth": 16.0, "pocket": 0.0, "model": "lens", "in_cavity": "grand_geode"},
-    {"id": "glass_bird",  "dir": [0.30, 0.85, 0.40],    "depth": 4.5,  "pocket": 1.6, "model": "bird"}
+    {
+      "id": "echo_bell",
+      "dir": [0.8284, -0.29157, -0.47827],
+      "depth": 14.0,
+      "pocket": 0.0,
+      "model": "bell",
+      "in_cavity": "bell_chamber"
+    },
+    {
+      "id": "prism_lens",
+      "dir": [0.38946, 0.86112, 0.3268],
+      "depth": 30.0,
+      "pocket": 0.0,
+      "model": "lens",
+      "in_cavity": "grand_geode"
+    },
+    {
+      "id": "glass_bird",
+      "dir": [-0.17205, 0.98007, 0.09933],
+      "depth": 4.5,
+      "pocket": 1.6,
+      "model": "bird"
+    }
   ],
-  "core": {"chamber_radius": 5.0, "discovery": "glimmer_heart", "style": "crystal", "color": "#9fe0d8", "color2": "#b99be0"},
+  "core": {
+    "chamber_radius": 9.0,
+    "discovery": "glimmer_heart",
+    "style": "crystal",
+    "color": "#9fe0d8",
+    "color2": "#b99be0"
+  },
   "surface_crystal": "aquamarine",
   "bonus_gem": "aquamarine",
   "lucky_gem": "moonsilver",
-  "look": {"wind": 0.15, "atmosphere": 0.15, "stars": 1.0, "nebula": 0.8, "sun_energy": 1.5, "sun_elevation": 34.0, "ambient_energy": 0.8,
-           "exposure": 1.0, "turf_depth": 0.3, "cover_relief": 0.9, "cover_roughness": 0.88},
+  "look": {
+    "wind": 0.15,
+    "atmosphere": 0.15,
+    "stars": 1.0,
+    "nebula": 0.8,
+    "sun_energy": 1.5,
+    "sun_elevation": 34.0,
+    "ambient_energy": 0.8,
+    "exposure": 1.0,
+    "turf_depth": 0.3,
+    "cover_relief": 0.9,
+    "cover_roughness": 0.88
+  },
   "palette": {
     "grass": ["#858ba4", "#767d9a", "#9694aa"],
     "grass_dry": "#d6d3de",
-    "sky_top": "#04060d", "sky_mid": "#0a1428", "sky_horizon": "#23405f", "sky_glow": "#7fb4d8", "sky_ground": "#2a3040",
-    "sun": "#eef4ff", "ambient": "#aebfe0", "fog": "#12161f", "nebula": "#1f2f5c",
-    "rim": "#7ad6e8", "from_space": ["#aab3c8", "#6f7f9a"]
+    "sky_top": "#04060d",
+    "sky_mid": "#0a1428",
+    "sky_horizon": "#23405f",
+    "sky_glow": "#7fb4d8",
+    "sky_ground": "#2a3040",
+    "sun": "#eef4ff",
+    "ambient": "#aebfe0",
+    "fog": "#12161f",
+    "nebula": "#1f2f5c",
+    "rim": "#7ad6e8",
+    "from_space": ["#aab3c8", "#6f7f9a"]
   },
   "props": {
-    "tuft": 0, "fern": 150, "shrub": 0, "tree": 0, "boulder": 170, "pebble": 420, "crystal": 120,
+    "tuft": 0,
+    "fern": 7,
+    "shrub": 0,
+    "tree": 0,
+    "boulder": 7.5,
+    "pebble": 19,
+    "crystal": 4.5,
     "landmark": "columns",
     "foliage": ["#9fb2c2", "#8ea6b8", "#b3bfd0"],
     "accent": "#7ad6e8",
-    "tree_canopy": ["#8ea6b8"],
+    "tree_canopy": [
+      "#8ea6b8"
+    ],
     "rock": ["#59617a", "#4c546c", "#6a7088"],
     "crystal_colors": ["#4fc6bd", "#7fd6cf", "#a9ece4"]
-  }
+  },
+  "regions": [
+    {
+      "id": "flats",
+      "name": "Lander Flats",
+      "dir": [0.0, 1.0, 0.0],
+      "radius": 0.16667,
+      "blend": 0.08333,
+      "props": {
+        "boulder": 0.6
+      },
+      "cover": 0.9,
+      "desc": "Fine glimmer dust over glass crust."
+    },
+    {
+      "id": "spires",
+      "name": "The Spires",
+      "dir": [0.2998, 0.85252, 0.42816],
+      "radius": 0.23333,
+      "blend": 0.1,
+      "strata_lift": 5.0,
+      "rough": 2.0,
+      "props": {
+        "crystal": 3.0,
+        "boulder": 1.6,
+        "shrub": 0.4
+      },
+      "cover": 0.25,
+      "grass": ["#8d93ab", "#7f86a0"],
+      "desc": "Glass crust shoved up into needles. Tide crystal grows in the cracks."
+    },
+    {
+      "id": "mare",
+      "name": "Silver Mare",
+      "dir": [0.08325, 0.87758, -0.47214],
+      "radius": 0.31667,
+      "blend": 0.11667,
+      "strata_lift": 1.0,
+      "props": {
+        "boulder": 0.5,
+        "pebble": 1.6
+      },
+      "cover": 0.7,
+      "grass": ["#a7acc0", "#9aa0b6"],
+      "desc": "A smooth, cratered plain. Moonsilver lies just beneath the dust."
+    },
+    {
+      "id": "rim",
+      "name": "The Shattered Rim",
+      "dir": [-0.71621, 0.64737, -0.26068],
+      "radius": 0.23333,
+      "blend": 0.1,
+      "strata_lift": 9.0,
+      "rough": 1.5,
+      "props": {
+        "crystal": 2.5,
+        "boulder": 2.2
+      },
+      "cover": 0.15,
+      "grass": ["#7c8299", "#70768c"],
+      "desc": "A giant impact that exposed geode rock. Blush quartz everywhere."
+    },
+    {
+      "id": "bells",
+      "name": "Bell Country",
+      "dir": [0.8284, -0.29157, -0.47827],
+      "radius": 0.43333,
+      "blend": 0.13333,
+      "strata_lift": 2.0,
+      "props": {
+        "shrub": 1.6,
+        "crystal": 1.5
+      },
+      "cover": 0.6,
+      "grass": ["#959ab2", "#868ca6"],
+      "desc": "The far side. Hollow ground that rings when you walk on it."
+    }
+  ]
 }

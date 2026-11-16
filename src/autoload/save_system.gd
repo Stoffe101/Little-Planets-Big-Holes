@@ -1,7 +1,13 @@
 extends Node
 ## Versioned save files with atomic writes, a rolling backup and corrupted-save recovery.
-## Progress lives in JSON; terrain edits live in one SQLite voxel database per planet
-## (written by Voxel Tools' VoxelStreamSQLite).
+## Progress lives in JSON; terrain edits live in one SQLite voxel database per planet AND per
+## terrain generation (written by Voxel Tools' VoxelStreamSQLite).
+##
+## Terrain generations: when a planet's shape, size or caves change (data/planets/*.json
+## "generation"), stored voxel edits no longer line up with the regenerated ground. Such a planet
+## gets a fresh database file (terrain_<id>_g<gen>.sqlite); the old file is never opened, changed
+## or deleted, so nothing is lost and an older build can still read it. Progress (credits,
+## tools, upgrades, discoveries) is independent of terrain and always carries over.
 ## Autoload name: SaveSystem
 
 signal saved(ok: bool)
@@ -33,7 +39,29 @@ func has_save() -> bool:
 
 func terrain_db_path(planet_id: String) -> String:
 	ensure_dir()
-	return _path("terrain_%s.sqlite" % planet_id)
+	return _path(terrain_db_file(planet_id, terrain_generation(planet_id)))
+
+
+static func terrain_generation(planet_id: String) -> int:
+	return maxi(1, int(GameData.planet(planet_id).get("generation", 1)))
+
+
+## Generation 1 keeps the original v0.x file name so old dig sites stay where they were.
+static func terrain_db_file(planet_id: String, generation: int) -> String:
+	if generation <= 1:
+		return "terrain_%s.sqlite" % planet_id
+	return "terrain_%s_g%d.sqlite" % [planet_id, generation]
+
+
+## Terrain databases in the slot that belong to an older generation of a planet (kept, unused).
+func archived_terrain_files() -> Array[String]:
+	var out: Array[String] = []
+	for pid: String in GameData.planet_order:
+		for g in range(1, terrain_generation(pid)):
+			var f := terrain_db_file(pid, g)
+			if FileAccess.file_exists(_path(f)):
+				out.append(f)
+	return out
 
 
 ## Returns a short summary for the "Continue" button without mutating GameState.
@@ -113,7 +141,10 @@ func load_game() -> bool:
 		last_error = "No readable save found"
 		loaded.emit(false, false)
 		return false
-	var state := migrate(d.get("state", {}), int(d.get("version", 1)))
+	var version := int(d.get("version", 1))
+	if version < GameState.SAVE_VERSION:
+		_keep_pre_migration_copy(version)
+	var state := migrate(d.get("state", {}), version)
 	if not GameState.from_dict(state):
 		last_error = "Save data is incomplete"
 		loaded.emit(false, last_load_recovered)
@@ -132,8 +163,31 @@ func migrate(state: Dictionary, version: int) -> Dictionary:
 			s.erase("upgrades")
 		if not s.has("slot_seed"):
 			s["slot_seed"] = 0
+	if version < 3:
+		# v2 (and older) saves were made on the small first-generation planets. Record that, so
+		# the game can tell the player once that a planet was resurveyed (its terrain starts
+		# fresh in a new database; the old one stays on disk untouched).
+		var gens := {}
+		for pid: Variant in (s.get("visited", ["pipseed"]) as Array):
+			gens[str(pid)] = 1
+		gens[str(s.get("current_planet", "pipseed"))] = 1
+		s["terrain_generations"] = gens
 	s["version"] = GameState.SAVE_VERSION
 	return s
+
+
+## Before an older save is upgraded, keep a verbatim copy of it next to the slot
+## (progress.v2.json, ...). Written once per version; never overwritten or deleted by the game.
+func _keep_pre_migration_copy(version: int) -> void:
+	var src := _path(SAVE_FILE) if not _read_valid(_path(SAVE_FILE)).is_empty() else _path(BACKUP_FILE)
+	var dst := _path("progress.v%d.json" % version)
+	if FileAccess.file_exists(dst) or not FileAccess.file_exists(src):
+		return
+	var bytes := FileAccess.get_file_as_bytes(src)
+	var f := FileAccess.open(dst, FileAccess.WRITE)
+	if f != null:
+		f.store_buffer(bytes)
+		f.close()
 
 
 func delete_save() -> void:

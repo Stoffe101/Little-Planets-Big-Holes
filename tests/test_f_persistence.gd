@@ -1,6 +1,6 @@
 extends TestSuite
-## "Dig a tunnel, leave, come back, find the same tunnel": terrain edits and progress survive
-## a full save / unload / reload cycle.
+## "Dig a tunnel, leave, come back, find the same tunnel": terrain edits survive walking away
+## (the area streams out and back in) and a full save / quit / reload cycle, with progress.
 
 var tunnel_points: Array[Vector3] = []
 var sdf_after_dig: Array[float] = []
@@ -15,6 +15,7 @@ func test_tunnel_and_progress_survive_reload() -> void:
 	var geo := w.planet.geology
 	var d := Vector3(-0.4, 0.55, 0.73).normalized()
 	var side := d.cross(Vector3.UP).normalized()
+	await stream_to(w, d * (geo.surface_radius(d) + 2.0), 20.0)
 	var a := w.planet.ground_point(d) + d * 0.5
 	var b := a - d * 7.0 + side * 9.0
 	# a control sample: all solid before we dig
@@ -25,9 +26,12 @@ func test_tunnel_and_progress_survive_reload() -> void:
 		if w.planet.is_solid(p):
 			solid_before += 1
 	assert_gt(float(solid_before), 9.0, "the tunnel route starts as solid ground")
+	# untouched control points in the same loaded area (real voxel data, caves included), 35 m
+	# out so that no edited block - and no SDF value an edit could touch - contains them
 	for i in 20:
-		var dir := Vector3(sin(i * 1.7), -0.8, cos(i * 2.3)).normalized()
+		var dir := (d + (side * sin(i * 1.7) + d.cross(side) * cos(i * 2.3)).normalized() * (35.0 / geo.radius)).normalized()
 		untouched_points.append(dir * (geo.surface_radius(dir) - 3.0 - 0.5 * i))
+		assert_true(w.planet.is_loaded_at(untouched_points[i]), "control point %d is loaded" % i)
 		sdf_untouched.append(w.planet.sdf_at(untouched_points[i]))
 
 	assert_true(bool(w.dig.dig_capsule(a, b, 1.6, 9)["ok"]), "tunnel dug")
@@ -35,6 +39,14 @@ func test_tunnel_and_progress_survive_reload() -> void:
 	for p in tunnel_points:
 		assert_false(w.planet.is_solid(p), "tunnel point is open")
 		sdf_after_dig.append(w.planet.sdf_at(p))
+	# ---- walk away: the tunnel streams out of memory, and back in when we return
+	var away := (d + side * (260.0 / geo.radius)).normalized()
+	await stream_to(w, away * (geo.surface_radius(away) + 2.0))
+	await physics(60)
+	assert_false(w.planet.is_loaded_at(b), "tunnel area unloaded after walking 260 m away")
+	await stream_to(w, d * (geo.surface_radius(d) + 2.0), 20.0)
+	for i in tunnel_points.size():
+		assert_false(w.planet.is_solid(tunnel_points[i]), "tunnel point %d is open again after coming back" % i)
 	GameState.money = 2468
 	GameState.add_to_inventory("gold", 3)
 	GameState.discover("old_helmet")
@@ -53,6 +65,8 @@ func test_tunnel_and_progress_survive_reload() -> void:
 	assert_eq(int(GameState.inventory["gold"]), 3, "inventory restored")
 	assert_true(GameState.has_discovery("old_helmet"), "discoveries restored")
 	var w2 := await make_world("pipseed", true)
+	assert_false(w2.planet.is_loaded_at(b), "a fresh session starts at the outpost, far from the tunnel")
+	await stream_to(w2, d * (geo.surface_radius(d) + 2.0), 20.0)
 	for i in tunnel_points.size():
 		assert_false(w2.planet.is_solid(tunnel_points[i]), "tunnel point %d is still open after reload" % i)
 		assert_near(w2.planet.sdf_at(tunnel_points[i]), sdf_after_dig[i], 0.02, "edited SDF value preserved")
@@ -76,9 +90,42 @@ func test_fresh_save_slot_has_pristine_terrain() -> void:
 	use_sandbox("persist_control")
 	GameState.reset()
 	var w := await make_world("pipseed", true)
+	var dd: Vector3 = tunnel_points[0].normalized()
+	await stream_to(w, dd * (w.planet.geology.surface_radius(dd) + 2.0), 20.0)
 	var solid := 0
 	for p in tunnel_points:
 		if w.planet.is_solid(p):
 			solid += 1
 	assert_gt(float(solid), 9.0, "tunnel is absent in a fresh slot")
 	await free_world(w)
+
+
+func test_resurveyed_planet_starts_fresh_and_leaves_old_terrain_alone() -> void:
+	use_sandbox("resurvey")
+	GameState.reset()
+	var legacy := SaveSystem.save_dir.path_join("terrain_pipseed.sqlite")
+	var fake := PackedByteArray()
+	for i in 2048:
+		fake.append((i * 13) % 256)
+	var f := FileAccess.open(legacy, FileAccess.WRITE)
+	f.store_buffer(fake)
+	f.close()
+	GameState.money = 999
+	GameState.terrain_generations = {"pipseed": 1}      # as migrated from a v2 save
+	var w := await make_world("pipseed", true)
+	assert_true(w.resurveyed, "the world notices the save predates this terrain generation")
+	assert_eq(int(GameState.terrain_generations["pipseed"]), w.planet.geology.generation, "generation updated")
+	assert_true(w.planet.stream.database_path.get_file().begins_with("terrain_pipseed_g"), "new generation-specific database")
+	var geo := w.planet.geology
+	var d := (geo.landing_dir + geo.landing_dir.cross(Vector3.RIGHT).normalized() * (25.0 / geo.radius)).normalized()
+	var p := w.planet.ground_point(d) - d * 0.5
+	assert_true(bool(w.dig.dig_sphere(p, 1.5, 9)["ok"]), "dig on the new ground")
+	assert_true(w.save_all(true), "saved")
+	await free_world(w)
+	assert_eq(FileAccess.get_file_as_bytes(legacy), fake, "old terrain database untouched")
+	assert_true(FileAccess.file_exists(SaveSystem.terrain_db_path("pipseed")), "new terrain database written")
+	assert_eq(GameState.money, 999, "credits untouched")
+	var w2 := await make_world("pipseed", true)
+	assert_false(w2.resurveyed, "the notice is shown once")
+	assert_false(w2.planet.is_solid(p), "the new dig is there next session")
+	await free_world(w2)
