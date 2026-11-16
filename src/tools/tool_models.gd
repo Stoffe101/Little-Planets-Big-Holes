@@ -184,7 +184,7 @@ static func _drill(out: Dictionary, tier: int, mods: Dictionary, mat: Material) 
 	var shaft := 0.12 * float(mods.get("long_shaft", 0))
 	var body_col := TEAL if tier == 1 else (WHITE if tier == 2 else ORANGE)
 	var body_dark := TEAL_DARK if tier == 1 else (BLUE if tier == 2 else RED)
-	var s := 1.0 if tier < 3 else 1.45
+	var s := 1.0 if tier < 3 else 1.22
 	# body + grip
 	kit.rbox(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, -0.05)), Vector3(0.15, 0.15, 0.36) * s, body_col, 0.4)
 	kit.rbox(Transform3D(Basis.IDENTITY, Vector3(0, -0.13 * s, 0.03)), Vector3(0.06, 0.19, 0.07) * s, INK, 0.5)

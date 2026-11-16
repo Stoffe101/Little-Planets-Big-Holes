@@ -12,7 +12,7 @@ signal hint(text: String)
 ## Rest pose per family: [position, rotation in degrees, scale]
 const REST := {
 	"shovel": [Vector3(0.5, -0.56, -0.5), Vector3(40, 16, -10), 1.5],
-	"drill": [Vector3(0.36, -0.33, -0.6), Vector3(4, 8, 0), 1.3],
+	"drill": [Vector3(0.4, -0.36, -0.64), Vector3(6, 13, 0), 1.25],
 	"vacuum": [Vector3(0.36, -0.33, -0.58), Vector3(5, 9, 0), 1.25],
 	"cannon": [Vector3(0.35, -0.31, -0.55), Vector3(4, 8, 0), 1.25],
 }

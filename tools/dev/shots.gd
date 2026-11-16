@@ -230,3 +230,33 @@ func scenario_menu() -> void:
 	add_child(main)
 	await frames(8)
 	await shot("menu")
+
+## Mid-dig action shot with HUD (time slowed so one-shot particles are caught on a slow renderer).
+func scenario_action() -> void:
+	var hud := Hud.new()
+	add_child(hud)
+	hud.setup(world)
+	GameState.tiers["shovel"] = 2
+	GameState.gear_levels["scanner"] = 1
+	GameState.tools_changed.emit()
+	await place(Vector3(0.42, 0.85, -0.3))
+	look_pitch(-38)
+	world.pickups.magnet_enabled = false
+	await use_tool(2.2)
+	world.player.forced_move = Vector2(0.4, 0.3)
+	await physics(20)
+	world.player.forced_move = Vector2.ZERO
+	look_pitch(-44)
+	world.tools.forced_use = true
+	await physics(26)
+	Engine.time_scale = 0.03
+	await shot("action")
+	Engine.time_scale = 1.0
+	world.tools.forced_use = false
+	world.pickups.magnet_enabled = true
+	world.scanner.call("try_scan")
+	await physics(40)
+	Engine.time_scale = 0.03
+	look_pitch(-30)
+	await shot("scan")
+	Engine.time_scale = 1.0
