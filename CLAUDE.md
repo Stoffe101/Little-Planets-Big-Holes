@@ -104,7 +104,8 @@ real app flow must redirect `SaveSystem.save_dir` first (`start_game(true)` dele
   desktop (seen: 92–96 % GPU load) caps the off-screen benchmark at ~120–140 FPS for *any*
   build, v0.2 included. Check `nvidia-smi` first, compare builds with `perf_compare.py`
   (interleaved, same code), and lead with renderer CPU ms, draws, profiler script ms and
-  streaming spike frames, not FPS. Pass 3's "5–8× regression" was mostly this.
+  streaming spike frames, not FPS. Pass 3's "5–8× regression" was most likely mostly this
+  (not yet confirmed on an idle GPU).
 * `terrain.cache_generated_blocks` must stay on: without it every edit or voxel read in an
   untouched block regenerates it from the generator graph on the main thread (11 ms blasts,
   multi-ms `sdf_at` stalls).

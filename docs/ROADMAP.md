@@ -19,12 +19,14 @@
 ## What the v0.3.1 pass delivered ("Performance, stability, gameplay quality")
 
 * **Profiled, not guessed** (new `tools/profile.sh`, `streamprobe`, `perf_compare.py`): most of
-  v0.3's reported 5–8× FPS drop was the benchmark sharing the GPU with a game on the visible
-  desktop - v0.2 measured under the same conditions runs no faster. The real costs were
+  v0.3's reported 5–8× FPS drop was most likely the benchmark sharing the GPU with a game on the
+  visible desktop - v0.2 measured under the same conditions runs no faster (an idle-GPU run
+  would confirm it). The real costs were
   never-edited voxel blocks regenerated on the main thread (every edit and voxel query) and
   per-mesh-block work after long jumps.
 * **Fixes:** cached generated blocks (digs 1.6–12 ms → 0.5–0.7 ms), 32-voxel mesh blocks
-  (render CPU −40 %, the unload frame after a relay jump 100–140 ms → 35–40 ms), a 4 ms voxel
+  (render CPU −40 %, the unload frame after a relay jump 100–140 ms → 35–40 ms, the worst frame
+  after a jump ~100 → ~50 ms; +0.6–0.8 ms GPU in dense views at 3440×1440), a 4 ms voxel
   main-thread budget, accurate (trilinear) ground queries, one system set up per frame at the
   end of loading.
 * **Relay transit:** jumps and recall are covered by a transit card from their first frame;
@@ -54,14 +56,21 @@
   `python tools/perf_compare.py --before <v0.3.0 checkout> --res 3440x1440` on an idle PC.
 * Streaming still costs frame time: sprinting with jets, p99 ~15 ms and worst frames 20–27 ms
   on the shared GPU; behind the transit card the longest frame is ~55 ms (not shown).
-* Render CPU is still about twice v0.2's (more terrain blocks and props on a bigger world);
-  props are batched per cell and kind, not across cells.
+* Render CPU is still above v0.2's (more terrain and props on a bigger world); props are
+  batched per cell and kind, not across cells.
+* 32-voxel mesh blocks draw 43–53 % more primitives than 16 (larger full-resolution area,
+  coarser culling): the outpost view costs ~0.6–0.8 ms more GPU at 3440×1440 (shared-GPU
+  timing). Shortening LOD0 to compensate would cut the guaranteed editable radius 58 → 42 m,
+  so it was not done.
+* On a 4-core machine (2 voxel threads, the CI runner) jetting at top speed on Glimmerock holds
+  the player waiting for ground on up to ~13 % of frames (0 % on the 5800X3D).
 * The readiness check prefers `VoxelLodTerrain.debug_get_mesh_block_info`; a physics-ray
   fallback takes over if it disappears, but it is a weaker check (five probes).
 * Edits are possible ~60 m around the player in every direction (up to ~110 m along some);
   the Auto-Borer and bots pause or fall back to the analytic surface beyond that.
-* The dig survey still samples stored voxels (biased towards "solid" on the planet's upper
-  side); yields are balanced on it. Switch to interpolated sampling only together with a
+* The dig survey still samples stored voxels (lower-corner reads that count more "solid"
+  samples in shallow bites than the true surface; probably orientation-dependent, not
+  verified); yields are balanced on it. Switch to interpolated sampling only together with a
   rebalance.
 
 **Design / implementation gaps**

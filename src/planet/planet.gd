@@ -79,7 +79,7 @@ func _build_terrain(db_path: String) -> void:
 		lod_count += 1
 	terrain.lod_count = lod_count
 	terrain.voxel_bounds = AABB(Vector3.ONE * -octree_size / 2, Vector3.ONE * octree_size)
-	terrain.lod_distance = LOD0_DISTANCE
+	terrain.lod_distance = float(OS.get_environment("LPBH_LOD0")) if OS.has_environment("LPBH_LOD0") else LOD0_DISTANCE
 	terrain.view_distance = octree_size
 	if OS.has_environment("LPBH_MESH_BLOCK"):
 		mesh_block_size = int(OS.get_environment("LPBH_MESH_BLOCK"))

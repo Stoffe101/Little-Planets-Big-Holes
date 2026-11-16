@@ -27,6 +27,7 @@ var _t := 0.0
 var _target := Vector3.ZERO
 var _phase := 0                      ## 0 idle, 2 holding, 3 revealing
 var hold_seconds := 0.0              ## instrumentation: how long the last transit held
+var _snap_pending := false           ## timed out before the ground was ready: snap when it is
 
 
 func setup(w: World) -> void:
@@ -64,6 +65,7 @@ func begin(target: Vector3, destination_name: String) -> void:
 	_t = 0.0
 	hold_seconds = 0.0
 	_rect.modulate.a = 1.0
+	_snap_pending = false
 	if world.player != null:
 		world.player.transit_hold = true
 	set_process(true)
@@ -80,12 +82,21 @@ func _release() -> void:
 	var p := world.player
 	if p == null:
 		return
-	if world.planet.is_area_ready(_target, 3.0):
-		var dir := _target.normalized()
-		var g := world.planet.ground_point(dir)
-		if g.length() > world.planet.geology.core_radius + 1.0:
-			p.teleport(g + dir * 0.05, -p.global_basis.z)
+	_snap_pending = not _snap()
 	p.transit_hold = false
+
+
+## Snaps the player onto the ground under the jump target if it has streamed in. The ground hold
+## (Player.waiting_for_ground) keeps the player in place until then, so a late snap is safe.
+func _snap() -> bool:
+	var p := world.player
+	if not world.planet.is_area_ready(_target, 3.0):
+		return false
+	var dir := _target.normalized()
+	var g := world.planet.ground_point(dir)
+	if g.length() > world.planet.geology.core_radius + 1.0 and p.global_position.distance_to(_target) < 1.0:
+		p.teleport(g + dir * 0.05, -p.global_basis.z)
+	return true
 
 
 func _settled() -> bool:
@@ -113,5 +124,10 @@ func _process(delta: float) -> void:
 				_phase = 0
 				active = false
 				visible = false
-				set_process(false)
+				set_process(_snap_pending)
 				finished.emit()
+		0:
+			# MAX_HOLD expired before the ground was ready: snap as soon as it is
+			if not _snap_pending or _snap():
+				_snap_pending = false
+				set_process(false)

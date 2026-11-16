@@ -144,6 +144,7 @@ func _measure(label: String) -> void:
 func _voxel_stats(label: String) -> void:
 	var st: Dictionary = world.planet.terrain.get_statistics()
 	var tk: Dictionary = VoxelEngine.get_stats().get("tasks", {})
+	print("primitives [%s]: %.0f per frame (all passes, shadows included)" % [label, _prims / float(maxi(1, _frame_usec.size()))])
 	print("voxel stats [%s]: %s | tasks %s | threaded_update %s" % [label, str(st), str(tk), str(world.planet.terrain.threaded_update_enabled)])
 
 

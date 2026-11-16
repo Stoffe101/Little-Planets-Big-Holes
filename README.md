@@ -11,8 +11,8 @@ planet's heart and fly on to the next world.
 > a survey map, relays, contracts and an Auto-Borer; the look was redesigned into its own
 > identity ([docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)). Saves from v0.2 keep all progress.
 > **v0.3.1** profiled the big worlds and fixed what was found: cached voxel generation (digs
-> 1.6–12 ms → 0.5–0.7 ms), 32-voxel mesh blocks (render CPU −40 %, relay-jump stall
-> 100–140 ms → 35–40 ms), a relay transit card that holds you until the ground is solid, a
+> 1.6–12 ms → 0.5–0.7 ms), 32-voxel mesh blocks (render CPU −40 %; worst frame after a relay
+> jump ~100 ms → ~50 ms, and now hidden), a relay transit card that holds you until the ground is solid, a
 > stability test suite, and accurate ground queries ([docs/TECHNICAL.md](docs/TECHNICAL.md#measured-performance)).
 > No human has playtested this build yet — [docs/PLAYTEST.md](docs/PLAYTEST.md) says what to
 > check, [docs/ROADMAP.md](docs/ROADMAP.md) lists what was and was not verified.

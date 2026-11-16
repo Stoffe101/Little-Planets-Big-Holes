@@ -183,8 +183,8 @@ per run by `tools/perf_compare.py`). Under that load *any* build tops out around
 v0.2, which pass 2 measured at 500–880 FPS, ran at 123–145 FPS here, the same as v0.3. With 3D
 drawing switched off the whole game (scripts, physics, voxel engine, UI) takes ~0.9 ms per frame,
 and even with every object hidden (9 draw calls) the frame took ~6 ms. So most of the "5–8×
-regression" reported in pass 3 was this contention, not the game; pass 3's "CPU-bound, periodic
-per-tick cost" reading was wrong. **No uncontended v0.3.x frame rate has been measured yet.** What
+regression" reported in pass 3 was most likely this contention, not the game, and pass 3's
+"CPU-bound, periodic per-tick cost" reading was wrong; an idle-GPU run would confirm it. **No uncontended v0.3.x frame rate has been measured yet.** What
 the game itself costs is visible in the columns that contention barely touches: the renderer's
 CPU time, draw calls, Godot's profiler (script and physics time) and the streaming spike frames.
 
@@ -249,9 +249,14 @@ The avg FPS column moves with the other application's GPU load, not with these c
 renderer CPU, draws and the p99/max spikes instead. "300 m relay jump" is the raw teleport, measured from the jump frame (what v0.3.0 showed the
 player, behind a 0.5 s flash); since v0.3.1 those frames are behind the transit card, which
 held for 1.1–1.2 s here (longest hidden frame 49–54 ms), and "travel, visible" is what the
-player sees after it fades. GPU timestamps are shared-GPU times: the outpost and blasts views
-spend 0.4–0.9 ms more GPU per frame than before at 1440p/ultrawide (larger full-resolution
-area with 32-voxel blocks), while renderer CPU fell 35–60 % everywhere.
+player sees after it fades. Renderer CPU fell 35–60 % everywhere. The GPU side got somewhat
+*more* expensive in dense views: 32-voxel blocks draw 43–53 % more primitives per frame
+(measured, all passes: vista 0.70 M → 1.07 M, outpost 1.79 M → 2.56 M) because the
+full-resolution area is larger (editable reach 58–94 m → 58–114 m) and culling is coarser; the
+outpost view costs ~0.6–0.8 ms more GPU at 3440×1421 (shared-GPU timestamps). A shorter LOD0
+distance (80 voxels) brings the primitives back (1.70 M) but cuts the guaranteed editable
+radius from 58 to 42 m and the collidable one from 50 to 34 m, so it was not taken
+(`LPBH_LOD0` A/B override).
 
 **Loading and memory (1920×1080):** terrain ready with colliders at the spawn 2.2–2.4 s (same as
 before), world ready 3.7–3.9 s. Static memory at the end of the run 405–415 MB (was 380: the

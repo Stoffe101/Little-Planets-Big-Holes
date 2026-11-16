@@ -11,6 +11,7 @@ The full v0.3 set is in `../v0.3/`.
 | `03_auto_borer.jpg` | Auto-Borer with a copper brace ring, an enamel wellhead and the spoil heap beside it after ~8 m of shaft |
 | `04_whisperwood.jpg` | The grove with the new tiered-spire trees among the flat-canopy ones (the round-crowned variant is harder to pick out at this distance) |
 | `05_horizon_32_voxel_blocks.jpg` | The long view with 32-voxel mesh blocks: no cracks or seams at LOD borders were visible here, in the region views or in the quarry and tunnel renders |
+| `06_glimmerock_32_voxel_blocks.jpg` | Glimmerock with 32-voxel blocks: horizon and (not published) its cave mouth looked seam-free too |
 | `compare_auto_borer.jpg` | v0.3.0 left, v0.3.1 right |
 | `compare_whisperwood.jpg` | v0.3.0 left, v0.3.1 right (different random variants per tree, same placement) |
 
