@@ -106,6 +106,15 @@ def pipseed():
         "core": {"chamber_radius": 10.0},
         # prop densities per 1000 m^2 (PropField streams them in cells around the player)
         "prop_density": {"tuft": 240, "fern": 15, "shrub": 4, "tree": 1.4, "boulder": 2.8, "pebble": 9, "crystal": 1.2},
+        # survey relays: travel points, one per outlying region, each a short walk from its sights
+        "relays": [
+            {"id": "copperfold", "name": "Copperfold Relay", "dir": A(135, 112)},
+            {"id": "whisperwood", "name": "Whisperwood Relay", "dir": A(300, 58)},
+            {"id": "stonebrake", "name": "Stonebrake Relay", "dir": A(255, 232)},
+            {"id": "workings", "name": "Workings Relay", "dir": A(138, 306)},
+            {"id": "pockmark", "name": "Pockmark Relay", "dir": A(440, 190)},
+            {"id": "lowhollow", "name": "Low Hollow Relay", "dir": A(800, 75)},
+        ],
     }
 
 
@@ -171,10 +180,16 @@ def glimmerock():
         ],
         "core": {"chamber_radius": 9.0},
         "prop_density": {"tuft": 0, "fern": 7, "shrub": 0, "tree": 0, "boulder": 7.5, "pebble": 19, "crystal": 4.5},
+        "relays": [
+            {"id": "spires", "name": "Spires Relay", "dir": A(130, 65)},
+            {"id": "mare", "name": "Mare Relay", "dir": A(150, 260)},
+            {"id": "rim", "name": "Rim Relay", "dir": A(200, 190)},
+            {"id": "bells", "name": "Bell Relay", "dir": A(520, 320)},
+        ],
     }
 
 
-GEOGRAPHY = ["radius", "generation", "terrain", "regions", "layers", "ores", "caves", "cavities", "artifacts"]
+GEOGRAPHY = ["radius", "generation", "terrain", "regions", "layers", "ores", "caves", "cavities", "artifacts", "relays"]
 
 
 def write(pid, layout):

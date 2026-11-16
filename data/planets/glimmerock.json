@@ -357,5 +357,27 @@
       "grass": ["#959ab2", "#868ca6"],
       "desc": "The far side. Hollow ground that rings when you walk on it."
     }
+  ],
+  "relays": [
+    {
+      "id": "spires",
+      "name": "Spires Relay",
+      "dir": [0.17746, 0.90757, 0.38056]
+    },
+    {
+      "id": "mare",
+      "name": "Mare Relay",
+      "dir": [-0.08325, 0.87758, -0.47214]
+    },
+    {
+      "id": "rim",
+      "name": "Rim Relay",
+      "dir": [-0.60898, 0.78589, -0.10738]
+    },
+    {
+      "id": "bells",
+      "name": "Bell Relay",
+      "dir": [0.75595, -0.16182, -0.63432]
+    }
   ]
 }

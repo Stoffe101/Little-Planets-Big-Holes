@@ -13,6 +13,7 @@ var loading: LoadingScreen
 var shop: ShopUi
 var planets_ui: PlanetSelectUi
 var journal: JournalUi
+var map_ui: MapUi
 var pause_menu: PauseMenu
 var _open_screen: Control
 var _quitting := false
@@ -36,6 +37,14 @@ func _ready() -> void:
 	journal = JournalUi.new()
 	ui_layer.add_child(journal)
 	journal.closed.connect(_on_screen_closed)
+	map_ui = MapUi.new()
+	ui_layer.add_child(map_ui)
+	map_ui.closed.connect(_on_screen_closed)
+	map_ui.travel_requested.connect(func(to: String) -> void:
+		if world != null and world.nav != null and world.nav.travel(to):
+			map_ui.close_screen()
+		else:
+			Audio.play("ui_error", -6.0))
 	pause_menu = PauseMenu.new()
 	ui_layer.add_child(pause_menu)
 	pause_menu.resume_requested.connect(_on_pause_closed)
@@ -164,6 +173,7 @@ func _load_world(planet_id: String) -> void:
 	hud.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(hud)
 	hud.setup(world)
+	map_ui.setup(world)
 	if world.base != null:
 		world.base.connect("interact_requested", _on_interact)
 	loading.finish()
@@ -222,7 +232,7 @@ func _on_screen_closed() -> void:
 
 
 func _close_all_screens() -> void:
-	for s: Control in [shop, planets_ui, journal, pause_menu]:
+	for s: Control in [shop, planets_ui, journal, map_ui, pause_menu]:
 		s.visible = false
 	_open_screen = null
 	if world != null and world.player != null:
@@ -252,6 +262,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("journal") and _open_screen == null:
 		_open(journal)
 		journal.open_screen()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("map"):
+		if _open_screen == map_ui:
+			map_ui.close_screen()
+		elif _open_screen == null:
+			_open(map_ui)
+			map_ui.open_screen()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("quick_save"):
 		world.save_all(false)

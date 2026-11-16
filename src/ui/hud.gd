@@ -53,6 +53,8 @@ var _banner_tween: Tween
 var _dim_tween: Tween
 var _dimmed := false
 var _queued_banner: Array = []   ## banner raised while a menu hid the HUD
+var _compass: CompassStrip
+var _ground_wait := 0.0
 
 
 func setup(w: World) -> void:
@@ -78,6 +80,9 @@ func setup(w: World) -> void:
 	GameState.purchase_made.connect(_on_purchase)
 	world.message.connect(_on_message)
 	world.discovery_popup.connect(show_discovery)
+	if world.nav != null:
+		world.nav.region_changed.connect(func(r: Dictionary) -> void:
+			show_banner(str(r.get("name", "")), UiTheme.INFO, 2.4, str((r.get("cfg", {}) as Dictionary).get("desc", ""))))
 	_money_shown = float(GameState.money)
 	_refresh_pack()
 	_refresh_objective()
@@ -193,6 +198,14 @@ func _build() -> void:
 	_feed = _vbox(3)
 	_feed.alignment = BoxContainer.ALIGNMENT_END
 	rc.add_child(_feed)
+
+	# ---- top: compass strip
+	var cmp := _margin(root, Control.PRESET_CENTER_TOP, Vector2(0, 14))
+	cmp.grow_vertical = Control.GROW_DIRECTION_END
+	cmp.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_compass = CompassStrip.new()
+	_compass.world = world
+	cmp.add_child(_compass)
 
 	# ---- top-centre: banner + toasts
 	var tc := _margin(root, Control.PRESET_CENTER_TOP, Vector2(0, 84))
@@ -603,6 +616,13 @@ func _process(delta: float) -> void:
 	var player := world.player
 	var d := player.depth
 	_depth_label.text = "Depth %d m" % int(round(d)) if d > 1.0 else ""
+	# terrain still streaming in under the player (after a relay jump, or outrunning the loader)
+	_ground_wait = _ground_wait + delta if player.waiting_for_ground else 0.0
+	if _ground_wait > 0.3:
+		_depth_label.text = "Surveying ground..."
+	_compass.visible = bool(Settings.get_value("compass"))
+	if _compass.visible:
+		_compass.queue_redraw()
 	var jets := int(GameState.gear_value("jets"))
 	_jet_bar.visible = jets >= 2
 	_jet_bar.value = player.jet_fuel

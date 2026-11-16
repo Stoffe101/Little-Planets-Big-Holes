@@ -49,6 +49,7 @@ const ACTIONS := {
 	"tool_next": [-MOUSE_BUTTON_WHEEL_DOWN],
 	"tool_prev": [-MOUSE_BUTTON_WHEEL_UP],
 	"journal": [KEY_TAB, KEY_J],
+	"map": [KEY_M],
 	"pause": [KEY_ESCAPE],
 	"toggle_debug": [KEY_F3],
 	"quick_save": [KEY_F5],

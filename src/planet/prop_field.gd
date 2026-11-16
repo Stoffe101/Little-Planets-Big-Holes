@@ -46,6 +46,8 @@ var _scan_timer := 0.0
 var _rng := RandomNumberGenerator.new()
 var _focus := Vector3.ZERO
 var enabled := true
+var _relay_dirs: Array[Vector3] = []
+const RELAY_CLEARANCE := 4.0
 
 
 func setup(w: World) -> void:
@@ -57,6 +59,8 @@ func setup(w: World) -> void:
 		_foliage.append(Color(str(c)))
 	for c: Variant in _cfg.get("rock", ["#8d9097", "#978f86"]):
 		_rocks.append(Color(str(c)))
+	for r: Dictionary in planet.config.get("relays", []):
+		_relay_dirs.append(Vector3(r["dir"][0], r["dir"][1], r["dir"][2]).normalized())
 	_build_grid()
 	_build_meshes()
 	_plan_landmarks()
@@ -209,6 +213,9 @@ func _site(dir: Vector3, max_slope: float, spin: float) -> Variant:
 	var ang := acos(clampf(dir.dot(geo.landing_dir), -1.0, 1.0))
 	if ang * geo.radius < OUTPOST_CLEARANCE:
 		return null
+	for rd in _relay_dirs:
+		if dir.dot(rd) > cos(RELAY_CLEARANCE / geo.radius):
+			return null
 	var r := geo.surface_radius(dir)
 	var p := dir * r
 	if planet.is_loaded_at(p) and (planet.sdf_at(p - dir * 0.6) >= 0.0 or planet.sdf_at(p + dir * 0.7) < 0.0):

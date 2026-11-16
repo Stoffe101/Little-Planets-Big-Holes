@@ -452,3 +452,39 @@ func scenario_motion() -> void:
 	GameState.buy_next_tier("cannon")
 	await strip("inspect", 1.5, 8)
 	Engine.time_scale = 1.0
+
+
+## Navigation: the compass strip, the survey map and a relay mast in its region.
+func scenario_nav() -> void:
+	var hud := Hud.new()
+	add_child(hud)
+	hud.setup(world)
+	var nav := world.nav
+	GameState.discoveries["survey_core"] = true
+	for r in world.planet.geology.regions:
+		if str(r["id"]) in ["homestead", "copperfold", "whisperwood", "stonebrake", "workings"]:
+			GameState.set_flag("region/%s/%s" % [world.planet.geology.id, r["id"]])
+	for r in nav.relays.slice(0, 3):
+		GameState.set_flag("relay/%s/%s" % [world.planet.geology.id, r["id"]])
+		nav._light_relay(r, true)
+	nav.set_waypoint((world.planet.geology.landing_dir + Vector3(0.25, 0, 0.3)).normalized())
+	# stand near the first relay, looking at it
+	var rel: Dictionary = nav.relays[0]
+	var up: Vector3 = rel["up"]
+	var side := up.cross(Vector3(0.3, 0.1, 0.9)).normalized()
+	await place(((rel["pos"] as Vector3) + side * 14.0).normalized(), -side)
+	look_at_point((rel["pos"] as Vector3) + up * 4.5)
+	await physics(30)
+	await shot("relay")
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
+	var map := MapUi.new()
+	layer.add_child(map)
+	map.setup(world)
+	var t0 := Time.get_ticks_msec()
+	while map.texture() == null and Time.get_ticks_msec() - t0 < 20000:
+		await frames(1)
+	map.open_screen()
+	await frames(6)
+	await shot("map")

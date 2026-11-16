@@ -476,5 +476,37 @@
       "grass": ["#6f8a6a", "#64806a"],
       "desc": "A wide basin on the far side. Amethyst country."
     }
+  ],
+  "relays": [
+    {
+      "id": "copperfold",
+      "name": "Copperfold Relay",
+      "dir": [-0.12404, 0.94359, 0.30702]
+    },
+    {
+      "id": "whisperwood",
+      "name": "Whisperwood Relay",
+      "dir": [0.36121, 0.73169, 0.57806]
+    },
+    {
+      "id": "stonebrake",
+      "name": "Stonebrake Relay",
+      "dir": [-0.36643, 0.80359, -0.46901]
+    },
+    {
+      "id": "workings",
+      "name": "Workings Relay",
+      "dir": [0.19879, 0.94108, -0.27361]
+    },
+    {
+      "id": "pockmark",
+      "name": "Pockmark Relay",
+      "dir": [-0.87767, 0.4536, -0.15476]
+    },
+    {
+      "id": "lowhollow",
+      "name": "Low Hollow Relay",
+      "dir": [0.23534, -0.41615, 0.87831]
+    }
   ]
 }

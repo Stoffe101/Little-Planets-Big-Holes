@@ -12,6 +12,7 @@ signal scan_done(found: int)
 const SKY_SHADER := preload("res://shaders/sky.gdshader")
 const AUTOSAVE_INTERVAL := 75.0
 const PROTECT_RADIUS := 10.5         ## shielded ground under the whole outpost (pads, crates, solar array)
+const RELAY_PROTECT_RADIUS := 3.2    ## shielded footing of each survey relay
 
 var planet_id := "pipseed"
 var planet: Planet
@@ -25,6 +26,7 @@ var props: Node3D                ## PropField
 var secrets: Node3D              ## SecretsManager (artifacts, caverns, core)
 var robots: Node3D               ## RobotManager
 var scanner: Node                ## Scanner
+var nav: Navigation              ## regions, relays, waypoint, compass/map markers
 var environment: Environment
 var sky_material: ShaderMaterial
 var sun: DirectionalLight3D
@@ -109,6 +111,9 @@ func _build_optional_systems() -> void:
 		secrets = (load("res://src/planet/secrets_manager.gd") as GDScript).new()
 		secrets.name = "Secrets"
 		add_child(secrets)
+	nav = Navigation.new()
+	nav.name = "Navigation"
+	add_child(nav)
 	if ResourceLoader.exists("res://src/entities/robot_manager.gd"):
 		robots = (load("res://src/entities/robot_manager.gd") as GDScript).new()
 		robots.name = "Robots"
@@ -126,7 +131,7 @@ func _on_planet_loaded() -> void:
 	var stand_dir := (geo.landing_dir + side * 0.06).normalized()
 	var ground := planet.ground_point(stand_dir)
 	player.teleport(ground + stand_dir * 0.15, -side + Vector3(0.3, 0, 0.2))
-	for sys: Node in [props, base, secrets, robots, scanner]:
+	for sys: Node in [props, base, secrets, nav, robots, scanner]:
 		if sys != null and sys.has_method("setup"):
 			var t0 := Time.get_ticks_usec()
 			sys.call("setup", self)
@@ -311,7 +316,14 @@ func is_protected(pos: Vector3) -> bool:
 	if r < 0.01:
 		return false
 	var ang := acos(clampf(pos.dot(geo.landing_dir) / r, -1.0, 1.0))
-	return ang * geo.radius < PROTECT_RADIUS and geo.depth_at(pos) < 14.0
+	if ang * geo.radius < PROTECT_RADIUS and geo.depth_at(pos) < 14.0:
+		return true
+	# survey relays stand on a small shielded footing too
+	if nav != null:
+		for rel in nav.relays:
+			if pos.distance_to(rel["pos"]) < RELAY_PROTECT_RADIUS:
+				return true
+	return false
 
 
 ## Called by tools after every successful dig.
